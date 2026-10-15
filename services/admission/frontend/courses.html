@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Khóa học - Admission</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Tuyển sinh</span> / <span>Quản lý khóa học</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Danh Sách Khóa Học Đào Tạo</h1>
+              <p class="text-secondary text-sm">Chương trình đào tạo tiếng Anh đang mở tại trung tâm</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">
+              + Thêm khóa học mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã khóa</th>
+                    <th>Tên khóa học</th>
+                    <th>Cấp độ</th>
+                    <th>Thời lượng</th>
+                    <th>Học phí</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="course-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--color-text-secondary);">
+                      Đang tải dữ liệu khóa học...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Khóa Học -->
+  <div class="modal-overlay" id="courseModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3" id="modalTitle">Thêm Khóa Học Mới</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="courseForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="label" for="courseCode">Mã khóa học <span class="required">*</span></label>
+            <input type="text" id="courseCode" class="form-input" placeholder="Ví dụ: ENG-IELTS-70" required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="courseName">Tên khóa học <span class="required">*</span></label>
+            <input type="text" id="courseName" class="form-input" placeholder="Ví dụ: IELTS Master 7.5+" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="courseLevel">Cấp độ</label>
+              <select id="courseLevel" class="form-select">
+                <option value="Beginner">Beginner (Cơ bản)</option>
+                <option value="Intermediate" selected>Intermediate (Trung cấp)</option>
+                <option value="Advanced">Advanced (Nâng cao)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label" for="courseDuration">Thời lượng (tuần)</label>
+              <input type="number" id="courseDuration" class="form-input" value="12" min="1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label" for="courseTuition">Học phí (VND)</label>
+            <input type="number" id="courseTuition" class="form-input" placeholder="6500000" step="100000">
+          </div>
+          <div class="form-group">
+            <label class="label" for="courseDesc">Mô tả tóm tắt</label>
+            <textarea id="courseDesc" class="form-textarea" rows="3" placeholder="Mục tiêu đầu ra và nội dung học..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary" id="saveCourseBtn">Lưu khóa học</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    async function loadCourses() {
+      const tbody = document.getElementById('course-table-body');
+      try {
+        const res = await apiGet('/api/admission/courses');
+        const courses = (res && res.data) ? res.data : [];
+
+        if (courses.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Chưa có khóa học nào.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = courses.map(c => `
+          <tr>
+            <td><code>${c.code}</code></td>
+            <td><strong>${c.name}</strong></td>
+            <td><span class="badge badge-info">${c.level || 'Chung'}</span></td>
+            <td>${c.duration_weeks || c.durationWeeks || 0} tuần</td>
+            <td><strong style="color: var(--color-primary);">${formatCurrency(c.tuition_amount || c.tuitionAmount)}</strong></td>
+            <td>
+              <span class="badge ${c.is_active || c.isActive ? 'badge-success' : 'badge-danger'}">
+                ${c.is_active || c.isActive ? 'Đang mở' : 'Đóng'}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="deleteCourse(${c.id})" title="Xóa">🗑️ Xóa</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr><td colspan="7" style="text-align: center; color: var(--color-danger);">
+            Không thể tải dữ liệu từ API Admission (:8081). Vui lòng kiểm tra container.
+          </td></tr>
+        `;
+      }
+    }
+
+    function openCreateModal() {
+      document.getElementById('courseForm').reset();
+      document.getElementById('courseModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('courseModal').classList.remove('active');
+    }
+
+    document.getElementById('courseForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        code: document.getElementById('courseCode').value.trim(),
+        name: document.getElementById('courseName').value.trim(),
+        level: document.getElementById('courseLevel').value,
+        duration_weeks: parseInt(document.getElementById('courseDuration').value, 10),
+        tuition_amount: parseFloat(document.getElementById('courseTuition').value) || 0,
+        description: document.getElementById('courseDesc').value.trim(),
+        is_active: true
+      };
+
+      try {
+        await apiPost('/api/admission/courses', payload);
+        showToast('success', 'Đã thêm khóa học mới thành công!');
+        closeModal();
+        loadCourses();
+      } catch (err) {
+        // Handled in apiRequest
+      }
+    });
+
+    async function deleteCourse(id) {
+      if (!confirm('Bạn có chắc chắn muốn xóa khóa học này?')) return;
+      try {
+        await apiDelete(`/api/admission/courses/${id}`);
+        showToast('success', 'Đã xóa khóa học.');
+        loadCourses();
+      } catch (err) {
+        // Handled
+      }
+    }
+
+    loadCourses();
+  </script>
+</body>
+</html>

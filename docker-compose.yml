@@ -1,0 +1,144 @@
+services:
+  # ========================================================
+  # Database Service (PostgreSQL 16)
+  # 4 schemas: admission, student, learning, finance
+  # ========================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: ec-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_secret_password}
+      POSTGRES_DB: ${DB_NAME:-english_center}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-english_center}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ========================================================
+  # 1. Admission Service (Java Spring Boot 3.3 / Port 8081)
+  # ========================================================
+  admission-service:
+    build:
+      context: ./services/admission
+      dockerfile: Dockerfile
+    container_name: ec-admission
+    restart: unless-stopped
+    ports:
+      - "${PORT_ADMISSION:-8081}:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-english_center}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres_secret_password}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_english_center_2026_change_in_production}
+      PORT_ADMISSION: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ========================================================
+  # 2. Student Service (Python FastAPI / Port 8082)
+  # ========================================================
+  student-service:
+    build:
+      context: ./services/student
+      dockerfile: Dockerfile
+    container_name: ec-student
+    restart: unless-stopped
+    ports:
+      - "${PORT_STUDENT:-8082}:8082"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-english_center}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres_secret_password}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_english_center_2026_change_in_production}
+    volumes:
+      - ./services/student/backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ========================================================
+  # 3. Learning Service (Python FastAPI / Port 8083)
+  # ========================================================
+  learning-service:
+    build:
+      context: ./services/learning
+      dockerfile: Dockerfile
+    container_name: ec-learning
+    restart: unless-stopped
+    ports:
+      - "${PORT_LEARNING:-8083}:8083"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-english_center}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres_secret_password}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_english_center_2026_change_in_production}
+    volumes:
+      - ./services/learning/backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ========================================================
+  # 4. Finance Service (Python FastAPI / Port 8084)
+  # ========================================================
+  finance-service:
+    build:
+      context: ./services/finance
+      dockerfile: Dockerfile
+    container_name: ec-finance
+    restart: unless-stopped
+    ports:
+      - "${PORT_FINANCE:-8084}:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-english_center}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres_secret_password}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_english_center_2026_change_in_production}
+    volumes:
+      - ./services/finance/backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ========================================================
+  # API Gateway & Static Frontend Server (Nginx / Port 8080)
+  # ========================================================
+  gateway:
+    image: nginx:alpine
+    container_name: ec-gateway
+    restart: unless-stopped
+    ports:
+      - "${PORT_GATEWAY:-8080}:8080"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./shared:/usr/share/nginx/html/shared:ro
+      - ./services/admission/frontend:/usr/share/nginx/html/admission:ro
+      - ./services/student/frontend:/usr/share/nginx/html/student:ro
+      - ./services/learning/frontend:/usr/share/nginx/html/learning:ro
+      - ./services/finance/frontend:/usr/share/nginx/html/finance:ro
+    depends_on:
+      - admission-service
+      - student-service
+      - learning-service
+      - finance-service
+
+volumes:
+  pgdata:
+    driver: local

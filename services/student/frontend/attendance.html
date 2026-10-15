@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Điểm danh buổi học - Student Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Học viên</span> / <span>Điểm danh buổi học</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Sổ Điểm Danh Buổi Học</h1>
+              <p class="text-secondary text-sm">Theo dõi chuyên cần và chuyên chở học tập của từng lớp</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <select class="form-select" style="width: 220px;" id="classFilter" onchange="loadAttendance()">
+                <option value="1">Lớp: IELTS Foundation K28</option>
+                <option value="2">Lớp: IELTS Intensive K15</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Học viên</th>
+                    <th>Ngày học</th>
+                    <th>Trạng thái điểm danh</th>
+                    <th>Ghi chú giáo viên</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="attendance-tbody">
+                  <tr>
+                    <td><strong>Trần Văn Nam</strong></td>
+                    <td>15/10/2026</td>
+                    <td><span class="badge badge-success">Có mặt (Present)</span></td>
+                    <td>Đến đúng giờ, tích cực phát biểu</td>
+                    <td><button class="btn btn-ghost btn-sm">Sửa</button></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Lê Thị Mai</strong></td>
+                    <td>15/10/2026</td>
+                    <td><span class="badge badge-warning">Đi muộn (Late)</span></td>
+                    <td>Muộn 15 phút do kẹt xe</td>
+                    <td><button class="btn btn-ghost btn-sm">Sửa</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    async function loadAttendance() {
+      const classId = document.getElementById('classFilter').value;
+      try {
+        const res = await apiGet(`/api/student/attendance?class_id=${classId}`);
+        if (res && res.data && res.data.length > 0) {
+          const tbody = document.getElementById('attendance-tbody');
+          tbody.innerHTML = res.data.map(a => `
+            <tr>
+              <td><strong>${a.student_name || 'Học viên #' + a.student_id}</strong></td>
+              <td>${formatDate(a.session_date)}</td>
+              <td>
+                <span class="badge ${a.status === 'PRESENT' ? 'badge-success' : 'badge-warning'}">
+                  ${a.status}
+                </span>
+              </td>
+              <td>${a.notes || '-'}</td>
+              <td><button class="btn btn-ghost btn-sm">Sửa</button></td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>

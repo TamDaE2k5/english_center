@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bảng điểm & Đánh giá - Learning Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Học tập</span> / <span>Bảng điểm & Đánh giá</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Sổ Điểm & Kết Quả Đánh Giá</h1>
+              <p class="text-secondary text-sm">Điểm kiểm tra định kỳ, thi giữa kỳ và cuối khóa của học viên</p>
+            </div>
+            <button class="btn btn-primary" onclick="alert('Tính năng nhập điểm chi tiết đang phát triển!')">
+              + Nhập điểm đánh giá
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã học viên</th>
+                    <th>Bài kiểm tra</th>
+                    <th>Điểm số</th>
+                    <th>Thang điểm</th>
+                    <th>Đánh giá của giáo viên</th>
+                    <th>Ngày chấm</th>
+                  </tr>
+                </thead>
+                <tbody id="grades-tbody">
+                  <tr>
+                    <td>Học viên #1 (Trần Văn Nam)</td>
+                    <td><strong>Midterm Test (Reading & Listening)</strong></td>
+                    <td><strong style="color: var(--color-primary); font-size: 15px;">82.5</strong></td>
+                    <td>/ 100</td>
+                    <td>Kỹ năng nghe tốt, cần chú ý phần Matching Headings.</td>
+                    <td>15/10/2026</td>
+                  </tr>
+                  <tr>
+                    <td>Học viên #2 (Lê Thị Mai)</td>
+                    <td><strong>Midterm Test (Reading & Listening)</strong></td>
+                    <td><strong style="color: var(--color-primary); font-size: 15px;">78.0</strong></td>
+                    <td>/ 100</td>
+                    <td>Cần cải thiện từ vựng học thuật.</td>
+                    <td>15/10/2026</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+</body>
+</html>

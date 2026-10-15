@@ -1,0 +1,36 @@
+# Environment
+.env
+*.env.local
+
+# Database
+pgdata/
+*.sqlite3
+
+# Dependencies & Virtual Envs
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Java & Maven
+target/
+*.class
+*.jar
+*.war
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE & Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+prompt.txt
+

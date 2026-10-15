@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kho học liệu & Slide - Learning Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Học tập</span> / <span>Kho học liệu & Slide</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Kho Học Liệu & Bài Giảng Điện Tử</h1>
+              <p class="text-secondary text-sm">Slide bài học, file audio luyện nghe và bài tập về nhà</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">
+              + Đăng tải tài liệu mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Tiêu đề tài liệu</th>
+                    <th>Loại</th>
+                    <th>Mô tả tóm tắt</th>
+                    <th>Ngày đăng</th>
+                    <th>Đường dẫn file</th>
+                  </tr>
+                </thead>
+                <tbody id="materials-tbody">
+                  <tr>
+                    <td colspan="5" style="text-align: center; color: var(--color-text-secondary);">
+                      Đang tải tài liệu học tập...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Đăng tài liệu -->
+  <div class="modal-overlay" id="materialModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Đăng Tải Học Liệu Mới</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="materialForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="label" for="matTitle">Tiêu đề tài liệu <span class="required">*</span></label>
+            <input type="text" id="matTitle" class="form-input" placeholder="Ví dụ: Slide Unit 5 - Speaking Practice" required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="matType">Loại tài liệu</label>
+            <select id="matType" class="form-select">
+              <option value="DOCUMENT">Tài liệu / Slide (PDF/Word)</option>
+              <option value="VIDEO">Video bài giảng</option>
+              <option value="EXERCISE">Bài tập về nhà</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label" for="matUrl">URL File / Liên kết <span class="required">*</span></label>
+            <input type="url" id="matUrl" class="form-input" placeholder="https://drive.google.com/..." required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="matDesc">Mô tả hoặc hướng dẫn</label>
+            <textarea id="matDesc" class="form-textarea" rows="2" placeholder="Nội dung sinh viên cần ôn tập..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary">Đăng tài liệu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    async function loadMaterials() {
+      const tbody = document.getElementById('materials-tbody');
+      try {
+        const res = await apiGet('/api/learning/materials');
+        const list = (res && res.data) ? res.data : [];
+
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">Chưa có tài liệu nào.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(m => `
+          <tr>
+            <td><strong>${m.title}</strong></td>
+            <td><span class="badge badge-info">${m.material_type}</span></td>
+            <td>${m.description || '-'}</td>
+            <td>${formatDate(m.uploaded_at)}</td>
+            <td>
+              <a href="${m.file_url}" target="_blank" class="btn btn-secondary btn-sm">Mở file 🔗</a>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr><td colspan="5" style="text-align: center; color: var(--color-danger);">
+            Không thể tải dữ liệu từ API Learning (:8083). Vui lòng kiểm tra container.
+          </td></tr>
+        `;
+      }
+    }
+
+    function openCreateModal() {
+      document.getElementById('materialForm').reset();
+      document.getElementById('materialModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('materialModal').classList.remove('active');
+    }
+
+    document.getElementById('materialForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        class_id: 1, // Default for demo
+        title: document.getElementById('matTitle').value.trim(),
+        material_type: document.getElementById('matType').value,
+        file_url: document.getElementById('matUrl').value.trim(),
+        description: document.getElementById('matDesc').value.trim() || null
+      };
+
+      try {
+        await apiPost('/api/learning/materials', payload);
+        showToast('success', 'Đăng học liệu thành công!');
+        closeModal();
+        loadMaterials();
+      } catch (e) {}
+    });
+
+    loadMaterials();
+  </script>
+</body>
+</html>

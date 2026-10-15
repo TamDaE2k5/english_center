@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hồ sơ học viên - Student Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Học viên</span> / <span>Hồ sơ học viên</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Danh Sách Học Viên</h1>
+              <p class="text-secondary text-sm">Hồ sơ thông tin cá nhân và quá trình học tập tại trung tâm</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">
+              + Thêm học viên mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Họ và tên</th>
+                    <th>Email</th>
+                    <th>Số điện thoại</th>
+                    <th>Ngày sinh</th>
+                    <th>Địa chỉ</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody id="student-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--color-text-secondary);">
+                      Đang tải danh sách học viên...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Học Viên -->
+  <div class="modal-overlay" id="studentModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Thêm Học Viên Mới</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="studentForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="label" for="fullName">Họ và tên <span class="required">*</span></label>
+            <input type="text" id="fullName" class="form-input" placeholder="Nguyễn Văn A" required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" class="form-input" placeholder="nguyenvana@gmail.com" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="phone">Số điện thoại</label>
+              <input type="text" id="phone" class="form-input" placeholder="0901234567">
+            </div>
+            <div class="form-group">
+              <label class="label" for="dob">Ngày sinh</label>
+              <input type="date" id="dob" class="form-input">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label" for="address">Địa chỉ thường trú</label>
+            <input type="text" id="address" class="form-input" placeholder="Số nhà, Quận/Huyện, Tỉnh/TP">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary">Lưu hồ sơ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    async function loadStudents() {
+      const tbody = document.getElementById('student-table-body');
+      try {
+        const res = await apiGet('/api/student/students');
+        const list = (res && res.data) ? res.data : [];
+
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Chưa có dữ liệu học viên.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(s => `
+          <tr>
+            <td>#${s.id}</td>
+            <td><strong>${s.full_name}</strong></td>
+            <td>${s.email}</td>
+            <td>${s.phone || '-'}</td>
+            <td>${formatDate(s.date_of_birth)}</td>
+            <td>${s.address || '-'}</td>
+            <td>
+              <span class="badge ${s.status === 'STUDYING' ? 'badge-success' : 'badge-warning'}">
+                ${s.status === 'STUDYING' ? 'Đang học' : s.status}
+              </span>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr><td colspan="7" style="text-align: center; color: var(--color-danger);">
+            Không thể tải dữ liệu từ API Student (:8082). Vui lòng kiểm tra container.
+          </td></tr>
+        `;
+      }
+    }
+
+    function openCreateModal() {
+      document.getElementById('studentForm').reset();
+      document.getElementById('studentModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('studentModal').classList.remove('active');
+    }
+
+    document.getElementById('studentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        full_name: document.getElementById('fullName').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim() || null,
+        date_of_birth: document.getElementById('dob').value || null,
+        address: document.getElementById('address').value.trim() || null,
+        status: 'STUDYING'
+      };
+
+      try {
+        await apiPost('/api/student/students', payload);
+        showToast('success', 'Đã thêm học viên mới!');
+        closeModal();
+        loadStudents();
+      } catch (e) {}
+    });
+
+    loadStudents();
+  </script>
+</body>
+</html>

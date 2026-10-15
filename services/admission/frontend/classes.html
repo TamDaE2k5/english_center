@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Lớp học - Admission</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Tuyển sinh</span> / <span>Quản lý lớp học</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Danh Sách Lớp Học Đang Mở</h1>
+              <p class="text-secondary text-sm">Thời khóa biểu, phòng học và giáo viên phụ trách</p>
+            </div>
+            <button class="btn btn-primary" onclick="alert('Tính năng thêm lớp học đang phát triển theo Sprint!')">
+              + Mở lớp học mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã lớp</th>
+                    <th>Tên lớp học</th>
+                    <th>Lịch học</th>
+                    <th>Phòng học</th>
+                    <th>Giáo viên</th>
+                    <th>Sĩ số</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>CLS-IELTS-01</code></td>
+                    <td><strong>IELTS Foundation K28</strong></td>
+                    <td>T2-T4-T6 (18:00 - 19:30)</td>
+                    <td>Phòng 201 - Cơ sở 1</td>
+                    <td>Mr. John Smith</td>
+                    <td>20 / 25</td>
+                    <td><span class="badge badge-success">Đang mở</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>CLS-IELTS-02</code></td>
+                    <td><strong>IELTS Intensive K15</strong></td>
+                    <td>T3-T5-T7 (19:30 - 21:00)</td>
+                    <td>Phòng 302 - Cơ sở 1</td>
+                    <td>Ms. Sarah Connor</td>
+                    <td>18 / 20</td>
+                    <td><span class="badge badge-success">Đang mở</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>CLS-TOEIC-01</code></td>
+                    <td><strong>TOEIC 600+ Tối</strong></td>
+                    <td>T2-T4-T6 (19:30 - 21:00)</td>
+                    <td>Phòng 102 - Cơ sở 2</td>
+                    <td>Thầy Lê Hoàng</td>
+                    <td>25 / 30</td>
+                    <td><span class="badge badge-success">Đang mở</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+</body>
+</html>

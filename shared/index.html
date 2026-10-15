@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tổng quan hệ thống - Trung tâm Anh ngữ</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar rendered dynamically -->
+    <div id="sidebar"></div>
+
+    <div class="main-content">
+      <!-- Header rendered dynamically -->
+      <div id="header"></div>
+
+      <div class="content">
+        <nav class="breadcrumb">
+          <span>Bảng điều khiển</span> / <span>Tổng quan hệ thống</span>
+        </nav>
+
+        <div style="margin-bottom: var(--space-lg); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h1 class="heading-1">Chào mừng bạn trở lại! 👋</h1>
+            <p class="text-secondary">Cổng tích hợp 4 phân hệ Microservices quản lý đào tạo trung tâm Anh ngữ.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="checkServicesStatus()">
+            🔄 Kiểm tra trạng thái Microservices
+          </button>
+        </div>
+
+        <!-- Microservices Health Status -->
+        <div class="card" style="margin-bottom: var(--space-lg);">
+          <div class="card-header">
+            <h3 class="heading-3">🔌 Trạng thái 4 Microservices (Nginx Gateway: :8080)</h3>
+            <span class="badge badge-info" id="gateway-status">Gateway Online</span>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-md);">
+              <div class="card" style="padding: 12px; margin: 0; background: #fafafa;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>1. Admission (:8081)</strong>
+                  <span class="badge badge-warning" id="status-admission">Checking...</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Khóa học, lớp học & tuyển sinh</div>
+              </div>
+
+              <div class="card" style="padding: 12px; margin: 0; background: #fafafa;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>2. Student (:8082)</strong>
+                  <span class="badge badge-warning" id="status-student">Checking...</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Hồ sơ học viên & điểm danh</div>
+              </div>
+
+              <div class="card" style="padding: 12px; margin: 0; background: #fafafa;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>3. Learning (:8083)</strong>
+                  <span class="badge badge-warning" id="status-learning">Checking...</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Học liệu & bảng điểm</div>
+              </div>
+
+              <div class="card" style="padding: 12px; margin: 0; background: #fafafa;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>4. Finance (:8084)</strong>
+                  <span class="badge badge-warning" id="status-finance">Checking...</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Học phí & hóa đơn</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Metrics -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: var(--color-primary-light); color: var(--color-primary);">📖</div>
+            <div class="stat-info">
+              <div class="stat-value" id="count-courses">4</div>
+              <div class="stat-label">Khóa học đang mở</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #fef3c7; color: #d97706;">🏫</div>
+            <div class="stat-info">
+              <div class="stat-value" id="count-classes">3</div>
+              <div class="stat-label">Lớp học hoạt động</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: var(--color-success-light); color: var(--color-success);">👨‍🎓</div>
+            <div class="stat-info">
+              <div class="stat-value" id="count-students">3</div>
+              <div class="stat-label">Học viên nhập học</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #f3e8ff; color: #9333ea;">💳</div>
+            <div class="stat-info">
+              <div class="stat-value" id="count-revenue">6.500.000 ₫</div>
+              <div class="stat-label">Học phí đã thu</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modules Quick Navigation -->
+        <h2 class="heading-2" style="margin-bottom: var(--space-md);">Các phân hệ trong hệ thống</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-lg);">
+          
+          <div class="card">
+            <div class="card-header">
+              <h3 class="heading-3">📋 1. Phân hệ Tuyển sinh</h3>
+              <a href="/admission/courses.html" class="btn btn-secondary btn-sm">Mở module →</a>
+            </div>
+            <div class="card-body">
+              <p class="text-secondary text-sm">Quản lý chương trình đào tạo, lịch mở lớp và tiếp nhận hồ sơ đăng ký học viên mới.</p>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <a href="/admission/courses.html" class="text-sm">Khóa học</a> •
+                <a href="/admission/classes.html" class="text-sm">Lớp học</a> •
+                <a href="/admission/enrollments.html" class="text-sm">Đăng ký</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="heading-3">👤 2. Phân hệ Học viên</h3>
+              <a href="/student/students.html" class="btn btn-secondary btn-sm">Mở module →</a>
+            </div>
+            <div class="card-body">
+              <p class="text-secondary text-sm">Quản lý danh sách học viên, lịch sử học tập, tình trạng bảo lưu và điểm danh theo từng buổi học.</p>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <a href="/student/students.html" class="text-sm">Hồ sơ học viên</a> •
+                <a href="/student/attendance.html" class="text-sm">Điểm danh</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="heading-3">📚 3. Phân hệ Học tập</h3>
+              <a href="/learning/materials.html" class="btn btn-secondary btn-sm">Mở module →</a>
+            </div>
+            <div class="card-body">
+              <p class="text-secondary text-sm">Kho tài liệu giáo trình điện tử, slide bài giảng, bài tập về nhà và sổ điểm đánh giá định kỳ.</p>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <a href="/learning/materials.html" class="text-sm">Tài liệu học</a> •
+                <a href="/learning/grades.html" class="text-sm">Bảng điểm</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="heading-3">💰 4. Phân hệ Tài chính</h3>
+              <a href="/finance/tuition.html" class="btn btn-secondary btn-sm">Mở module →</a>
+            </div>
+            <div class="card-body">
+              <p class="text-secondary text-sm">Biểu phí từng khóa học, lập hóa đơn tự động khi duyệt học viên và theo dõi công nợ học phí.</p>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <a href="/finance/tuition.html" class="text-sm">Cấu hình phí</a> •
+                <a href="/finance/invoices.html" class="text-sm">Hóa đơn</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    async function checkService(url, badgeId) {
+      const badge = document.getElementById(badgeId);
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          badge.className = 'badge badge-success';
+          badge.innerText = 'Connected';
+        } else {
+          badge.className = 'badge badge-warning';
+          badge.innerText = `HTTP ${res.status}`;
+        }
+      } catch (e) {
+        badge.className = 'badge badge-danger';
+        badge.innerText = 'Offline';
+      }
+    }
+
+    function checkServicesStatus() {
+      checkService('/api/admission/health', 'status-admission');
+      checkService('/api/student/health', 'status-student');
+      checkService('/api/learning/health', 'status-learning');
+      checkService('/api/finance/health', 'status-finance');
+    }
+
+    // Auto-check on load
+    setTimeout(checkServicesStatus, 500);
+  </script>
+</body>
+</html>

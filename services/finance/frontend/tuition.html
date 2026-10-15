@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biểu phí học phí - Finance Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Cấu hình biểu phí</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Biểu Phí Khóa Học & Đào Tạo</h1>
+              <p class="text-secondary text-sm">Chính sách học phí tiêu chuẩn áp dụng cho các khóa học</p>
+            </div>
+            <button class="btn btn-primary" onclick="alert('Tính năng cập nhật biểu phí đang phát triển!')">
+              + Thiết lập biểu phí mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã khóa học</th>
+                    <th>Tên chương trình</th>
+                    <th>Thời lượng</th>
+                    <th>Mức học phí niêm yết</th>
+                    <th>Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>ENG-IELTS-FOUND</code></td>
+                    <td><strong>IELTS Foundation 4.5 - 5.5</strong></td>
+                    <td>12 tuần</td>
+                    <td><strong style="color: var(--color-primary);">6.500.000 ₫</strong></td>
+                    <td>Đã bao gồm giáo trình và tài liệu Mock Test</td>
+                  </tr>
+                  <tr>
+                    <td><code>ENG-IELTS-INT</code></td>
+                    <td><strong>IELTS Intensive 6.5+</strong></td>
+                    <td>14 tuần</td>
+                    <td><strong style="color: var(--color-primary);">8.500.000 ₫</strong></td>
+                    <td>Bao gồm 3 buổi chấm bài Writing 1:1 với cựu Examiner</td>
+                  </tr>
+                  <tr>
+                    <td><code>ENG-TOEIC-600</code></td>
+                    <td><strong>TOEIC Cấp Tốc 600+</strong></td>
+                    <td>8 tuần</td>
+                    <td><strong style="color: var(--color-primary);">4.200.000 ₫</strong></td>
+                    <td>Cam kết chuẩn đầu ra</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+</body>
+</html>

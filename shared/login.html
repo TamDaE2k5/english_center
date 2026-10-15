@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập - Trung tâm Anh ngữ</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      padding: var(--space-md);
+    }
+    .login-box {
+      width: 100%;
+      max-width: 420px;
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-lg);
+    }
+    .brand-header {
+      text-align: center;
+      margin-bottom: var(--space-xl);
+    }
+    .brand-header h1 {
+      font-size: 22px;
+      color: var(--color-primary);
+      margin-top: 8px;
+    }
+    .demo-accounts {
+      margin-top: var(--space-lg);
+      padding: var(--space-md);
+      background-color: var(--color-bg);
+      border-radius: var(--radius-md);
+      border: 1px dashed var(--color-border);
+    }
+    .demo-accounts p {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: 8px;
+    }
+    .demo-btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-box">
+    <div class="brand-header">
+      <div style="font-size: 40px;">🎓</div>
+      <h1>Trung Tâm Anh Ngữ</h1>
+      <p class="text-secondary text-sm">Cổng quản lý & học tập trực tuyến</p>
+    </div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="label" for="email">Email đăng nhập <span class="required">*</span></label>
+        <input type="email" id="email" class="form-input" placeholder="admin@english.edu.vn" required>
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="password">Mật khẩu <span class="required">*</span></label>
+        <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 10px;" id="loginBtn">
+        Đăng nhập vào hệ thống
+      </button>
+    </form>
+
+    <div class="demo-accounts">
+      <p>💡 Đăng nhập nhanh cho demo (1-Click):</p>
+      <div class="demo-btn-group">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('admin@english.edu.vn', 'admin123', 'Quản Trị Viên', 'ADMIN')">Admin</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('staff@english.edu.vn', 'staff123', 'Nguyễn Thị Học Vụ', 'STAFF')">Học vụ</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('teacher@english.edu.vn', 'teacher123', 'Thầy John Smith', 'TEACHER')">Giáo viên</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('student@english.edu.vn', 'student123', 'Trần Văn Nam', 'STUDENT')">Học viên</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('loginBtn');
+
+      btn.disabled = true;
+      btn.innerText = 'Đang xác thực...';
+
+      try {
+        // Gửi tới auth endpoint của Admission service
+        const res = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          setSession(result.data.token, result.data.user);
+          showToast('success', 'Đăng nhập thành công!');
+          setTimeout(() => {
+            const redirect = sessionStorage.getItem('redirect_after_login') || '/';
+            sessionStorage.removeItem('redirect_after_login');
+            window.location.href = redirect;
+          }, 800);
+        } else {
+          showToast('error', 'Email hoặc mật khẩu không chính xác.');
+        }
+      } catch (err) {
+        // Fallback demo mode nếu backend chưa bật
+        console.warn('Backend unavailable, using demo credentials', err);
+        quickLogin(email, password, 'Người dùng Demo', 'ADMIN');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Đăng nhập vào hệ thống';
+      }
+    });
+
+    function quickLogin(email, password, name, role) {
+      document.getElementById('email').value = email;
+      document.getElementById('password').value = password;
+      
+      // Tạo mock session để test UI ngay lập tức
+      const mockToken = 'mock_jwt_token_' + btoa(JSON.stringify({ sub: 1, email, name, role, exp: Math.floor(Date.now() / 1000) + 86400 }));
+      setSession(mockToken, { id: 1, email, name, role });
+      showToast('success', `Đã đăng nhập quyền ${role}!`);
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+    }
+  </script>
+</body>
+</html>

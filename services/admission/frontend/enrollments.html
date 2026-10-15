@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng ký & Tuyển sinh - Admission</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Tuyển sinh</span> / <span>Đăng ký & Tuyển sinh</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Danh Sách Đơn Đăng Ký Nhập Học</h1>
+              <p class="text-secondary text-sm">Tiếp nhận và xét duyệt học viên vào các lớp học</p>
+            </div>
+            <button class="btn btn-primary" onclick="alert('Tính năng tiếp nhận hồ sơ mới!')">
+              + Tiếp nhận đơn mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã đơn</th>
+                    <th>Học viên</th>
+                    <th>Lớp đăng ký</th>
+                    <th>Ngày nộp</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>#ENR-001</td>
+                    <td><strong>Trần Văn Nam</strong></td>
+                    <td>IELTS Foundation K28</td>
+                    <td>15/10/2026</td>
+                    <td><span class="badge badge-success">Đã duyệt</span></td>
+                    <td><button class="btn btn-ghost btn-sm">Xem hồ sơ</button></td>
+                  </tr>
+                  <tr>
+                    <td>#ENR-002</td>
+                    <td><strong>Lê Thị Mai</strong></td>
+                    <td>IELTS Foundation K28</td>
+                    <td>15/10/2026</td>
+                    <td><span class="badge badge-success">Đã duyệt</span></td>
+                    <td><button class="btn btn-ghost btn-sm">Xem hồ sơ</button></td>
+                  </tr>
+                  <tr>
+                    <td>#ENR-003</td>
+                    <td><strong>Phạm Quốc Bảo</strong></td>
+                    <td>IELTS Intensive K15</td>
+                    <td>16/10/2026</td>
+                    <td><span class="badge badge-warning">Chờ duyệt</span></td>
+                    <td>
+                      <button class="btn btn-primary btn-sm" onclick="showToast('success', 'Đã duyệt hồ sơ #ENR-003')">Duyệt</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+</body>
+</html>
