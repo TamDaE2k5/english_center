@@ -102,6 +102,18 @@ Mọi trang HTML của các module chỉ cần nhúng:
 
 ---
 
+## Document Map (Bản đồ Tài liệu SSOT)
+
+- `docs/spec.md`: Đặc tả nghiệp vụ chi tiết & Explicit Non-Goals.
+- `docs/contract.md`: Hợp đồng kỹ thuật (API, Domain Model, State Machine, Phân quyền).
+- `docs/invariants.md`: Danh mục 15 quy tắc bất biến (P0/P1) và mapping test.
+- `docs/state.md`: Nhật ký tiến độ dự án (Chỉ Team Lead cập nhật).
+- `docs/agent-workflow.md`: Quy trình phối hợp đa Agent và ranh giới quyền sửa file.
+- `docs/decisions/`: Architecture Decision Records (ADR-001 đến ADR-005).
+- `docs/tasks/`: Task backlog và chi tiết công việc đang thực hiện.
+
+---
+
 ## Status & Increments (Nhật ký Tiến độ Dự án)
 
 ### Wave 0 — Nền móng Kỹ thuật & Project Scaffolding (Hoàn tất)
