@@ -1,74 +1,109 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bảng điểm & Đánh giá - Learning Module</title>
-  <link rel="stylesheet" href="/shared/css/variables.css">
-  <link rel="stylesheet" href="/shared/css/base.css">
-  <link rel="stylesheet" href="/shared/css/components.css">
-  <link rel="stylesheet" href="/shared/css/layout.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng điểm - Trung tâm Anh ngữ</title>
+    <link rel="stylesheet" href="/shared/css/variables.css">
+    <link rel="stylesheet" href="/shared/css/base.css">
+    <link rel="stylesheet" href="/shared/css/components.css">
+    <link rel="stylesheet" href="/shared/css/layout.css">
 </head>
 <body>
-  <div id="app">
-    <div id="sidebar"></div>
-    <div class="main-content">
-      <div id="header"></div>
-      <div class="content">
-        <nav class="breadcrumb">
-          <a href="/">Tổng quan</a> / <span>Học tập</span> / <span>Bảng điểm & Đánh giá</span>
-        </nav>
+    <div id="app">
+        <div id="sidebar"></div>
+        <div class="main-content">
+        <div id="header"></div>
+        <div class="content">
+            <nav class="breadcrumb">
+            <a href="/">Trang chủ</a> / <span>Điểm số</span>
+            </nav>
 
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h1 class="heading-1">Sổ Điểm & Kết Quả Đánh Giá</h1>
-              <p class="text-secondary text-sm">Điểm kiểm tra định kỳ, thi giữa kỳ và cuối khóa của học viên</p>
+            <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h1 class="heading-1">Sổ điểm</h1>
+                <div id="adminActions" style="display: none;">
+                <button class="btn btn-primary" id="btnAddGrade">+ Nhập điểm</button>
+                </div>
             </div>
-            <button class="btn btn-primary" onclick="alert('Tính năng nhập điểm chi tiết đang phát triển!')">
-              + Nhập điểm đánh giá
-            </button>
-          </div>
-          <div class="card-body">
-            <div class="table-container">
-              <table class="data-table">
+            <div class="card-body">
+                <!-- Bộ lọc cho Giáo viên/Admin -->
+                <div id="filterSection" style="display: none; margin-bottom: 16px; gap: 16px;">
+                <label class="label">Lọc theo Lớp (Class ID): </label>
+                <input type="number" class="form-input" id="filterClassId" style="width: 200px; display: inline-block;">
+                <button class="btn btn-secondary" onclick="loadGrades()">Tìm kiếm</button>
+                </div>
+
+                <table class="data-table">
                 <thead>
-                  <tr>
-                    <th>Mã học viên</th>
+                    <tr>
+                    <th>ID</th>
+                    <th>Mã Lớp</th>
+                    <th>Mã Học viên</th>
                     <th>Bài kiểm tra</th>
                     <th>Điểm số</th>
-                    <th>Thang điểm</th>
-                    <th>Đánh giá của giáo viên</th>
-                    <th>Ngày chấm</th>
-                  </tr>
+                    <th>Nhận xét</th>
+                    <th>Ngày nhập</th>
+                    </tr>
                 </thead>
-                <tbody id="grades-tbody">
-                  <tr>
-                    <td>Học viên #1 (Trần Văn Nam)</td>
-                    <td><strong>Midterm Test (Reading & Listening)</strong></td>
-                    <td><strong style="color: var(--color-primary); font-size: 15px;">82.5</strong></td>
-                    <td>/ 100</td>
-                    <td>Kỹ năng nghe tốt, cần chú ý phần Matching Headings.</td>
-                    <td>15/10/2026</td>
-                  </tr>
-                  <tr>
-                    <td>Học viên #2 (Lê Thị Mai)</td>
-                    <td><strong>Midterm Test (Reading & Listening)</strong></td>
-                    <td><strong style="color: var(--color-primary); font-size: 15px;">78.0</strong></td>
-                    <td>/ 100</td>
-                    <td>Cần cải thiện từ vựng học thuật.</td>
-                    <td>15/10/2026</td>
-                  </tr>
+                <tbody id="gradeTableBody">
+                    <!-- Data rendered here -->
                 </tbody>
-              </table>
+                </table>
             </div>
-          </div>
+            </div>
+
         </div>
-      </div>
+        </div>
     </div>
-  </div>
-  <script src="/shared/js/auth.js"></script>
-  <script src="/shared/js/api.js"></script>
-  <script src="/shared/js/layout.js"></script>
+
+    <!-- Modal Nhập Điểm -->
+    <div class="modal-overlay" id="modalAddGrade" style="display: none;">
+        <div class="modal">
+        <div class="modal-header">
+            <h3 class="heading-3">Nhập điểm mới</h3>
+            <button class="modal-close" onclick="closeGradeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formAddGrade">
+            <div class="form-group">
+                <label class="label">Class ID <span class="required">*</span></label>
+                <input type="number" class="form-input" id="gradeClassId" required>
+            </div>
+            <div class="form-group">
+                <label class="label">Student ID <span class="required">*</span></label>
+                <input type="number" class="form-input" id="gradeStudentId" required>
+            </div>
+            <div class="form-group">
+                <label class="label">Tên bài kiểm tra <span class="required">*</span></label>
+                <input type="text" class="form-input" id="gradeAssessment" required>
+            </div>
+            <div class="form-group" style="display: flex; gap: 16px;">
+                <div style="flex: 1;">
+                <label class="label">Điểm số <span class="required">*</span></label>
+                <input type="number" step="0.1" class="form-input" id="gradeScore" required>
+                </div>
+                <div style="flex: 1;">
+                <label class="label">Điểm tối đa</label>
+                <input type="number" step="0.1" class="form-input" id="gradeMaxScore" value="100" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="label">Nhận xét</label>
+                <textarea class="form-input" id="gradeFeedback" rows="2"></textarea>
+            </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeGradeModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="submitGrade()">Lưu điểm</button>
+        </div>
+        </div>
+    </div>
+
+    <script src="/shared/js/auth.js"></script>
+    <script src="/shared/js/api.js"></script>
+    <script src="/shared/js/layout.js"></script>
+    <script src="/learning/js/grades.js"></script>
 </body>
 </html>
