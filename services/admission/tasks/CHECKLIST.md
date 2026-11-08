@@ -15,13 +15,13 @@
 | Phân kỳ | Số lượng Task | Hoàn thành | Tỷ lệ (%) | Trạng thái |
 |---|:---:|:---:|:---:|:---:|
 | **Phase 0: Nền móng & Hạ tầng (INF)** | 4 | 4 | 100% | 🟢 Hoàn thành |
-| **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 0 | 0% | 🟡 Chưa bắt đầu |
+| **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 1 | 16.7% | 🟡 Đang thực hiện |
 | **Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)** | 3 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)** | 8 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 5: Xuất Dữ liệu & Phân tích BI (OPS/BI)** | 4 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 6: Giao diện Người dùng Frontend (UI)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **TỔNG CỘNG** | **35 Tasks** | **4** | **11.4%** | **Đang triển khai** |
+| **TỔNG CỘNG** | **35 Tasks** | **5** | **14.3%** | **Đang triển khai** |
 
 ---
 
@@ -48,9 +48,10 @@
 ---
 
 ### Phase 1: Quản trị Định danh & Phiên làm việc (IAM)
-- [ ] **`TASK-ADM-10`**: Tự động Sinh Tài khoản Học viên khi Test hoặc Đăng ký Online (`FR-IAM-01`)
+- [x] **`TASK-ADM-10`**: Tự động Sinh Tài khoản Học viên khi Test hoặc Đăng ký Online (`FR-IAM-01`)
   - *File chi tiết*: [`phase-1-iam/TASK-ADM-10-IAM-AUTO-STUDENT.md`](phase-1-iam/TASK-ADM-10-IAM-AUTO-STUDENT.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Invariant*: `INV-ADM-02`, `INV-SEC-01`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 - [ ] **`TASK-ADM-11`**: Quản lý Tài khoản Nhân sự (Staff/Teacher) & Khóa/Mở khóa Tài khoản (`FR-IAM-02`, `FR-IAM-05`)
   - *File chi tiết*: [`phase-1-iam/TASK-ADM-11-IAM-USER-MANAGEMENT.md`](phase-1-iam/TASK-ADM-11-IAM-USER-MANAGEMENT.md)
   - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`

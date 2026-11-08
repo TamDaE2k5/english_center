@@ -43,6 +43,23 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:25] - AI Assistant (Pair with Team Lead) - TASK-ADM-10
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai cơ chế tự động tìm kiếm hoặc khởi tạo tài khoản học viên (role STUDENT) với mật khẩu ngẫu nhiên băm BCrypt, cờ must_change_password=true khi học viên nộp đơn online hoặc làm bài kiểm tra đầu vào (FR-IAM-01).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/user/CreateStudentAccountRequest.java`: DTO xác thực email, fullName, phone.
+    - `service/UserService.java`: Interface định nghĩa `getOrCreateStudentUser(email, fullName, phone)`.
+    - `service/impl/UserServiceImpl.java`: Triển khai logic chuẩn hóa email, tái sử dụng tài khoản cũ nếu có hoặc tạo mới tài khoản STUDENT kèm mật khẩu ngẫu nhiên băm BCrypt.
+    - `src/test/java/com/englishcenter/admission/service/UserServiceTest.java`: Bộ kiểm thử đơn vị JUnit 5 & Mockito (2 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/UserRepository.java`: Bổ sung `existsByEmail(email)` và `findByRole(role, pageable)`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `9/9 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (43 source files compiled in 3.33s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-11` (Quản lý tài khoản nhân sự Staff/Teacher và cơ chế Khóa/Mở khóa tài khoản).
+
 ### [2026-11-08 16:20] - AI Assistant (Pair with Team Lead) - TASK-ADM-03
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Cấu hình Spring Boot 3 RestClient với timeout kết nối (3s) & đọc dữ liệu (5s), triển khai FinanceServiceClient & StudentServiceClient giao tiếp trực tiếp REST API liên service (East-West traffic) sử dụng header X-Internal-Secret và viết kiểm thử MockRestServiceServer.
