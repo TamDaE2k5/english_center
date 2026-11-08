@@ -43,6 +43,28 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:05] - AI Assistant (Pair with Team Lead) - TASK-ADM-00
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Thiết lập nền tảng đa tầng, cấu hình Jackson snake_case, chuẩn hóa ApiResponse, ErrorDetail, PageResponse, ErrorCode (tiền tố AUTH_ và ADM_) và GlobalExceptionHandler theo Master Rules.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/dto/ApiResponse.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/dto/ErrorDetail.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/dto/PageResponse.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/exception/ErrorCode.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/exception/BusinessException.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/exception/GlobalExceptionHandler.java`
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `services/admission/backend/pom.xml`: Thêm dependency `spring-boot-starter-validation` và `spring-boot-starter-security`.
+    - `services/admission/backend/src/main/resources/application.properties`: Bổ sung cấu hình Jackson snake_case, JWT expiration, internal secret key và inter-service URLs.
+    - `services/admission/tasks/API_CATALOG.md`: Đồng bộ 60 API Endpoints sau khi thống nhất liên service với dev.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Compile / Build: `BUILD SUCCESS (Maven Java 21 via Docker in 1.44s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-01` (khởi tạo 14 JPA Entities theo `scripts/init-db.sql`).
+
+---
+
 ### [2026-11-01 21:45] - Team Lead & AI Assistant - TASK-ADM-PLANNING
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Hoàn tất tài liệu kiến trúc Ver 1 (v3.5), thiết lập 32 task chi tiết, checklist tiến độ và danh mục 55 API Endpoints của phân hệ Admission.

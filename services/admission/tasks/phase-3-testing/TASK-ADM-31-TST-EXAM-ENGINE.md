@@ -10,19 +10,21 @@
 
 ## 1. Mục tiêu Nghiệp vụ & Kỹ thuật
 Xây dựng Động cơ thi trực tuyến hoàn chỉnh phục vụ đánh giá năng lực ứng viên:
-1. **Lấy nội dung đề thi làm bài (Bảo mật Đáp án)**:
-   - Học viên gọi API lấy đề thi: Trả về toàn bộ danh sách câu hỏi trắc nghiệm, media audio, đoạn văn đọc hiểu.
-   - **Bảo mật tuyệt đối**: Trường `correct_option` bị loại bỏ khỏi JSON trả về Client (`@JsonIgnore` hoặc dùng DTO riêng `PublicQuestionDTO`) để chống lộ đáp án qua Inspect Element.
-2. **Nộp bài & Chấm điểm Tự động (Auto-Grading)**:
-   - Nhận danh sách câu trả lời của thí sinh: `[{"question_id": 1, "selected_option": "B"}, ...]`.
-   - Đối chiếu với đáp án đúng trong cơ sở dữ liệu.
-   - Bóc tách điểm số độc lập cho từng phần thi:
-     - `listening_score`: Tổng điểm các câu đúng thuộc kỹ năng `LISTENING`.
-     - `reading_score`: Tổng điểm các câu đúng thuộc kỹ năng `READING`.
-     - `grammar_score`: Tổng điểm các câu đúng thuộc kỹ năng `GRAMMAR`.
-     - `total_score = listening_score + reading_score + grammar_score`.
-3. **Lưu kết quả bài thi (`admission.test_submissions`)**:
-   - Lưu trữ `test_set_id`, `user_id` (nếu có), thông tin thí sinh (`full_name`, `email`, `phone`), thời gian bắt đầu, thời gian nộp bài, điểm số chi tiết.
+1. **Bắt đầu Lượt thi (Server-side Countdown Tracking - INV-TST-02)**:
+   - Học viên gọi `POST /api/admission/tests/public/{id}/start` kèm thông tin tài khoản `user_id` (hoặc email).
+   - Hệ thống khởi tạo 1 bản ghi trong bảng `admission.test_attempts`:
+     - `status = 'STARTED'`
+     - `started_at = NOW()`
+     - `expires_at = started_at + duration_minutes`
+   - Trả về mã lượt thi `attempt_id` và danh sách câu hỏi trắc nghiệm (ẩn trường `correct_option` để chống lộ đáp án).
+2. **Nộp bài & Chấm điểm Tự động (Auto-Grading & Single Submission - INV-TST-02)**:
+   - Nhận `attempt_id` và danh sách câu trả lời: `[{"question_id": 1, "selected": "B"}, ...]`.
+   - Kiểm tra lượt thi:
+     - Phải đang ở trạng thái `STARTED`. Nếu đã `SUBMITTED` $\rightarrow$ Ném lỗi `ADM_TEST_ALREADY_SUBMITTED`.
+     - Kiểm tra thời gian: Nếu `NOW() > expires_at` $\rightarrow$ Cập nhật `status = 'EXPIRED'`, ném lỗi `ADM_ATTEMPT_EXPIRED`.
+   - Chấm điểm server-side theo trọng số `score_weight` cho từng kỹ năng (`LISTENING`, `READING`, `GRAMMAR`).
+   - Lưu kết quả vào `admission.test_submissions` với `attempt_id` (ràng buộc `UNIQUE` chống chấm lại cùng 1 lượt).
+   - Cập nhật `test_attempts.status = 'SUBMITTED'`, `submitted_at = NOW()`.
 
 ---
 

@@ -28,10 +28,10 @@
 ## 2. Chi Tiết Checklist Từng Nhiệm Vụ
 
 ### Phase 0: Nền móng & Hạ tầng Kỹ thuật Cốt lõi (INF)
-- [ ] **`TASK-ADM-00`**: Thiết lập Nền tảng Đa tầng, Jackson snake_case & Global Exception Handler
+- [x] **`TASK-ADM-00`**: Thiết lập Nền tảng Đa tầng, Jackson snake_case & Global Exception Handler
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-00-PROJECT-FOUNDATION.md`](phase-0-foundation/TASK-ADM-00-PROJECT-FOUNDATION.md)
   - *Invariant*: `INV-SYS-01`
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 - [ ] **`TASK-ADM-01`**: Khởi tạo Schema PostgreSQL 12 Bảng, Ràng buộc DDL & Dữ liệu Mẫu
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-01-SCHEMA-MIGRATION.md`](phase-0-foundation/TASK-ADM-01-SCHEMA-MIGRATION.md)
   - *Invariant*: `INV-SYS-02`
