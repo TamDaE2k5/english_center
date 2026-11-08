@@ -14,14 +14,14 @@
 
 | Phân kỳ | Số lượng Task | Hoàn thành | Tỷ lệ (%) | Trạng thái |
 |---|:---:|:---:|:---:|:---:|
-| **Phase 0: Nền móng & Hạ tầng (INF)** | 4 | 0 | 0% | 🟡 Chưa bắt đầu |
+| **Phase 0: Nền móng & Hạ tầng (INF)** | 4 | 4 | 100% | 🟢 Hoàn thành |
 | **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)** | 3 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)** | 8 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 5: Xuất Dữ liệu & Phân tích BI (OPS/BI)** | 4 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 6: Giao diện Người dùng Frontend (UI)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **TỔNG CỘNG** | **35 Tasks** | **0** | **0%** | **Sẵn sàng triển khai** |
+| **TỔNG CỘNG** | **35 Tasks** | **4** | **11.4%** | **Đang triển khai** |
 
 ---
 
@@ -40,10 +40,10 @@
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-02-SECURITY-JWT.md`](phase-0-foundation/TASK-ADM-02-SECURITY-JWT.md)
   - *Invariant*: `INV-SEC-01`, `INV-SEC-03`
   - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
-- [ ] **`TASK-ADM-03`**: Cấu hình HTTP Clients Tích hợp Liên Service (Finance & Student)
+- [x] **`TASK-ADM-03`**: Cấu hình HTTP Clients Tích hợp Liên Service (Finance & Student)
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-03-INTERSERVICE-CLIENTS.md`](phase-0-foundation/TASK-ADM-03-INTERSERVICE-CLIENTS.md)
   - *Invariant*: `INV-SYS-02` (Không cross-schema query, gọi REST trực tiếp)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 
 ---
 

@@ -67,9 +67,10 @@ public enum ErrorCode {
     ADM_RULE_OVERLAP(HttpStatus.CONFLICT, "Dải điểm của quy tắc đề xuất bị chồng lấn với quy tắc đã có"),
 
     // ==========================================
-    // 8. Lỗi Hệ Thống & Validation Chung
+    // 8. Lỗi Hệ Thống & Tích Hợp Liên Service
     // ==========================================
     ADM_VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Dữ liệu yêu cầu không hợp lệ"),
+    ADM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Dịch vụ liên kết tạm thời không khả dụng, vui lòng thử lại sau"),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Đã xảy ra lỗi nội bộ hệ thống, vui lòng thử lại sau");
 
     /** Mã trạng thái HTTP tương ứng */

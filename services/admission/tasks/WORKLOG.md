@@ -43,6 +43,27 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:20] - AI Assistant (Pair with Team Lead) - TASK-ADM-03
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Cấu hình Spring Boot 3 RestClient với timeout kết nối (3s) & đọc dữ liệu (5s), triển khai FinanceServiceClient & StudentServiceClient giao tiếp trực tiếp REST API liên service (East-West traffic) sử dụng header X-Internal-Secret và viết kiểm thử MockRestServiceServer.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `config/RestClientConfig.java`: Cấu hình Bean RestClient với SimpleClientHttpRequestFactory (connectTimeout 3s, readTimeout 5s).
+    - `client/dto/CreateInvoiceRequest.java`: DTO gửi yêu cầu tạo hóa đơn học phí tự động sang Finance Service.
+    - `client/dto/InvoiceData.java`: DTO phản hồi dữ liệu hóa đơn từ Finance Service (`invoice_id`, `invoice_code`, `amount`).
+    - `client/dto/CreateStudentProfileRequest.java`: DTO gửi yêu cầu tạo hồ sơ học viên chính thức sang Student Service.
+    - `client/dto/StudentProfileData.java`: DTO phản hồi dữ liệu hồ sơ học viên từ Student Service (`student_id`, `student_code`).
+    - `client/FinanceServiceClient.java`: Client gọi `POST /api/finance/invoices/auto-generate` kèm `X-Internal-Secret`.
+    - `client/StudentServiceClient.java`: Client gọi `POST /api/student/internal/students` kèm `X-Internal-Secret` và cơ chế fallback an toàn `trySyncStudentProfile`.
+    - `src/test/java/com/englishcenter/admission/client/InterServiceClientTest.java`: Bộ kiểm thử đơn vị JUnit 5 với MockRestServiceServer (3 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `common/exception/ErrorCode.java`: Thêm mã lỗi `ADM_SERVICE_UNAVAILABLE` (HTTP 503) khi dịch vụ liên kết lân cận gặp sự cố.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `7/7 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (40 source files compiled in 2.71s)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 0 (Nền móng & Hạ tầng kỹ thuật). Sẵn sàng chuyển tiếp sang Phase 1: IAM (`TASK-ADM-10` đến `TASK-ADM-15`).
+
 ### [2026-11-08 16:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-02
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Thiết lập Spring Security 6, Bộ cấp phát Token kép (Access Token 15m / Refresh Token 7d), CustomUserDetailsService, UserPrincipal, JwtAuthenticationFilter, SecurityUtils và kiểm thử đơn vị.
