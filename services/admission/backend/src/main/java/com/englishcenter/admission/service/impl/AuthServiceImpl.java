@@ -4,6 +4,9 @@ import com.englishcenter.admission.common.exception.BusinessException;
 import com.englishcenter.admission.common.exception.ErrorCode;
 import com.englishcenter.admission.dto.auth.LoginRequest;
 import com.englishcenter.admission.dto.auth.LoginResponse;
+import com.englishcenter.admission.dto.auth.LogoutRequest;
+import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
+import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
 import com.englishcenter.admission.dto.auth.UserSummary;
 import com.englishcenter.admission.entity.AuthAuditLog;
 import com.englishcenter.admission.entity.RefreshToken;
@@ -121,6 +124,128 @@ public class AuthServiceImpl implements AuthService {
                 jwtTokenProvider.getAccessTokenExpirationSeconds(),
                 UserSummary.from(user)
         );
+    }
+
+    /**
+     * Làm mới phiên làm việc an toàn với cơ chế Refresh Token Rotation (RTR).
+     * Quy trình xử lý từng bước:
+     * 1. Tra cứu refresh token trong cơ sở dữ liệu.
+     * 2. Nếu token không tồn tại -> Báo lỗi AUTH_TOKEN_INVALID.
+     * 3. Phát hiện Replay Attack: Nếu token đã từng bị thu hồi (is_revoked = true) mà lại được gửi lên:
+     *    - Kích hoạt cơ chế phòng vệ tự động: Thu hồi toàn bộ token còn lại của user_id đó.
+     *    - Ghi nhận nhật ký cảnh báo an ninh SECURITY_ALERT_REPLAY_ATTACK.
+     *    - Ném lỗi AUTH_TOKEN_INVALID.
+     * 4. Kiểm tra hạn sử dụng: Nếu expires_at < NOW() -> Đánh dấu thu hồi và ném lỗi AUTH_TOKEN_EXPIRED.
+     * 5. Kiểm tra tài khoản người dùng có đang hoạt động hay không.
+     * 6. Thực hiện xoay vòng token (Rotation):
+     *    - Đánh dấu token hiện tại thành is_revoked = true.
+     *    - Cấp phát Access Token mới (15 phút) và Refresh Token mới (7 ngày).
+     *    - Lưu Refresh Token mới vào database.
+     *    - Ghi nhận nhật ký REFRESH_TOKEN và trả về cặp token mới.
+     *
+     * @param request   DTO chứa refresh token
+     * @param ipAddress Địa chỉ IP của client
+     * @param userAgent Thiết bị của client
+     * @return DTO RefreshTokenResponse
+     */
+    @Override
+    @Transactional
+    public RefreshTokenResponse refreshToken(RefreshTokenRequest request, String ipAddress, String userAgent) {
+        String tokenStr = request.getRefreshToken().trim();
+        Optional<RefreshToken> tokenOpt = refreshTokenRepository.findByToken(tokenStr);
+
+        // 1. Kiểm tra sự tồn tại của token
+        if (tokenOpt.isEmpty()) {
+            recordAuditLog(null, null, "REFRESH_FAILED", ipAddress, userAgent, "Refresh token không tồn tại trong hệ thống");
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_INVALID, "Phiên làm việc không hợp lệ hoặc đã bị thu hồi");
+        }
+
+        RefreshToken tokenEntity = tokenOpt.get();
+
+        // 2. Phát hiện tái sử dụng token đã thu hồi (Replay Attack Fraud Detection)
+        if (Boolean.TRUE.equals(tokenEntity.getIsRevoked())) {
+            log.error("CẢNH BÁO BẢO MẬT: Phát hiện tái sử dụng Refresh Token đã bị thu hồi của user ID={} từ IP {}",
+                    tokenEntity.getUserId(), ipAddress);
+
+            // Phòng vệ khẩn cấp: Hủy toàn bộ phiên đang hoạt động của người dùng này
+            refreshTokenRepository.revokeAllByUserId(tokenEntity.getUserId());
+
+            recordAuditLog(tokenEntity.getUserId(), null, "SECURITY_ALERT_REPLAY_ATTACK",
+                    ipAddress, userAgent, "Phát hiện tái sử dụng token đã thu hồi. Toàn bộ phiên làm việc của user đã bị vô hiệu hóa.");
+
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_INVALID, "Phiên làm việc đã bị thu hồi hoặc phát hiện bất thường bảo mật");
+        }
+
+        // 3. Kiểm tra hạn sử dụng của token
+        if (tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+            tokenEntity.setIsRevoked(true);
+            refreshTokenRepository.save(tokenEntity);
+            recordAuditLog(tokenEntity.getUserId(), null, "REFRESH_EXPIRED",
+                    ipAddress, userAgent, "Refresh token đã hết hạn");
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_EXPIRED, "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại");
+        }
+
+        // 4. Kiểm tra tài khoản người dùng
+        User user = userRepository.findById(tokenEntity.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_USER_NOT_FOUND, "Không tìm thấy thông tin tài khoản người dùng"));
+
+        if (user.getIsActive() != null && !user.getIsActive()) {
+            throw new BusinessException(ErrorCode.AUTH_ACCOUNT_LOCKED, "Tài khoản của bạn đã bị khóa, không thể làm mới phiên");
+        }
+
+        // 5. Thực hiện Refresh Token Rotation (Thu hồi token cũ, cấp token mới)
+        tokenEntity.setIsRevoked(true);
+        refreshTokenRepository.save(tokenEntity);
+
+        String newAccessToken = jwtTokenProvider.generateAccessToken(
+                user.getId(), user.getEmail(), user.getRole(), user.getFullName()
+        );
+
+        String newJti = UUID.randomUUID().toString();
+        String newRefreshTokenStr = jwtTokenProvider.generateRefreshToken(user.getId(), newJti);
+
+        RefreshToken newTokenEntity = new RefreshToken();
+        newTokenEntity.setUserId(user.getId());
+        newTokenEntity.setToken(newRefreshTokenStr);
+        newTokenEntity.setExpiresAt(LocalDateTime.now().plusDays(jwtTokenProvider.getRefreshTokenExpirationDays()));
+        newTokenEntity.setIsRevoked(false);
+        refreshTokenRepository.save(newTokenEntity);
+
+        recordAuditLog(user.getId(), user.getEmail(), "REFRESH_TOKEN",
+                ipAddress, userAgent, "Làm mới phiên làm việc thành công");
+
+        log.info("Làm mới token thành công cho user ID={} qua cơ chế Rotation", user.getId());
+
+        return new RefreshTokenResponse(
+                newAccessToken,
+                newRefreshTokenStr,
+                jwtTokenProvider.getAccessTokenExpirationSeconds()
+        );
+    }
+
+    /**
+     * Thu hồi Refresh Token khi người dùng chủ động đăng xuất.
+     *
+     * @param request   DTO chứa refresh token cần thu hồi
+     * @param ipAddress Địa chỉ IP
+     * @param userAgent Thiết bị client
+     */
+    @Override
+    @Transactional
+    public void logout(LogoutRequest request, String ipAddress, String userAgent) {
+        String tokenStr = request.getRefreshToken().trim();
+        Optional<RefreshToken> tokenOpt = refreshTokenRepository.findByToken(tokenStr);
+
+        if (tokenOpt.isPresent()) {
+            RefreshToken tokenEntity = tokenOpt.get();
+            tokenEntity.setIsRevoked(true);
+            refreshTokenRepository.save(tokenEntity);
+
+            recordAuditLog(tokenEntity.getUserId(), null, "LOGOUT",
+                    ipAddress, userAgent, "Đăng xuất và thu hồi Refresh Token thành công");
+
+            log.info("Người dùng ID={} đã đăng xuất và thu hồi refresh token", tokenEntity.getUserId());
+        }
     }
 
     /**

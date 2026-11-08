@@ -3,6 +3,9 @@ package com.englishcenter.admission.controller;
 import com.englishcenter.admission.common.dto.ApiResponse;
 import com.englishcenter.admission.dto.auth.LoginRequest;
 import com.englishcenter.admission.dto.auth.LoginResponse;
+import com.englishcenter.admission.dto.auth.LogoutRequest;
+import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
+import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
 import com.englishcenter.admission.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -41,6 +44,44 @@ public class AuthController {
 
         LoginResponse response = authService.login(request, ipAddress, userAgent);
         return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập thành công"));
+    }
+
+    /**
+     * Làm mới phiên làm việc với cơ chế Refresh Token Rotation (RTR).
+     *
+     * @param request     DTO chứa chuỗi refresh token
+     * @param httpRequest Đối tượng HttpServletRequest
+     * @return ApiResponse chứa RefreshTokenResponse với access token và refresh token mới
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<RefreshTokenResponse>> refresh(
+            @Valid @RequestBody RefreshTokenRequest request,
+            HttpServletRequest httpRequest) {
+
+        String ipAddress = extractClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        RefreshTokenResponse response = authService.refreshToken(request, ipAddress, userAgent);
+        return ResponseEntity.ok(ApiResponse.success(response, "Làm mới phiên làm việc thành công"));
+    }
+
+    /**
+     * Đăng xuất và thu hồi Refresh Token hiện hành.
+     *
+     * @param request     DTO chứa refresh token
+     * @param httpRequest Đối tượng HttpServletRequest
+     * @return ApiResponse rỗng thông báo đăng xuất thành công
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @Valid @RequestBody LogoutRequest request,
+            HttpServletRequest httpRequest) {
+
+        String ipAddress = extractClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        authService.logout(request, ipAddress, userAgent);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đăng xuất thành công"));
     }
 
     /**

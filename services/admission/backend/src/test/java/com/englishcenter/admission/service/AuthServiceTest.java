@@ -150,4 +150,101 @@ class AuthServiceTest {
         verify(authAuditLogRepository).save(logCaptor.capture());
         assertEquals("LOGIN_BLOCKED", logCaptor.getValue().getAction());
     }
+
+    @Test
+    @DisplayName("Làm mới token thành công với cơ chế Rotation thu hồi token cũ và sinh token mới")
+    void testRefreshToken_Success() {
+        String oldTokenStr = "valid_old_refresh_token";
+        com.englishcenter.admission.dto.auth.RefreshTokenRequest req =
+                new com.englishcenter.admission.dto.auth.RefreshTokenRequest(oldTokenStr);
+
+        RefreshToken oldToken = new RefreshToken();
+        oldToken.setId(10);
+        oldToken.setUserId(5);
+        oldToken.setToken(oldTokenStr);
+        oldToken.setExpiresAt(java.time.LocalDateTime.now().plusDays(5));
+        oldToken.setIsRevoked(false);
+
+        User user = new User();
+        user.setId(5);
+        user.setEmail("user5@englishcenter.edu.vn");
+        user.setRole("STUDENT");
+        user.setFullName("Student Five");
+        user.setIsActive(true);
+
+        when(refreshTokenRepository.findByToken(oldTokenStr)).thenReturn(Optional.of(oldToken));
+        when(userRepository.findById(5)).thenReturn(Optional.of(user));
+        when(jwtTokenProvider.generateAccessToken(5, "user5@englishcenter.edu.vn", "STUDENT", "Student Five"))
+                .thenReturn("new_access_token_jwt");
+        when(jwtTokenProvider.generateRefreshToken(eq(5), anyString()))
+                .thenReturn("new_refresh_token_jwt");
+        when(jwtTokenProvider.getAccessTokenExpirationSeconds()).thenReturn(900L);
+        when(jwtTokenProvider.getRefreshTokenExpirationDays()).thenReturn(7L);
+
+        com.englishcenter.admission.dto.auth.RefreshTokenResponse res =
+                authService.refreshToken(req, "127.0.0.1", "TestClient");
+
+        assertNotNull(res);
+        assertEquals("new_access_token_jwt", res.getAccessToken());
+        assertEquals("new_refresh_token_jwt", res.getRefreshToken());
+
+        // Token cũ phải bị đánh dấu thu hồi
+        assertTrue(oldToken.getIsRevoked());
+
+        // Token mới được lưu
+        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("Phát hiện Replay Attack: Dùng token đã thu hồi sẽ kích hoạt hủy toàn bộ phiên của user")
+    void testRefreshToken_ReplayAttackDetection() {
+        String compromisedToken = "revoked_refresh_token";
+        com.englishcenter.admission.dto.auth.RefreshTokenRequest req =
+                new com.englishcenter.admission.dto.auth.RefreshTokenRequest(compromisedToken);
+
+        RefreshToken oldToken = new RefreshToken();
+        oldToken.setId(15);
+        oldToken.setUserId(8);
+        oldToken.setToken(compromisedToken);
+        oldToken.setExpiresAt(java.time.LocalDateTime.now().plusDays(2));
+        oldToken.setIsRevoked(true); // Đã bị thu hồi từ trước
+
+        when(refreshTokenRepository.findByToken(compromisedToken)).thenReturn(Optional.of(oldToken));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                authService.refreshToken(req, "1.2.3.4", "HackerAgent")
+        );
+
+        assertEquals(ErrorCode.AUTH_TOKEN_INVALID, ex.getErrorCode());
+
+        // Phòng vệ an ninh: Thu hồi toàn bộ token của user 8
+        verify(refreshTokenRepository).revokeAllByUserId(8);
+
+        // Ghi nhật ký cảnh báo an ninh
+        ArgumentCaptor<AuthAuditLog> logCaptor = ArgumentCaptor.forClass(AuthAuditLog.class);
+        verify(authAuditLogRepository).save(logCaptor.capture());
+        assertEquals("SECURITY_ALERT_REPLAY_ATTACK", logCaptor.getValue().getAction());
+    }
+
+    @Test
+    @DisplayName("Đăng xuất thành công sẽ thu hồi refresh token")
+    void testLogout() {
+        String tokenStr = "active_token_to_logout";
+        com.englishcenter.admission.dto.auth.LogoutRequest req =
+                new com.englishcenter.admission.dto.auth.LogoutRequest(tokenStr);
+
+        RefreshToken token = new RefreshToken();
+        token.setId(25);
+        token.setUserId(9);
+        token.setToken(tokenStr);
+        token.setIsRevoked(false);
+
+        when(refreshTokenRepository.findByToken(tokenStr)).thenReturn(Optional.of(token));
+
+        authService.logout(req, "127.0.0.1", "Browser");
+
+        assertTrue(token.getIsRevoked());
+        verify(refreshTokenRepository).save(token);
+        verify(authAuditLogRepository).save(any(AuthAuditLog.class));
+    }
 }

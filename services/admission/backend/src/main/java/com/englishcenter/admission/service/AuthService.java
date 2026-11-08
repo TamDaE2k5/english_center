@@ -2,6 +2,9 @@ package com.englishcenter.admission.service;
 
 import com.englishcenter.admission.dto.auth.LoginRequest;
 import com.englishcenter.admission.dto.auth.LoginResponse;
+import com.englishcenter.admission.dto.auth.LogoutRequest;
+import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
+import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
 
 /**
  * Giao diện định nghĩa các nghiệp vụ xác thực đăng nhập, quản lý phiên và bảo mật tài khoản.
@@ -18,4 +21,25 @@ public interface AuthService {
      * @return DTO LoginResponse chứa access token, refresh token và thông tin người dùng
      */
     LoginResponse login(LoginRequest request, String ipAddress, String userAgent);
+
+    /**
+     * Làm mới phiên làm việc bằng cơ chế Refresh Token Rotation.
+     * Thu hồi token cũ, cấp phát cặp token mới. Nếu phát hiện token đã thu hồi bị dùng lại,
+     * lập tức hủy bỏ toàn bộ phiên làm việc của người dùng để chống tấn công Replay Attack.
+     *
+     * @param request   DTO chứa chuỗi refresh token
+     * @param ipAddress Địa chỉ IP của client
+     * @param userAgent Thiết bị của client
+     * @return DTO RefreshTokenResponse chứa cặp token mới
+     */
+    RefreshTokenResponse refreshToken(RefreshTokenRequest request, String ipAddress, String userAgent);
+
+    /**
+     * Đăng xuất và thu hồi Refresh Token đang sử dụng.
+     *
+     * @param request   DTO chứa refresh token cần thu hồi
+     * @param ipAddress Địa chỉ IP
+     * @param userAgent Thiết bị của client
+     */
+    void logout(LogoutRequest request, String ipAddress, String userAgent);
 }

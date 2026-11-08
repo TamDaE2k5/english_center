@@ -43,6 +43,24 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:40] - AI Assistant (Pair with Team Lead) - TASK-ADM-13
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai cơ chế Refresh Token Rotation (RTR) chống tấn công Replay Attack (`POST /api/admission/auth/refresh`), thu hồi lập tức token cũ khi cấp token mới, phòng vệ an ninh tự động hủy toàn bộ phiên của người dùng nếu phát hiện tái sử dụng token đã thu hồi, và endpoint đăng xuất thu hồi token (`POST /api/admission/auth/logout`).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/auth/RefreshTokenRequest.java`: DTO nhận chuỗi refresh token.
+    - `dto/auth/RefreshTokenResponse.java`: DTO trả về cặp token mới (`access_token`, `refresh_token`, `expires_in`).
+    - `dto/auth/LogoutRequest.java`: DTO yêu cầu thu hồi token đăng xuất.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `service/AuthService.java` & `AuthServiceImpl.java`: Triển khai `refreshToken` với phát hiện Replay Attack, kiểm tra hết hạn `expires_at`, thu hồi khẩn cấp toàn bộ phiên và hàm `logout`.
+    - `controller/AuthController.java`: Khai báo endpoints `/api/admission/auth/refresh` và `/api/admission/auth/logout`.
+    - `src/test/java/com/englishcenter/admission/service/AuthServiceTest.java`: Bổ sung 3 test case kiểm thử Rotation thành công, phát hiện Replay Attack phòng vệ hủy phiên, và đăng xuất thu hồi token (6 tests passed).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `19/19 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (57 source files compiled in 3.76s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-14` (Quy trình Quên mật khẩu & Đặt lại mật khẩu qua Token 15 phút).
+
 ### [2026-11-08 16:35] - AI Assistant (Pair with Team Lead) - TASK-ADM-12
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai API Đăng nhập chuẩn REST (`POST /api/admission/auth/login`), cấp phát bộ token kép (Access Token 15m, Refresh Token 7d lưu vào `admission.refresh_tokens`), ghi nhận nhật ký kiểm toán `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGIN_BLOCKED` vào `admission.auth_audit_logs`.
