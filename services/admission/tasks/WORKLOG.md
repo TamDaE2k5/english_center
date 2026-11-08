@@ -43,6 +43,34 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:10] - AI Assistant (Pair with Team Lead) - TASK-ADM-01
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất khởi tạo BaseEntity và toàn bộ 14 JPA Entities cho Schema `admission` theo đúng DDL trong `scripts/init-db.sql` và `docs/MASTER_DB_AND_API_RULES.md`.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `BaseEntity.java`: Lớp kiểm toán thời gian tự động gán `created_at` và `updated_at`.
+    - `RefreshToken.java`: Quản lý phiên token kép và thu hồi.
+    - `PasswordResetToken.java`: Quản lý token đổi mật khẩu 15 phút.
+    - `AuthAuditLog.java`: Quản lý nhật ký kiểm toán an toàn thông tin.
+    - `Room.java`: Quản lý phòng học, sức chứa trần và chi nhánh.
+    - `ClassEntity.java`: Quản lý lớp học, ca học, phòng học, giáo viên và sĩ số tối đa.
+    - `Enrollment.java`: Quản lý đơn tuyển sinh, hạn giữ chỗ 48h và cờ đồng bộ sang Student Service.
+    - `TestSet.java`: Quản lý bộ đề khảo thí và thời lượng làm bài đếm ngược.
+    - `TestQuestion.java`: Quản lý câu hỏi trắc nghiệm 3 kỹ năng (Listening, Reading, Grammar).
+    - `TestRecommendationRule.java`: Quản lý quy tắc đề xuất khóa học theo dải điểm.
+    - `TestAttempt.java`: Quản lý lượt thi đếm ngược server-side (INV-TST-02).
+    - `TestSubmission.java`: Quản lý bài nộp khảo thí, điểm bóc tách và khóa học đề xuất.
+    - `ProcessedFinanceEvent.java`: Quản lý đối soát thanh toán Finance callback idempotency (INV-ENR-02 / INV-ENR-03).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `User.java`: Kế thừa BaseEntity, bổ sung `gender`, `date_of_birth`, `avatar_url`, `must_change_password`, `email_verified_at`.
+    - `Course.java`: Kế thừa BaseEntity, bổ sung quan hệ `prerequisiteCourse`, `target_output`, `tuition_amount`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Compile / Build: `BUILD SUCCESS (Compiling 27 source files via Docker in 1.41s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-02` (Spring Security 6, BCrypt, JwtTokenProvider, JwtAuthenticationFilter).
+
+---
+
 ### [2026-11-08 16:05] - AI Assistant (Pair with Team Lead) - TASK-ADM-00
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Thiết lập nền tảng đa tầng, cấu hình Jackson snake_case, chuẩn hóa ApiResponse, ErrorDetail, PageResponse, ErrorCode (tiền tố AUTH_ và ADM_) và GlobalExceptionHandler theo Master Rules.

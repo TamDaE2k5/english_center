@@ -32,10 +32,10 @@
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-00-PROJECT-FOUNDATION.md`](phase-0-foundation/TASK-ADM-00-PROJECT-FOUNDATION.md)
   - *Invariant*: `INV-SYS-01`
   - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
-- [ ] **`TASK-ADM-01`**: Khởi tạo Schema PostgreSQL 12 Bảng, Ràng buộc DDL & Dữ liệu Mẫu
+- [x] **`TASK-ADM-01`**: Khởi tạo Schema PostgreSQL 14 Bảng, Ràng buộc DDL & Dữ liệu Mẫu
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-01-SCHEMA-MIGRATION.md`](phase-0-foundation/TASK-ADM-01-SCHEMA-MIGRATION.md)
   - *Invariant*: `INV-SYS-02`
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 - [ ] **`TASK-ADM-02`**: Thiết lập Spring Security 6 & Bộ Cấp phát Token Kép (Access 15m / Refresh 7d)
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-02-SECURITY-JWT.md`](phase-0-foundation/TASK-ADM-02-SECURITY-JWT.md)
   - *Invariant*: `INV-SEC-01`, `INV-SEC-03`
