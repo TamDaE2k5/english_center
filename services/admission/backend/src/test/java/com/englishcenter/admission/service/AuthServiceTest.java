@@ -5,9 +5,11 @@ import com.englishcenter.admission.common.exception.ErrorCode;
 import com.englishcenter.admission.dto.auth.LoginRequest;
 import com.englishcenter.admission.dto.auth.LoginResponse;
 import com.englishcenter.admission.entity.AuthAuditLog;
+import com.englishcenter.admission.entity.PasswordResetToken;
 import com.englishcenter.admission.entity.RefreshToken;
 import com.englishcenter.admission.entity.User;
 import com.englishcenter.admission.repository.AuthAuditLogRepository;
+import com.englishcenter.admission.repository.PasswordResetTokenRepository;
 import com.englishcenter.admission.repository.RefreshTokenRepository;
 import com.englishcenter.admission.repository.UserRepository;
 import com.englishcenter.admission.security.JwtTokenProvider;
@@ -40,6 +42,9 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Mock
     private AuthAuditLogRepository authAuditLogRepository;
 
     @Mock
@@ -53,7 +58,8 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthServiceImpl(
-                userRepository, refreshTokenRepository, authAuditLogRepository, jwtTokenProvider, passwordEncoder
+                userRepository, refreshTokenRepository, passwordResetTokenRepository,
+                authAuditLogRepository, jwtTokenProvider, passwordEncoder
         );
     }
 
@@ -246,5 +252,71 @@ class AuthServiceTest {
         assertTrue(token.getIsRevoked());
         verify(refreshTokenRepository).save(token);
         verify(authAuditLogRepository).save(any(AuthAuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Yêu cầu quên mật khẩu thành công sinh token 15 phút khi email tồn tại")
+    void testForgotPassword_WhenEmailExists() {
+        String email = "student@englishcenter.edu.vn";
+        com.englishcenter.admission.dto.auth.ForgotPasswordRequest req =
+                new com.englishcenter.admission.dto.auth.ForgotPasswordRequest(email);
+
+        User user = new User();
+        user.setId(7);
+        user.setEmail(email);
+
+        when(userRepository.findByEmail(email.toLowerCase())).thenReturn(Optional.of(user));
+
+        authService.forgotPassword(req, "127.0.0.1", "Browser");
+
+        // Vô hiệu hóa token cũ và lưu token mới
+        verify(passwordResetTokenRepository).invalidateAllByUserId(7);
+        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
+
+        ArgumentCaptor<AuthAuditLog> logCaptor = ArgumentCaptor.forClass(AuthAuditLog.class);
+        verify(authAuditLogRepository).save(logCaptor.capture());
+        assertEquals("FORGOT_PASSWORD_REQUEST", logCaptor.getValue().getAction());
+    }
+
+    @Test
+    @DisplayName("Đặt lại mật khẩu thành công bằng token 15 phút và thu hồi mọi session cũ")
+    void testResetPassword_Success() {
+        String tokenStr = "valid-reset-token-uuid";
+        com.englishcenter.admission.dto.auth.ResetPasswordRequest req =
+                new com.englishcenter.admission.dto.auth.ResetPasswordRequest(tokenStr, "NewSecretPassword@123");
+
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setId(30);
+        resetToken.setUserId(12);
+        resetToken.setToken(tokenStr);
+        resetToken.setExpiresAt(java.time.LocalDateTime.now().plusMinutes(10));
+        resetToken.setIsUsed(false);
+
+        User user = new User();
+        user.setId(12);
+        user.setEmail("user12@englishcenter.edu.vn");
+        user.setPasswordHash("old_hash");
+
+        when(passwordResetTokenRepository.findByToken(tokenStr)).thenReturn(Optional.of(resetToken));
+        when(userRepository.findById(12)).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("NewSecretPassword@123")).thenReturn("$2a$10$newHashedPassword");
+
+        authService.resetPassword(req, "127.0.0.1", "Browser");
+
+        // Token phải được đánh dấu đã sử dụng
+        assertTrue(resetToken.getIsUsed());
+        verify(passwordResetTokenRepository).save(resetToken);
+
+        // Mật khẩu user được cập nhật
+        assertEquals("$2a$10$newHashedPassword", user.getPasswordHash());
+        verify(userRepository).save(user);
+
+        // Toàn bộ refresh token cũ bị thu hồi
+        verify(refreshTokenRepository).revokeAllByUserId(12);
+
+        // Ghi log PASSWORD_CHANGED
+        ArgumentCaptor<AuthAuditLog> logCaptor = ArgumentCaptor.forClass(AuthAuditLog.class);
+        verify(authAuditLogRepository).save(logCaptor.capture());
+        assertEquals("PASSWORD_CHANGED", logCaptor.getValue().getAction());
     }
 }

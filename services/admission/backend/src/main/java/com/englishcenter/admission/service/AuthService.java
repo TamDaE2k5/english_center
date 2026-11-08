@@ -42,4 +42,24 @@ public interface AuthService {
      * @param userAgent Thiết bị của client
      */
     void logout(LogoutRequest request, String ipAddress, String userAgent);
+
+    /**
+     * Yêu cầu đặt lại mật khẩu qua email (thời hạn token 15 phút).
+     * Tránh tiết lộ thông tin tài khoản (Email Enumeration Prevention).
+     *
+     * @param request   DTO chứa email yêu cầu
+     * @param ipAddress Địa chỉ IP của client
+     * @param userAgent Thiết bị client
+     */
+    void forgotPassword(com.englishcenter.admission.dto.auth.ForgotPasswordRequest request, String ipAddress, String userAgent);
+
+    /**
+     * Thiết lập mật khẩu mới bằng token 15 phút.
+     * Cập nhật mật khẩu băm, vô hiệu hóa token và hủy bỏ toàn bộ refresh token cũ để buộc đăng nhập lại.
+     *
+     * @param request   DTO chứa token và mật khẩu mới
+     * @param ipAddress Địa chỉ IP
+     * @param userAgent Thiết bị client
+     */
+    void resetPassword(com.englishcenter.admission.dto.auth.ResetPasswordRequest request, String ipAddress, String userAgent);
 }

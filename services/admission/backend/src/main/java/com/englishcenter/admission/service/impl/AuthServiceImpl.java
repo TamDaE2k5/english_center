@@ -9,9 +9,11 @@ import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
 import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
 import com.englishcenter.admission.dto.auth.UserSummary;
 import com.englishcenter.admission.entity.AuthAuditLog;
+import com.englishcenter.admission.entity.PasswordResetToken;
 import com.englishcenter.admission.entity.RefreshToken;
 import com.englishcenter.admission.entity.User;
 import com.englishcenter.admission.repository.AuthAuditLogRepository;
+import com.englishcenter.admission.repository.PasswordResetTokenRepository;
 import com.englishcenter.admission.repository.RefreshTokenRepository;
 import com.englishcenter.admission.repository.UserRepository;
 import com.englishcenter.admission.security.JwtTokenProvider;
@@ -36,17 +38,20 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final AuthAuditLogRepository authAuditLogRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
 
     public AuthServiceImpl(UserRepository userRepository,
                            RefreshTokenRepository refreshTokenRepository,
+                           PasswordResetTokenRepository passwordResetTokenRepository,
                            AuthAuditLogRepository authAuditLogRepository,
                            JwtTokenProvider jwtTokenProvider,
                            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.authAuditLogRepository = authAuditLogRepository;
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
@@ -246,6 +251,101 @@ public class AuthServiceImpl implements AuthService {
 
             log.info("Người dùng ID={} đã đăng xuất và thu hồi refresh token", tokenEntity.getUserId());
         }
+    }
+
+    /**
+     * Quy trình yêu cầu cấp lại mật khẩu qua email.
+     * Áp dụng nguyên tắc Email Enumeration Prevention: Luôn trả về thành công dù email có tồn tại hay không.
+     * Nếu email tồn tại, sinh token 15 phút lưu vào password_reset_tokens và phát tín hiệu gửi mail.
+     *
+     * @param request   DTO chứa địa chỉ email
+     * @param ipAddress Địa chỉ IP
+     * @param userAgent Thiết bị client
+     */
+    @Override
+    @Transactional
+    public void forgotPassword(com.englishcenter.admission.dto.auth.ForgotPasswordRequest request, String ipAddress, String userAgent) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        Optional<User> userOpt = userRepository.findByEmail(normalizedEmail);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+
+            // Vô hiệu hóa mọi token đặt lại mật khẩu chưa sử dụng trước đó
+            passwordResetTokenRepository.invalidateAllByUserId(user.getId());
+
+            String token = UUID.randomUUID().toString();
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setUserId(user.getId());
+            resetToken.setToken(token);
+            resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(15));
+            resetToken.setIsUsed(false);
+            passwordResetTokenRepository.save(resetToken);
+
+            recordAuditLog(user.getId(), normalizedEmail, "FORGOT_PASSWORD_REQUEST",
+                    ipAddress, userAgent, "Đã tạo mã đặt lại mật khẩu có thời hạn 15 phút");
+
+            log.info("Khởi tạo token đặt lại mật khẩu 15 phút cho email {}: token={}", normalizedEmail, token);
+        } else {
+            recordAuditLog(null, normalizedEmail, "FORGOT_PASSWORD_NONEXISTENT",
+                    ipAddress, userAgent, "Yêu cầu đặt lại mật khẩu cho email không tồn tại trong hệ thống");
+            log.info("Yêu cầu quên mật khẩu cho email không tồn tại: {}", normalizedEmail);
+        }
+    }
+
+    /**
+     * Thiết lập mật khẩu mới bằng token 15 phút.
+     * Quy trình xử lý:
+     * 1. Kiểm tra tính hợp lệ của token trong database (phải tồn tại, chưa dùng, chưa hết hạn).
+     * 2. Băm mật khẩu mới bằng thuật toán BCrypt và lưu vào User.
+     * 3. Đánh dấu token đã được sử dụng (is_used = true).
+     * 4. Thu hồi toàn bộ Refresh Token của user đó để buộc đăng nhập lại trên mọi thiết bị.
+     * 5. Ghi nhật ký kiểm toán PASSWORD_CHANGED.
+     *
+     * @param request   DTO chứa token và mật khẩu mới
+     * @param ipAddress Địa chỉ IP
+     * @param userAgent Thiết bị client
+     */
+    @Override
+    @Transactional
+    public void resetPassword(com.englishcenter.admission.dto.auth.ResetPasswordRequest request, String ipAddress, String userAgent) {
+        String tokenStr = request.getToken().trim();
+        Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(tokenStr);
+
+        if (tokenOpt.isEmpty() || Boolean.TRUE.equals(tokenOpt.get().getIsUsed())) {
+            recordAuditLog(null, null, "RESET_PASSWORD_FAILED", ipAddress, userAgent, "Token đặt lại mật khẩu không hợp lệ hoặc đã qua sử dụng");
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_INVALID, "Mã token đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng");
+        }
+
+        PasswordResetToken resetToken = tokenOpt.get();
+
+        if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            resetToken.setIsUsed(true);
+            passwordResetTokenRepository.save(resetToken);
+            recordAuditLog(resetToken.getUserId(), null, "RESET_PASSWORD_EXPIRED", ipAddress, userAgent, "Token đặt lại mật khẩu đã hết hạn 15 phút");
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_EXPIRED, "Mã token đặt lại mật khẩu đã hết hạn 15 phút, vui lòng gửi lại yêu cầu");
+        }
+
+        User user = userRepository.findById(resetToken.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_USER_NOT_FOUND, "Không tìm thấy người dùng sở hữu token"));
+
+        // Cập nhật mật khẩu mới băm BCrypt
+        String passwordHash = passwordEncoder.encode(request.getNewPassword());
+        user.setPasswordHash(passwordHash);
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+
+        // Đánh dấu token đã sử dụng
+        resetToken.setIsUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        // Thu hồi toàn bộ phiên đăng nhập cũ để bảo đảm an toàn
+        refreshTokenRepository.revokeAllByUserId(user.getId());
+
+        recordAuditLog(user.getId(), user.getEmail(), "PASSWORD_CHANGED",
+                ipAddress, userAgent, "Đặt lại mật khẩu thành công qua token 15 phút và hủy bỏ mọi phiên cũ");
+
+        log.info("Đặt lại mật khẩu thành công cho người dùng ID={}", user.getId());
     }
 
     /**

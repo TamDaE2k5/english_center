@@ -1,11 +1,13 @@
 package com.englishcenter.admission.controller;
 
 import com.englishcenter.admission.common.dto.ApiResponse;
+import com.englishcenter.admission.dto.auth.ForgotPasswordRequest;
 import com.englishcenter.admission.dto.auth.LoginRequest;
 import com.englishcenter.admission.dto.auth.LoginResponse;
 import com.englishcenter.admission.dto.auth.LogoutRequest;
 import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
 import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
+import com.englishcenter.admission.dto.auth.ResetPasswordRequest;
 import com.englishcenter.admission.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -82,6 +84,48 @@ public class AuthController {
 
         authService.logout(request, ipAddress, userAgent);
         return ResponseEntity.ok(ApiResponse.success(null, "Đăng xuất thành công"));
+    }
+
+    /**
+     * Yêu cầu gửi liên kết đặt lại mật khẩu qua email (thời hạn 15 phút).
+     *
+     * @param request     DTO chứa email
+     * @param httpRequest Đối tượng HttpServletRequest
+     * @return ApiResponse thông báo thành công chung
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+
+        String ipAddress = extractClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        authService.forgotPassword(request, ipAddress, userAgent);
+        return ResponseEntity.ok(ApiResponse.success(
+                null, "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đến bạn"
+        ));
+    }
+
+    /**
+     * Thiết lập mật khẩu mới bằng mã token 15 phút.
+     *
+     * @param request     DTO chứa token và mật khẩu mới
+     * @param httpRequest Đối tượng HttpServletRequest
+     * @return ApiResponse thông báo thành công
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request,
+            HttpServletRequest httpRequest) {
+
+        String ipAddress = extractClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        authService.resetPassword(request, ipAddress, userAgent);
+        return ResponseEntity.ok(ApiResponse.success(
+                null, "Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới"
+        ));
     }
 
     /**

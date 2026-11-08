@@ -15,13 +15,13 @@
 | Phân kỳ | Số lượng Task | Hoàn thành | Tỷ lệ (%) | Trạng thái |
 |---|:---:|:---:|:---:|:---:|
 | **Phase 0: Nền móng & Hạ tầng (INF)** | 4 | 4 | 100% | 🟢 Hoàn thành |
-| **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 4 | 66.7% | 🟡 Đang thực hiện |
+| **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 5 | 83.3% | 🟡 Đang thực hiện |
 | **Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)** | 3 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)** | 8 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 5: Xuất Dữ liệu & Phân tích BI (OPS/BI)** | 4 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 6: Giao diện Người dùng Frontend (UI)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **TỔNG CỘNG** | **35 Tasks** | **8** | **22.9%** | **Đang triển khai** |
+| **TỔNG CỘNG** | **35 Tasks** | **9** | **25.7%** | **Đang triển khai** |
 
 ---
 
@@ -64,9 +64,10 @@
   - *File chi tiết*: [`phase-1-iam/TASK-ADM-13-IAM-TOKEN-ROTATION.md`](phase-1-iam/TASK-ADM-13-IAM-TOKEN-ROTATION.md)
   - *Invariant*: `INV-SYS-01`, `INV-SEC-01`
   - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
-- [ ] **`TASK-ADM-14`**: Quy trình Quên mật khẩu & Đặt lại Mật khẩu qua Token Email 15 phút (`FR-IAM-06`)
+- [x] **`TASK-ADM-14`**: Quy trình Quên mật khẩu & Đặt lại Mật khẩu qua Token Email 15 phút (`FR-IAM-06`)
   - *File chi tiết*: [`phase-1-iam/TASK-ADM-14-IAM-PASSWORD-RESET.md`](phase-1-iam/TASK-ADM-14-IAM-PASSWORD-RESET.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Invariant*: `INV-SYS-01`, `INV-SEC-03`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 - [ ] **`TASK-ADM-15`**: Hệ thống Truy vấn Nhật ký Kiểm toán & Cảnh báo An toàn Tài khoản (`FR-IAM-07`, `BI-SEC-01`)
   - *File chi tiết*: [`phase-1-iam/TASK-ADM-15-IAM-AUDIT-LOGS.md`](phase-1-iam/TASK-ADM-15-IAM-AUDIT-LOGS.md)
   - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`

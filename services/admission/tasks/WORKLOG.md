@@ -43,6 +43,24 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:45] - AI Assistant (Pair with Team Lead) - TASK-ADM-14
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai luồng quên mật khẩu tự phục vụ (`POST /api/admission/auth/forgot-password`) với cơ chế phòng chống rò quét email (Email Enumeration Prevention), cấp mã token bảo mật 15 phút lưu vào `admission.password_reset_tokens`, và API đặt lại mật khẩu (`POST /api/admission/auth/reset-password`) cập nhật mật khẩu băm BCrypt, vô hiệu hóa token và thu hồi toàn bộ session đăng nhập cũ của người dùng.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `repository/PasswordResetTokenRepository.java`: Quản lý tra cứu và vô hiệu hóa token đặt lại mật khẩu (`invalidateAllByUserId`).
+    - `dto/auth/ForgotPasswordRequest.java`: DTO nhận email yêu cầu khôi phục mật khẩu.
+    - `dto/auth/ResetPasswordRequest.java`: DTO nhận token xác thực và mật khẩu mới (tối thiểu 8 ký tự).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `service/AuthService.java` & `AuthServiceImpl.java`: Triển khai `forgotPassword` và `resetPassword` với đầy đủ kiểm tra hạn 15 phút, thu hồi refresh tokens và ghi nhận nhật ký kiểm toán `PASSWORD_CHANGED`, `FORGOT_PASSWORD_REQUEST`.
+    - `controller/AuthController.java`: Khai báo endpoints `/api/admission/auth/forgot-password` và `/api/admission/auth/reset-password`.
+    - `src/test/java/com/englishcenter/admission/service/AuthServiceTest.java`: Bổ sung 2 test case kiểm tra luồng quên mật khẩu và đặt lại mật khẩu thành công (8 tests passed).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `21/21 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (60 source files compiled in 3.85s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-15` (Hệ thống Truy vấn Nhật ký Kiểm toán & Cảnh báo An toàn Tài khoản).
+
 ### [2026-11-08 16:40] - AI Assistant (Pair with Team Lead) - TASK-ADM-13
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai cơ chế Refresh Token Rotation (RTR) chống tấn công Replay Attack (`POST /api/admission/auth/refresh`), thu hồi lập tức token cũ khi cấp token mới, phòng vệ an ninh tự động hủy toàn bộ phiên của người dùng nếu phát hiện tái sử dụng token đã thu hồi, và endpoint đăng xuất thu hồi token (`POST /api/admission/auth/logout`).
