@@ -44,7 +44,7 @@ Tất cả API Finance sử dụng prefix:
 
 `/api/finance/...`
 
-Finance Service chạy tại port nội bộ `8083`. Nginx Gateway tiếp nhận và định tuyến request theo prefix trên.
+Finance Service chạy tại port nội bộ `8084` (theo `docker-compose.yml` và `gateway/nginx.conf`). Nginx Gateway tiếp nhận và định tuyến request theo prefix trên.
 
 ---
 
