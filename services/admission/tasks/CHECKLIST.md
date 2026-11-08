@@ -79,10 +79,10 @@
 - [x] **`TASK-ADM-20`**: Quản lý Danh mục Phòng học, Ca học & Mẫu Ngày học (`FR-FAC-01`, `FR-FAC-02`)
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-20-FAC-ROOM-MANAGEMENT.md`](phase-2-academic-facility/TASK-ADM-20-FAC-ROOM-MANAGEMENT.md)
   - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
-- [ ] **`TASK-ADM-21`**: Quản lý Khóa học, Học phí Chuẩn & Khóa học Tiên quyết (`FR-ACA-01`)
+- [x] **`TASK-ADM-21`**: Quản lý Khóa học, Học phí Chuẩn & Khóa học Tiên quyết (`FR-ACA-01`)
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-21-ACA-COURSE-MANAGEMENT.md`](phase-2-academic-facility/TASK-ADM-21-ACA-COURSE-MANAGEMENT.md)
   - *Invariant*: `INV-ADM-02` (Mã khóa học duy nhất)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 - [ ] **`TASK-ADM-22`**: Quản lý Mở Lớp học, Kiểm tra Sức chứa Phòng & Vòng đời Lớp (`FR-ACA-02`, `FR-ACA-04`, `FR-FAC-03`)
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-22-ACA-CLASS-MANAGEMENT.md`](phase-2-academic-facility/TASK-ADM-22-ACA-CLASS-MANAGEMENT.md)
   - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`

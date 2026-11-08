@@ -43,6 +43,26 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 17:10] - AI Assistant (Pair with Team Lead) - TASK-ADM-21
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai Quản lý Khóa học, Học phí Chuẩn & Khóa học Tiên quyết (FR-ACA-01, INV-ADM-02), bảo vệ tính duy nhất của mã khóa học code, hỗ trợ khóa học tiên quyết (prerequisite_course_id) với thuật toán phát hiện và ngăn ngừa chu trình phụ thuộc (Circular Dependency A -> B -> A), bảo vệ tính toàn vẹn khi xóa khóa học (chặn xóa nếu có lớp học hoặc đang là điều kiện tiên quyết của khóa khác).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.dto.course.CreateCourseRequest`: DTO tạo khóa học kèm validation @NotBlank, @Min(1), @DecimalMin("0.0") và @JsonAlias cho title, tuition_fee.
+    - `com.englishcenter.admission.dto.course.UpdateCourseRequest`: DTO cập nhật khóa học.
+    - `com.englishcenter.admission.dto.course.CourseResponse`: DTO phản hồi thông tin khóa học kèm nạp mã và tên khóa tiên quyết.
+    - `com.englishcenter.admission.repository.ClassRepository`: Interface JPA repository quản lý lớp học và kiểm tra tồn tại existsByCourseId.
+    - `com.englishcenter.admission.service.CourseService`: Interface nghiệp vụ quản lý khóa học.
+    - `com.englishcenter.admission.service.impl.CourseServiceImpl`: Hiện thực nghiệp vụ kiểm tra trùng mã INV-ADM-02, kiểm tra khóa tiên quyết, thuật toán validateNoCircularDependency duyệt cây phụ thuộc, và bảo vệ ràng buộc khóa ngoại khi xóa.
+    - `com.englishcenter.admission.service.CourseServiceTest`: 8 bộ kiểm thử đơn vị bao phủ toàn diện luồng tạo, cập nhật, phát hiện chu trình, xóa có ràng buộc và kiểm tra mã duy nhất.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `com.englishcenter.admission.repository.CourseRepository`: Bổ sung existsByCode, existsByCodeAndIdNot, existsByPrerequisiteCourseId, searchCourses, findByIdWithPrerequisite.
+    - `com.englishcenter.admission.controller.CourseController`: Tái cấu trúc chuẩn 3 tầng (Controller -> Service -> Repository), chuẩn hóa API công khai (Public GET /api/admission/courses, GET /api/admission/courses/{id}) và phân quyền STAFF/ADMIN cho POST, PUT, DELETE, bọc toàn bộ phản hồi bằng ApiResponse<T>.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK` (Đạt chuẩn INV-ADM-02).
+  - Compile / Build: `Build Success` (39/39 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Sẵn sàng phục vụ TASK-ADM-22 (Class Management) và TASK-ADM-23 (Schedule Conflict Engine).
+
 ### [2026-11-08 17:00] - AI Assistant (Pair with Team Lead) - TASK-ADM-20
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai Quản lý Danh mục Phòng học, Ca học & Mẫu Ngày học (FR-FAC-01, FR-FAC-02), định nghĩa 6 ca học chuẩn (StandardShift) và 5 mẫu ngày học (DayPattern), xây dựng đầy đủ API CRUD phòng học có kiểm tra tính duy nhất của mã phòng và kiểm tra sức chứa tối thiểu >= 1.
