@@ -109,33 +109,34 @@
 ---
 
 ### Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)
-- [ ] **`TASK-ADM-40`**: Đăng ký Tuyển sinh Đa kênh (Online & Trực tiếp tại Quầy) (`FR-ENR-01`)
+- [x] **`TASK-ADM-40`**: Đăng ký Tuyển sinh Đa kênh (Online & Trực tiếp tại Quầy) (`FR-ENR-01`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-40-ENR-MULTI-CHANNEL.md`](phase-4-enrollment/TASK-ADM-40-ENR-MULTI-CHANNEL.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-41`**: Bảo vệ Sĩ số Trần Tuyệt đối khi Duyệt Đơn (Invariant Guard INV-ADM-01) (`FR-ENR-02`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-41`**: Bảo vệ Sĩ số Trần Tuyệt đối khi Duyệt Đơn (Invariant Guard INV-ADM-01) (`FR-ENR-02`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-41-ENR-CAPACITY-GUARD.md`](phase-4-enrollment/TASK-ADM-41-ENR-CAPACITY-GUARD.md)
   - *Invariant*: `INV-ADM-01` (Không vượt sĩ số trần)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-42`**: Cơ chế Cấp Slot Giữ chỗ 48h Cho Đơn Đăng ký PENDING (`FR-ENR-03`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-42`**: Cơ chế Cấp Slot Giữ chỗ 48h Cho Đơn Đăng ký PENDING (`FR-ENR-03`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-42-ENR-48H-SLOT-HOLDING.md`](phase-4-enrollment/TASK-ADM-42-ENR-48H-SLOT-HOLDING.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-43`**: Scheduled Background Job Tự động Thu hồi Slot Quá hạn (EXPIRED) (`FR-ENR-04`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-43`**: Scheduled Background Job Tự động Thu hồi Slot Quá hạn (EXPIRED) (`FR-ENR-04`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-43-ENR-EXPIRE-JOB.md`](phase-4-enrollment/TASK-ADM-43-ENR-EXPIRE-JOB.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-44`**: Tính năng Gia hạn Giữ chỗ Học vụ Kèm Lý do Nghiệp vụ (`FR-ENR-05`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-44`**: Tính năng Gia hạn Giữ chỗ Học vụ Kèm Lý do Nghiệp vụ (`FR-ENR-05`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-44-ENR-EXTEND-HOLD.md`](phase-4-enrollment/TASK-ADM-44-ENR-EXTEND-HOLD.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-45`**: Webhook Tiếp nhận Hóa đơn PAID từ Finance Service & Tự động Duyệt (`FR-ENR-06`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-45`**: Webhook Tiếp nhận Hóa đơn PAID từ Finance Service & Tự động Duyệt (`FR-ENR-06`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-45-ENR-AUTO-APPROVE-FINANCE.md`](phase-4-enrollment/TASK-ADM-45-ENR-AUTO-APPROVE-FINANCE.md)
-  - *Invariant*: `INV-ADM-01`
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-46`**: Quy trình Duyệt Đơn Nộp Tiền mặt Tại Quầy Dành cho Học vụ (`FR-ENR-07`)
+  - *Invariant*: `INV-ADM-01`, `INV-ENR-02`, `INV-ENR-03`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-46`**: Quy trình Duyệt Đơn Nộp Tiền mặt Tại Quầy Dành cho Học vụ (`FR-ENR-07`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-46-ENR-MANUAL-APPROVE.md`](phase-4-enrollment/TASK-ADM-46-ENR-MANUAL-APPROVE.md)
   - *Invariant*: `INV-ADM-01`, `INV-ADM-03` (State machine)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-47`**: Tự động Đồng bộ Hồ sơ Học viên sang Student Service khi Duyệt Thành công (`FR-ENR-08`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-47`**: Tự động Đồng bộ Hồ sơ Học viên sang Student Service khi Duyệt Thành công (`FR-ENR-08`)
   - *File chi tiết*: [`phase-4-enrollment/TASK-ADM-47-ENR-STUDENT-SYNC.md`](phase-4-enrollment/TASK-ADM-47-ENR-STUDENT-SYNC.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Invariant*: `INV-SYS-02`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 
 ---
 

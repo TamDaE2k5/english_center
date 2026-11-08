@@ -4,6 +4,7 @@ import com.englishcenter.admission.entity.Enrollment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -68,6 +69,17 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      * @return Optional chứa Enrollment
      */
     Optional<Enrollment> findByStudentIdAndClassId(Integer studentId, Integer classId);
+
+    /**
+     * Cập nhật hàng loạt các đơn giữ chỗ PENDING quá hạn sang trạng thái EXPIRED (TASK-ADM-43).
+     *
+     * @param now Thời điểm hiện tại
+     * @return Số lượng bản ghi đã được cập nhật sang EXPIRED
+     */
+    @Modifying
+    @Query("UPDATE Enrollment e SET e.status = 'EXPIRED', e.updatedAt = :now " +
+           "WHERE e.status = 'PENDING' AND e.holdExpiresAt IS NOT NULL AND e.holdExpiresAt < :now")
+    int expireOverdueEnrollments(@Param("now") LocalDateTime now);
 
     /**
      * Tìm danh sách đơn giữ chỗ PENDING đã quá hạn 48h cần giải phóng.

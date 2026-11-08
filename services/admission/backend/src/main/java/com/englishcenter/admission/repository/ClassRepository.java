@@ -1,7 +1,9 @@
 package com.englishcenter.admission.repository;
 
 import com.englishcenter.admission.entity.ClassEntity;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -64,6 +66,16 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
            "(:status IS NULL OR c.status = :status) " +
            "ORDER BY c.startDate DESC, c.code ASC")
     List<ClassEntity> searchClasses(@Param("courseId") Integer courseId, @Param("status") String status);
+
+    /**
+     * Tìm lớp học kèm khóa bi quan PESSIMISTIC_WRITE để chống race-condition khi duyệt đơn (INV-ADM-01).
+     *
+     * @param id ID lớp học
+     * @return Optional chứa ClassEntity
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id")
+    Optional<ClassEntity> findByIdWithLock(@Param("id") Integer id);
 
     /**
      * Tìm các lớp học trùng phòng có giao cắt cả về khoảng ngày và khung giờ học.

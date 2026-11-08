@@ -53,6 +53,7 @@ public enum ErrorCode {
     // 6. Nhóm Tuyển Sinh & Giữ Chỗ (ADM_ENROLLMENT_*)
     // ==========================================
     ADM_ENROLLMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh"),
+    ADM_ENROLLMENT_EXISTS(HttpStatus.CONFLICT, "Học viên đã có đơn đăng ký cho lớp học này"),
     ADM_HOLD_EXPIRED(HttpStatus.BAD_REQUEST, "Thời hạn giữ chỗ 48h của đơn đăng ký đã hết hạn"),
     ADM_INVALID_STATE_TRANSITION(HttpStatus.BAD_REQUEST, "Chuyển trạng thái đơn không hợp lệ theo quy trình nghiệp vụ"),
 

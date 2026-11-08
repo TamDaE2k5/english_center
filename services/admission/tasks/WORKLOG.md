@@ -43,6 +43,35 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 18:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-40 -> TASK-ADM-47
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất 100% Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR) gồm toàn bộ 8 tasks (TASK-ADM-40 đến TASK-ADM-47), bảo vệ nghiêm ngặt các quy tắc bất biến INV-ADM-01, INV-ADM-03, INV-ENR-02, INV-ENR-03, INV-SYS-02 và INV-SEC-01.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/enrollment/CreateEnrollmentRequest.java`: DTO nhận yêu cầu đăng ký tuyển sinh đa kênh kèm validation.
+    - `dto/enrollment/EnrollmentResponse.java`: DTO trả về chi tiết đơn tuyển sinh, thông tin lớp, mã đếm ngược giữ chỗ remaining_seconds.
+    - `dto/enrollment/ExtendHoldRequest.java`: DTO nhận yêu cầu gia hạn giữ chỗ 1-72h kèm lý do nghiệp vụ.
+    - `dto/enrollment/ManualApproveRequest.java`: DTO duyệt nộp tiền mặt/POS tại quầy kèm số phiếu thu.
+    - `dto/webhook/PaymentSuccessWebhookRequest.java`: DTO tiếp nhận callback thanh toán từ Finance Service.
+    - `repository/ProcessedFinanceEventRepository.java`: Kho truy vấn bảng admission.processed_finance_events phục vụ Idempotency INV-ENR-02.
+    - `helper/StudentServiceSyncHelper.java`: Helper đồng bộ hồ sơ học viên sang Student Service bất đồng bộ/resilient INV-SYS-02.
+    - `service/EnrollmentService.java` & `service/impl/EnrollmentServiceImpl.java`: Toàn bộ logic nghiệp vụ tuyển sinh, giữ chỗ 48h, duyệt đơn, webhook callback, hủy đơn và tra cứu phân quyền INV-SEC-01.
+    - `job/HoldSlotExpirationJob.java`: Scheduled background job quét và thu hồi slot quá hạn mỗi 5 phút (TASK-ADM-43).
+    - `controller/EnrollmentController.java`: Endpoints RESTful tuyển sinh, bàn tiếp nhận đơn học vụ và hủy đơn.
+    - `controller/WebhookController.java`: Endpoint nhận callback thanh toán thành công `/api/admission/webhooks/payment-success`.
+    - `src/test/java/com/englishcenter/admission/service/EnrollmentServiceTest.java`: 14 bài kiểm thử đơn vị JUnit 5 & Mockito bao phủ toàn bộ invariant guards.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/ClassRepository.java`: Thêm `@Lock(LockModeType.PESSIMISTIC_WRITE) findByIdWithLock` chống race condition duyệt đơn INV-ADM-01.
+    - `repository/EnrollmentRepository.java`: Bổ sung `@Modifying expireOverdueEnrollments`.
+    - `common/exception/ErrorCode.java`: Thêm mã lỗi `ADM_ENROLLMENT_EXISTS`.
+    - `AdmissionApplication.java`: Thêm `@EnableScheduling` và `@EnableAsync`.
+    - `tasks/CHECKLIST.md`: Đánh dấu hoàn thành toàn bộ 8 tasks của Phase 4.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `77/77 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (133 source files compiled)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 4 (ENR). Sẵn sàng chuyển tiếp sang Phase 5: Xuất Dữ liệu & Báo cáo Thông minh BI (OPS/BI - TASK-ADM-50 đến TASK-ADM-53).
+
 ### [2026-11-08 17:45] - AI Assistant (Pair with Team Lead) - TASK-ADM-30, TASK-ADM-31, TASK-ADM-32
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai toàn bộ Phân hệ Khảo thí Đầu vào Chuyên sâu (TST) gồm: Quản lý Ngân hàng Bộ Đề & Câu hỏi 3 Kỹ năng (FR-TST-01, FR-TST-02), Động cơ Thi Trực tuyến Countdown, Tự động Chấm điểm bóc tách Listening, Reading, Grammar (FR-TST-03, FR-TST-04, INV-TST-02), và Động cơ Khớp Quy tắc Đề xuất Khóa học kèm danh sách lớp còn slot khả dụng (FR-TST-05, TASK-ADM-32).
