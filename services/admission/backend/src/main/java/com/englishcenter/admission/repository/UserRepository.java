@@ -38,4 +38,19 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * @return Trang danh sách người dùng
      */
     Page<User> findByRole(String role, Pageable pageable);
+
+    /**
+     * Tìm kiếm và lọc danh sách người dùng theo vai trò và từ khóa (email hoặc họ tên).
+     *
+     * @param role     Vai trò người dùng (hoặc null nếu lấy tất cả)
+     * @param keyword  Từ khóa tìm kiếm (hoặc null)
+     * @param pageable Tham số phân trang
+     * @return Trang danh sách người dùng khớp điều kiện
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE " +
+            "(:role IS NULL OR u.role = :role) AND " +
+            "(:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<User> searchUsers(@org.springframework.data.repository.query.Param("role") String role,
+                           @org.springframework.data.repository.query.Param("keyword") String keyword,
+                           Pageable pageable);
 }

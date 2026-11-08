@@ -1,5 +1,9 @@
 package com.englishcenter.admission.service;
 
+import com.englishcenter.admission.common.dto.PageResponse;
+import com.englishcenter.admission.dto.user.CreateUserRequest;
+import com.englishcenter.admission.dto.user.UpdateUserRequest;
+import com.englishcenter.admission.dto.user.UserResponse;
 import com.englishcenter.admission.entity.User;
 
 /**
@@ -17,4 +21,51 @@ public interface UserService {
      * @return Thực thể User đại diện cho học viên
      */
     User getOrCreateStudentUser(String email, String fullName, String phone);
+
+    /**
+     * Tạo tài khoản nhân sự mới (STAFF hoặc TEACHER) bởi Quản trị viên (ADMIN).
+     *
+     * @param request DTO chứa thông tin nhân viên mới
+     * @return DTO UserResponse thông tin tài khoản vừa tạo
+     */
+    UserResponse createUser(CreateUserRequest request);
+
+    /**
+     * Lấy chi tiết thông tin tài khoản người dùng theo ID (kiểm tra ranh giới bảo mật INV-SEC-01).
+     *
+     * @param id ID người dùng cần xem
+     * @return DTO UserResponse
+     */
+    UserResponse getUserById(Integer id);
+
+    /**
+     * Truy vấn danh sách tài khoản người dùng có phân trang và lọc theo vai trò, từ khóa.
+     *
+     * @param role    Vai trò người dùng (ADMIN, STAFF, TEACHER, STUDENT) hoặc null
+     * @param keyword Từ khóa tìm kiếm theo email hoặc họ tên (hoặc null)
+     * @param page    Số trang (0-based)
+     * @param size    Số lượng bản ghi mỗi trang
+     * @return PageResponse chứa danh sách UserResponse
+     */
+    PageResponse<UserResponse> listUsers(String role, String keyword, int page, int size);
+
+    /**
+     * Cập nhật thông tin hồ sơ người dùng (chỉ ADMIN hoặc chính chủ tài khoản mới được cập nhật).
+     *
+     * @param id      ID người dùng cần cập nhật
+     * @param request DTO chứa thông tin cập nhật
+     * @return DTO UserResponse sau cập nhật
+     */
+    UserResponse updateUser(Integer id, UpdateUserRequest request);
+
+    /**
+     * Khóa hoặc mở khóa tài khoản người dùng (chỉ ADMIN).
+     * Khi khóa tài khoản, lập tức thu hồi toàn bộ Refresh Token đang hoạt động và ghi nhật ký kiểm toán.
+     *
+     * @param id       ID người dùng cần thao tác
+     * @param isActive Trạng thái mong muốn (true: mở khóa, false: khóa)
+     * @param reason   Lý do khóa hoặc mở khóa
+     * @return DTO UserResponse sau khi cập nhật trạng thái
+     */
+    UserResponse toggleUserStatus(Integer id, boolean isActive, String reason);
 }

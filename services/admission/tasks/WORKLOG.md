@@ -43,6 +43,29 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:30] - AI Assistant (Pair with Team Lead) - TASK-ADM-11
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Xây dựng toàn bộ luồng quản lý nhân sự Staff/Teacher và cơ chế Khóa/Mở khóa tài khoản (FR-IAM-02, FR-IAM-05), thu hồi lập tức Refresh Token khi khóa tài khoản, ghi nhận nhật ký kiểm toán và bảo vệ ranh giới xem hồ sơ INV-SEC-01.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `repository/RefreshTokenRepository.java`: Quản lý truy vấn và thu hồi token (`revokeAllByUserId`).
+    - `repository/AuthAuditLogRepository.java`: Quản lý ghi và truy vấn nhật ký kiểm toán bảo mật.
+    - `dto/user/CreateUserRequest.java`: DTO tạo nhân viên mới (validation email, role STAFF|TEACHER, password >= 8 ký tự).
+    - `dto/user/UpdateUserRequest.java`: DTO cập nhật hồ sơ người dùng.
+    - `dto/user/ToggleActiveRequest.java`: DTO khóa/mở khóa tài khoản kèm lý do.
+    - `dto/user/UserResponse.java`: DTO trả về thông tin người dùng an toàn.
+    - `controller/UserController.java`: Endpoints REST API `/api/admission/users` với `@PreAuthorize("hasRole('ADMIN')")` và phân quyền chi tiết.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/UserRepository.java`: Bổ sung `@Query searchUsers` tìm kiếm theo role và từ khóa keyword.
+    - `service/UserService.java` & `UserServiceImpl.java`: Triển khai các hàm `createUser`, `getUserById`, `listUsers`, `updateUser`, `toggleUserStatus`, kiểm tra `INV-SEC-01`.
+    - `common/dto/PageResponse.java`: Bổ sung static factory method `PageResponse.of(...)`.
+    - `src/test/java/com/englishcenter/admission/service/UserServiceTest.java`: Bổ sung các test case kiểm tra tạo nhân viên, kiểm tra trùng email, kiểm tra INV-SEC-01 cách ly học viên, kiểm tra khóa tài khoản thu hồi token (6 tests passed).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `13/13 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (50 source files compiled in 3.55s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-12` (API Đăng nhập, cấp JWT kép & ghi nhận nhật ký kiểm toán bảo mật).
+
 ### [2026-11-08 16:25] - AI Assistant (Pair with Team Lead) - TASK-ADM-10
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai cơ chế tự động tìm kiếm hoặc khởi tạo tài khoản học viên (role STUDENT) với mật khẩu ngẫu nhiên băm BCrypt, cờ must_change_password=true khi học viên nộp đơn online hoặc làm bài kiểm tra đầu vào (FR-IAM-01).

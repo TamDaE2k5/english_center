@@ -1,8 +1,19 @@
 package com.englishcenter.admission.service;
 
+import com.englishcenter.admission.common.dto.PageResponse;
+import com.englishcenter.admission.common.exception.BusinessException;
+import com.englishcenter.admission.common.exception.ErrorCode;
+import com.englishcenter.admission.dto.user.CreateUserRequest;
+import com.englishcenter.admission.dto.user.UpdateUserRequest;
+import com.englishcenter.admission.dto.user.UserResponse;
+import com.englishcenter.admission.entity.AuthAuditLog;
 import com.englishcenter.admission.entity.User;
+import com.englishcenter.admission.repository.AuthAuditLogRepository;
+import com.englishcenter.admission.repository.RefreshTokenRepository;
 import com.englishcenter.admission.repository.UserRepository;
+import com.englishcenter.admission.security.UserPrincipal;
 import com.englishcenter.admission.service.impl.UserServiceImpl;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,12 +21,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,13 +46,34 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private AuthAuditLogRepository authAuditLogRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(userRepository, passwordEncoder);
+        userService = new UserServiceImpl(userRepository, refreshTokenRepository, authAuditLogRepository, passwordEncoder);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void mockSecurityContext(Integer userId, String email, String role) {
+        UserPrincipal principal = new UserPrincipal(
+                userId, email, "pwd", "Test User", role, true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+        );
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
@@ -89,7 +130,86 @@ class UserServiceTest {
         assertEquals(42, result.getId());
         assertEquals(email, result.getEmail());
 
-        // Không tạo mới mật khẩu và không gọi save tạo mới
         verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("Tạo tài khoản nhân viên thành công và ghi log kiểm toán")
+    void testCreateUser_Success() {
+        mockSecurityContext(1, "admin@englishcenter.edu.vn", "ADMIN");
+
+        CreateUserRequest req = new CreateUserRequest();
+        req.setEmail("teacher.lan@englishcenter.edu.vn");
+        req.setPassword("Password@123");
+        req.setRole("TEACHER");
+        req.setFullName("Nguyen Thi Lan");
+        req.setPhone("0987654321");
+        req.setGender("FEMALE");
+        req.setDateOfBirth(LocalDate.of(1992, 5, 15));
+
+        when(userRepository.existsByEmail("teacher.lan@englishcenter.edu.vn")).thenReturn(false);
+        when(passwordEncoder.encode("Password@123")).thenReturn("$2a$10$encodedPwd");
+
+        User savedUser = new User();
+        savedUser.setId(10);
+        savedUser.setEmail(req.getEmail());
+        savedUser.setFullName(req.getFullName());
+        savedUser.setRole("TEACHER");
+        savedUser.setIsActive(true);
+
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        UserResponse res = userService.createUser(req);
+
+        assertNotNull(res);
+        assertEquals(10, res.getId());
+        assertEquals("TEACHER", res.getRole());
+        verify(authAuditLogRepository).save(any(AuthAuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Tạo tài khoản thất bại khi email đã tồn tại (ADM_USER_EMAIL_EXISTS)")
+    void testCreateUser_EmailExists() {
+        CreateUserRequest req = new CreateUserRequest();
+        req.setEmail("duplicate@englishcenter.edu.vn");
+        req.setRole("STAFF");
+        req.setPassword("password123");
+        req.setFullName("Duplicate User");
+
+        when(userRepository.existsByEmail("duplicate@englishcenter.edu.vn")).thenReturn(true);
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> userService.createUser(req));
+        assertEquals(ErrorCode.ADM_USER_EMAIL_EXISTS, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("INV-SEC-01: Học viên không được phép xem hồ sơ của học viên khác")
+    void testGetUserById_IsolationForbidden() {
+        mockSecurityContext(10, "student10@englishcenter.edu.vn", "STUDENT");
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> userService.getUserById(99));
+        assertEquals(ErrorCode.AUTH_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Khóa tài khoản thành công sẽ thu hồi toàn bộ Refresh Token của user")
+    void testToggleUserStatus_LockUser() {
+        mockSecurityContext(1, "admin@englishcenter.edu.vn", "ADMIN");
+
+        User user = new User();
+        user.setId(20);
+        user.setEmail("staff20@englishcenter.edu.vn");
+        user.setIsActive(true);
+        user.setRole("STAFF");
+
+        when(userRepository.findById(20)).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserResponse response = userService.toggleUserStatus(20, false, "Vi phạm quy định");
+
+        assertNotNull(response);
+        assertFalse(response.getIsActive());
+        verify(refreshTokenRepository).revokeAllByUserId(20);
+        verify(authAuditLogRepository).save(any(AuthAuditLog.class));
     }
 }

@@ -36,6 +36,31 @@ public class PageResponse<T> {
         this.totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
     }
 
+    /**
+     * Phương thức nhà máy tạo đối tượng PageResponse từ các tham số cơ bản.
+     *
+     * @param items Danh sách phần tử
+     * @param page  Chỉ số trang (0-based)
+     * @param size  Số phần tử trên trang
+     * @param total Tổng số phần tử
+     * @param <T>   Kiểu dữ liệu
+     * @return Đối tượng PageResponse
+     */
+    public static <T> PageResponse<T> of(List<T> items, int page, int size, long total) {
+        return new PageResponse<>(items, total, page, size);
+    }
+
+    /**
+     * Phương thức nhà máy tạo đối tượng PageResponse từ Spring Data Page.
+     *
+     * @param springPage Trang dữ liệu của Spring Data
+     * @param <T>        Kiểu dữ liệu
+     * @return Đối tượng PageResponse
+     */
+    public static <T> PageResponse<T> of(org.springframework.data.domain.Page<T> springPage) {
+        return new PageResponse<>(springPage.getContent(), springPage.getTotalElements(), springPage.getNumber(), springPage.getSize());
+    }
+
     public List<T> getItems() {
         return items;
     }
