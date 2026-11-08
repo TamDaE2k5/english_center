@@ -5,7 +5,7 @@
 > - Đặc tả Kiến trúc Kỹ thuật: [`../docs/finance-tech-spec.md`](../docs/finance-tech-spec.md)
 > - Đặc tả Cơ sở dữ liệu: [`../docs/finance-schema-spec.md`](../docs/finance-schema-spec.md)
 > - Đặc tả Thiết kế UML: [`../docs/finance-uml-spec.md`](../docs/finance-uml-spec.md)
-> - Tổng hợp Tính năng & DDL: [`../docs/tong_hop_finance_tinh_nang_va_schema_ver2.md`](../docs/tong_hop_finance_tinh_nang_va_schema_ver2.md)
+> - Tổng hợp Tính năng & DDL: [`../docs/tong_hop_finance_tinh_nang_va_schema.md`](../docs/tong_hop_finance_tinh_nang_va_schema.md)
 > - **Bảng Theo dõi Tiến độ (Checklist)**: [`CHECKLIST.md`](CHECKLIST.md)
 > - **Nhật ký Phối hợp Nhóm (Worklog)**: [`WORKLOG.md`](WORKLOG.md)
 > - **Danh mục Toàn bộ API Endpoints Dự kiến**: [`API_CATALOG.md`](API_CATALOG.md)

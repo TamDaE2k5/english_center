@@ -45,21 +45,21 @@
 
 
 ## 3. Thiết kế API Endpoints (Dự kiến)
-*(Frontend sẽ gọi các API này qua cổng Nginx Gateway ở địa chỉ `http://localhost:8080/api/v1/...`)*
+*(Frontend sẽ gọi các API này qua cổng Nginx Gateway ở địa chỉ `http://localhost:8080/api/student/... (hỗ trợ song song alias /api/student/...)`)*
 
 ### Nhóm API Hồ sơ (STU-01)
-- `GET /api/v1/students` : Lấy danh sách học viên (có phân trang, tìm kiếm theo tên/mã).
-- `POST /api/v1/students` : Tạo hồ sơ (Hệ thống tự sinh `student_code`).
-- `PUT /api/v1/students/{id}` : Cập nhật thông tin.
-- `GET /api/v1/students/{id}` : Lấy chi tiết hồ sơ.
+- `GET /api/student/students` : Lấy danh sách học viên (có phân trang, tìm kiếm theo tên/mã).
+- `POST /api/student/students` : Tạo hồ sơ (Hệ thống tự sinh `student_code`).
+- `PUT /api/student/students/{id}` : Cập nhật thông tin.
+- `GET /api/student/students/{id}` : Lấy chi tiết hồ sơ.
 
 ### Nhóm API Điểm danh (STU-02)
-- **`GET /api/v1/classes/{class_id}/members`** : Lấy danh sách học viên của lớp. 
+- **`GET /api/student/classes/{class_id}/members`** : Lấy danh sách học viên của lớp. 
   - *Lưu ý kiến trúc:* API này sẽ **gọi sang phân hệ Tuyển sinh (Admission)** để lấy dữ liệu từ bảng `admission.enrollments` (với điều kiện `status = 'APPROVED'`). Tuyệt đối không tạo bảng `class_members` riêng.
-- `POST /api/v1/attendance` : Điểm danh học viên. 
+- `POST /api/student/attendance` : Điểm danh học viên. 
   - *Logic:* Nếu gửi request trùng `class_id`, `student_id`, `session_date` (đã có trong DB), trả về lỗi `HTTP 400 Bad Request` kèm mã lỗi `ATTENDANCE_DUPLICATE`.
 
 ### Nhóm API Bảo lưu/Rút hồ sơ (STU-03)
-- `POST /api/v1/status-requests` : Học viên gửi yêu cầu.
-- `PUT /api/v1/status-requests/{id}/approve` : Staff duyệt yêu cầu.
+- `POST /api/student/status-requests` : Học viên gửi yêu cầu.
+- `PUT /api/student/status-requests/{id}/approve` : Staff duyệt yêu cầu.
   - *Logic:* Cập nhật trạng thái trong `status_requests` thành `APPROVED`, đồng thời UPDATE trạng thái bên bảng `students` thành `RESERVED` (nếu bảo lưu) hoặc `DROPPED` (nếu rút hồ sơ).

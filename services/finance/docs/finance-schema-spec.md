@@ -1,643 +1,794 @@
-# ĐẶC TẢ CHI TIẾT CƠ SỞ DỮ LIỆU & TỪ ĐIỂN DỮ LIỆU (DATABASE SCHEMA SPECIFICATION)
-## SCHEMA: `finance` (POSTGRESQL)
+# ĐẶC TẢ CƠ SỞ DỮ LIỆU CHÍNH THỨC: SCHEMA `finance`
 
-> **Dự án:** Hệ thống Quản lý Trung tâm Ngoại ngữ  
-> **Service:** `finance-service`  
-> **Port:** `8083`  
-> **Database:** PostgreSQL  
-> **Primary Key:** SERIAL  
-> **Logical Foreign Key:** INTEGER  
-> **Phiên bản thiết kế:** Finance Module 2.0
+> **Dịch vụ:** `finance-service` (port 8084) | **Công nghệ:** Python 3.11, FastAPI, SQLAlchemy | **Phụ trách:** Nhóm 4 (Chi, Phúc)  
+> **Phiên bản:** Final 1.0 (bản tổng hợp cuối của Leader) | **CSDL:** PostgreSQL 16, schema `finance`  
+> **Tài liệu liên quan:** [`docs/MASTER_DB_AND_API_RULES.md`](../../../docs/MASTER_DB_AND_API_RULES.md) (quy tắc API liên service), [`docs/invariants.md`](../../../docs/invariants.md) (bất biến hệ thống).
 
----
+## Mục lục
 
-## MỤC LỤC
-1. [Triết lý Thiết kế & Ranh giới Dữ liệu](#1-triết-lý-thiết-kế--ranh-giới-dữ-liệu)
-2. [Sơ đồ Thực thể Quan hệ (ERD)](#2-sơ-đồ-thực-thể-quan-hệ-erd)
-3. [Từ điển Dữ liệu Chi tiết 8 Bảng](#3-từ-điển-dữ-liệu-chi-tiết-8-bảng)
-4. [Máy trạng thái & Quy tắc Bất biến](#4-máy-trạng-thái--quy-tắc-bất-biến)
-5. [Toàn văn DDL PostgreSQL](#5-toàn-văn-ddl-postgresql)
-6. [Định nghĩa 2 BI Views](#6-định-nghĩa-2-bi-views)
+1. Phạm vi & ranh giới dữ liệu
+2. Danh mục thực thể
+3. Sơ đồ ERD
+4. Liên kết logic liên service
+5. Từ điển dữ liệu chi tiết
+6. View báo cáo
+7. Máy trạng thái
+8. Quy tắc bất biến
+9. Quy tắc API liên service
+10. Ghi chú triển khai & quyết định thiết kế
 
 ---
 
-## 1. Triết lý Thiết kế & Ranh giới Dữ liệu
+## 1. Phạm vi & ranh giới dữ liệu
 
-### 1.1. Schema Isolation
+Finance quản lý **biểu phí khóa học (`tuition_fees`)**, **hóa đơn học phí (`invoices`, `invoice_items`, `installments`)**,
+**chiến dịch ưu đãi (`vouchers`)**, **thanh toán (`payments`: tiền mặt, VietQR, cấn trừ ví)**, **ví bảo lưu (`student_wallets`, `wallet_transactions`)**
+và **hoàn tiền 3 cấp duyệt (`refund_requests`)**. Finance không biết sĩ số hay điểm danh: số buổi đã học lấy qua Student (INV-FIN-07).
+Port chính thức của Finance Service là **8084** theo `docker-compose.yml` và `gateway/nginx.conf`.
 
-Finance Service chỉ truy cập schema `finance`. Các định danh thuộc service khác được lưu dưới dạng Logical FK kiểu INTEGER:
-- `student_id`: tham chiếu logic tới dữ liệu học viên.
-- `course_id`: tham chiếu logic tới khóa học.
-- `class_id`: tham chiếu logic tới lớp học.
-- `enrollment_id`: định danh đơn đăng ký liên quan.
+### Quy tắc chung (áp dụng cho mọi module)
 
-Không JOIN hoặc tạo FK vật lý sang schema `admission` hay `learning`.
+| Mã | Quy tắc |
+|---|---|
+| R-ISO-1 (INV-SYS-02) | Service chỉ truy cập schema của chính mình. Cấm JOIN và cấm FK vật lý sang schema khác. |
+| R-ID-1 | Quy ước định danh người học: ở `admission` và `finance`, `student_id` = `admission.users.id`. Ở `student` và `learning`, `student_id` = `student.students.id`. Cầu nối là `student.students.user_id`. |
+| R-API-1 (INV-SYS-01) | JSON và query param dùng `snake_case`; phản hồi `{success, data, message}` hoặc `{success, error:{code, message}}`. |
+| R-API-2 | Mã lỗi có tiền tố theo module: `AUTH_`, `ADM_`, `STU_`, `LRN_`, `FIN_`. |
+| R-AUTH-1 | Mọi API (trừ Public) dùng `Authorization: Bearer <JWT>`; JWT ký bằng `JWT_SECRET` lấy từ biến môi trường (INV-SEC-03). |
+| R-INT-1 | API nội bộ (`/internal/...`, webhook) bắt buộc header `X-Internal-Secret`, không công bố qua Gateway. |
+| R-INT-2 | Gọi liên service: timeout 5 giây, retry tối đa 3 lần (backoff lũy thừa); mọi POST nội bộ phải idempotent (có `event_id` hoặc khóa tự nhiên). |
+| R-TIME-1 | Thời điểm dùng `TIMESTAMPTZ` (UTC) ở admission/student/learning; finance dùng `TIMESTAMP` theo spec nhóm Finance; ngày dùng `DATE`. |
+| R-MONEY-1 | Tiền tệ dùng `NUMERIC/DECIMAL`, không dùng FLOAT. |
 
-### 1.2. Quy ước khóa và dữ liệu
+## 2. Danh mục thực thể
 
-- Khóa chính sử dụng `SERIAL`.
-- Khóa ngoại nội bộ Finance sử dụng `INTEGER`.
-- Các ID liên service sử dụng `INTEGER` (Logical FK).
-- Tên JSON field sử dụng `snake_case`.
-- Giá trị tiền sử dụng `DECIMAL(12,2)`.
-- Các trường thời gian trong DDL sử dụng `TIMESTAMP`; ngày đến hạn sử dụng `DATE`.
-- Hệ quản trị cơ sở dữ liệu: PostgreSQL.
+| STT | Đối tượng | Loại | Số cột | Chức năng |
+|--:|---|---|--:|---|
+| 1 | `finance.vw_bi_cash_revenue_monthly` | View | 8 | BI: doanh thu thực thu (tiền mặt + VietQR) và hoàn phí theo tháng. WALLET_OFFSET không tính là dòng tiền mới. |
+| 2 | `finance.vw_bi_voucher_campaigns` | View | 11 | BI: hiệu quả từng chiến dịch voucher (tỷ lệ dùng, tổng giảm, tiền thực thu). |
+| 3 | `finance.tuition_fees` | Bảng | 12 | Biểu phí chuẩn theo khóa học (FIN-01 / contract.md); hỗ trợ tra cứu học phí niêm yết và mức ưu đãi mặc định. |
+| 4 | `finance.vouchers` | Bảng | 14 | Chiến dịch mã giảm giá học phí. |
+| 5 | `finance.invoices` | Bảng | 18 | Hóa đơn học phí. Sau khi PAID/REFUNDED không được sửa amount, discount_applied, final_amount (INV-FIN-01). |
+| 6 | `finance.invoice_items` | Bảng | 10 | Khoản mục cấu thành hóa đơn (gói học phí, phí học lại). |
+| 7 | `finance.installments` | Bảng | 11 | Lịch đóng học phí nhiều đợt hoặc đặt cọc. Tổng amount_due các kỳ bằng final_amount hóa đơn (INV-FIN-02). |
+| 8 | `finance.payments` | Bảng | 15 | Phiếu thu: tiền mặt, VietQR hoặc cấn trừ ví. bank_transaction_id / transaction_ref UNIQUE đảm bảo idempotency (INV-FIN-05). |
+| 9 | `finance.student_wallets` | Bảng | 7 | Ví bảo lưu học phí, mỗi học viên một ví. Không cho rút tiền (INV-FIN-06). |
+| 10 | `finance.wallet_transactions` | Bảng | 9 | Sổ cái ví bảo lưu: cộng tiền bảo lưu, cấn trừ học phí, điều chỉnh. |
+| 11 | `finance.refund_requests` | Bảng | 29 | Yêu cầu hoàn học phí, duyệt 3 cấp: tư vấn tạo, kế toán xác minh, giám đốc duyệt, kế toán giải ngân (INV-FIN-07/08). |
 
-### 1.3. Danh mục thực thể
-
-| STT | Bảng | Chức năng |
-|---:|---|---|
-| 1 | `finance.vouchers` | Chiến dịch mã giảm giá. |
-| 2 | `finance.invoices` | Hóa đơn học phí. |
-| 3 | `finance.invoice_items` | Chi tiết khoản mục hóa đơn. |
-| 4 | `finance.installments` | Lịch đóng học phí nhiều đợt/đặt cọc. |
-| 5 | `finance.payments` | Giao dịch thu tiền và gạch nợ. |
-| 6 | `finance.student_wallets` | Ví bảo lưu học viên. |
-| 7 | `finance.wallet_transactions` | Lịch sử giao dịch ví. |
-| 8 | `finance.refund_requests` | Yêu cầu và phê duyệt hoàn tiền 3 cấp. |
-
----
-
-## 2. Sơ đồ Thực thể Quan hệ (ERD)
-
-Sơ đồ thể hiện đầy đủ **8 bảng nghiệp vụ** trong schema Finance.
+## 3. Sơ đồ ERD (quan hệ trong schema)
 
 ```mermaid
 erDiagram
-    VOUCHERS ||--o{ INVOICES : applies
-    INVOICES ||--|{ INVOICE_ITEMS : contains
-    INVOICES ||--|{ INSTALLMENTS : splits_into
-    INVOICES ||--o{ PAYMENTS : receives
-    INSTALLMENTS |o--o{ PAYMENTS : allocated_to
-    STUDENT_WALLETS ||--o{ WALLET_TRANSACTIONS : records
-    INVOICES |o--o{ WALLET_TRANSACTIONS : offsets
-    INVOICES ||--o{ REFUND_REQUESTS : refund_for
-
-    VOUCHERS {
-        int id PK
-        string code UK
-        string campaign_name
-        int discount_percent
-        decimal discount_amount
-        decimal min_order_value
-        int max_uses
-        int current_uses
-        timestamp expires_at
+    vouchers ||--o{ invoices : "voucher_id"
+    invoices ||--o{ invoice_items : "invoice_id"
+    invoices ||--o{ installments : "invoice_id"
+    installments ||--o{ payments : "installment_id"
+    invoices ||--o{ payments : "invoice_id"
+    invoices ||--o{ wallet_transactions : "related_invoice_id"
+    student_wallets ||--o{ wallet_transactions : "wallet_id"
+    invoices ||--o{ refund_requests : "invoice_id"
+    tuition_fees {
+        integer id PK
+        integer course_id UK
+        character_varying course_name
+        numeric amount
+        numeric base_amount
+        character_varying currency
+        numeric discount_pct
+        text note
+        text description
         boolean is_active
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
     }
-    INVOICES {
-        int id PK
-        string invoice_code UK
-        int student_id "Logical FK"
-        int course_id "Logical FK"
-        int enrollment_id "Logical FK"
-        string invoice_type
-        decimal amount
-        int voucher_id FK
-        decimal discount_applied
-        decimal final_amount
-        decimal paid_amount
-        decimal remaining_amount
-        string status
+    vouchers {
+        integer id PK
+        character_varying code UK
+        character_varying campaign_name
+        integer discount_percent
+        numeric discount_amount
+        numeric min_order_value
+        numeric max_discount_amount
+        integer max_uses
+        integer current_uses
+        timestamp_without_time_zone valid_from
+        timestamp_without_time_zone expires_at
+        boolean is_active
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
     }
-    INVOICE_ITEMS {
-        int id PK
-        int invoice_id FK
-        int course_id
-        string item_type
-        string description
-        int quantity
-        decimal unit_price
-        decimal line_total
-    }
-    INSTALLMENTS {
-        int id PK
-        int invoice_id FK
-        int installment_no
-        string payment_ref_code UK
-        decimal amount_due
-        decimal amount_paid
+    invoices {
+        integer id PK
+        character_varying invoice_code UK
+        integer student_id
+        integer course_id
+        integer enrollment_id
+        character_varying invoice_type
+        numeric amount
+        integer voucher_id
+        numeric discount_applied
+        numeric final_amount
+        numeric paid_amount
+        numeric remaining_amount
+        character_varying status
         date due_date
-        string status
+        text notes
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
+        timestamp_without_time_zone paid_at
     }
-    PAYMENTS {
-        int id PK
-        string payment_code UK
-        int invoice_id FK
-        int installment_id FK
-        string payment_method
-        decimal amount
-        string bank_transaction_id UK
-        string status
-        timestamp paid_at
+    invoice_items {
+        integer id PK
+        integer invoice_id
+        integer course_id
+        character_varying item_type
+        character_varying description
+        integer quantity
+        numeric unit_price
+        numeric line_total
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
     }
-    STUDENT_WALLETS {
-        int id PK
-        int student_id UK
-        decimal balance
+    installments {
+        integer id PK
+        integer invoice_id
+        integer installment_no
+        character_varying payment_ref_code UK
+        numeric amount_due
+        numeric amount_paid
+        date due_date
+        character_varying status
+        timestamp_without_time_zone paid_at
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
+    }
+    payments {
+        integer id PK
+        character_varying payment_code UK
+        integer invoice_id
+        integer installment_id
+        character_varying payment_method
+        numeric amount
+        character_varying bank_transaction_id UK
+        character_varying transaction_ref UK
+        character_varying qr_reference_code
+        jsonb webhook_payload
+        integer received_by_staff_id
+        character_varying status
+        timestamp_without_time_zone paid_at
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
+    }
+    student_wallets {
+        integer id PK
+        integer student_id UK
+        numeric balance
         boolean is_withdrawable
-        string status
+        character_varying status
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
     }
-    WALLET_TRANSACTIONS {
-        int id PK
-        int wallet_id FK
-        string tx_type
-        decimal amount
-        int related_invoice_id FK
-        string reason
+    wallet_transactions {
+        integer id PK
+        integer wallet_id
+        character_varying tx_type
+        numeric amount
+        integer related_invoice_id
+        text reason
+        integer created_by_staff_id
+        timestamp_without_time_zone created_at
+        timestamp_without_time_zone updated_at
     }
-    REFUND_REQUESTS {
-        int id PK
-        string refund_code UK
-        int invoice_id FK
-        int student_id "Logical FK"
-        int class_id "Logical FK"
-        int total_sessions
-        int attended_sessions
-        int max_allowed_sessions
-        int refundable_percent
-        decimal requested_refund_amount
-        decimal approved_refund_amount
-        string status
+    refund_requests {
+        integer id PK
+        character_varying refund_code UK
+        integer invoice_id
+        integer student_id
+        integer class_id
+        integer total_sessions
+        integer attended_sessions
+        integer max_allowed_sessions
+        numeric paid_amount_snapshot
+        integer refundable_percent
+        numeric deduction_amount
+        numeric requested_refund_amount
+        numeric approved_refund_amount
+        text reason
+        character_varying bank_name
+        character_varying bank_account_no
+        character_varying bank_account_holder
+        character_varying transaction_ref
+        character_varying status
+        integer requested_by_staff_id
+        timestamp_without_time_zone requested_at
+        integer verified_by_accountant_id
+        timestamp_without_time_zone verified_at
+        text accountant_note
+        integer approved_by_director_id
+        timestamp_without_time_zone approved_at
+        text director_note
+        timestamp_without_time_zone completed_at
+        timestamp_without_time_zone updated_at
     }
 ```
 
-### 2.1. Diễn giải quan hệ
+Quan hệ sang schema khác là **liên kết logic** (mục 4), không vẽ trong ERD vì không có khóa ngoại vật lý.
 
-- Một Voucher có thể được áp dụng cho nhiều hóa đơn; mỗi hóa đơn tham chiếu Voucher qua `voucher_id`.
-- Một hóa đơn có các khoản mục chi tiết trong `invoice_items`.
-- Một hóa đơn được chia thành các kỳ thanh toán trong `installments`.
-- Một hóa đơn có thể nhận nhiều giao dịch trong `payments`.
-- Một kỳ thanh toán có thể được liên kết với nhiều giao dịch payment; `installment_id` trên payment là quan hệ tùy chọn.
-- Một ví bảo lưu có nhiều giao dịch trong `wallet_transactions`.
-- Giao dịch ví có thể liên kết với hóa đơn được cấn trừ thông qua `related_invoice_id`.
-- Một hóa đơn có thể phát sinh yêu cầu hoàn tiền trong `refund_requests`.
-- `student_id`, `course_id`, `class_id`, `enrollment_id` là Logical FK; không tạo quan hệ FK vật lý ra schema khác.
+## 4. Liên kết logic liên service
 
----
+**Schema này trỏ ra ngoài (chỉ lưu INTEGER, không REFERENCES):**
 
-## 3. Từ điển Dữ liệu Chi tiết 8 Bảng
-
-Quy ước: Nullable = YES nếu cột không khai báo `NOT NULL` trong DDL; mặc định và CHECK/UNIQUE/FK được ghi theo định nghĩa cột/bảng.
-
-### 3.1. Bảng `finance.vouchers`
-
-**Mục đích:** Quản lý chiến dịch Voucher, hình thức giảm giá, điều kiện giá trị đơn hàng, giới hạn lượt sử dụng và thời hạn hiệu lực.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã Voucher. |
-| `code` | VARCHAR(50) | NO | – | UNIQUE | Mã Voucher duy nhất. |
-| `campaign_name` | VARCHAR(150) | NO | 'Chiến dịch ưu đãi học phí' | – | Tên chiến dịch. |
-| `discount_percent` | INT | YES | 0 | CHECK 0–100 | Tỷ lệ giảm giá theo phần trăm. |
-| `discount_amount` | DECIMAL(12,2) | YES | 0 | CHECK >= 0 | Số tiền giảm cố định. |
-| `min_order_value` | DECIMAL(12,2) | YES | 0 | CHECK >= 0 | Giá trị đơn hàng tối thiểu. |
-| `max_discount_amount` | DECIMAL(12,2) | YES | NULL | – | Mức giảm tối đa. |
-| `max_uses` | INT | YES | 100 | CHECK > 0 | Tổng lượt dùng tối đa. |
-| `current_uses` | INT | YES | 0 | CHECK >= 0; <= max_uses | Số lượt đã sử dụng. |
-| `valid_from` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm bắt đầu hiệu lực. |
-| `expires_at` | TIMESTAMP | NO | – | – | Thời điểm hết hiệu lực. |
-| `is_active` | BOOLEAN | YES | TRUE | – | Trạng thái kích hoạt Voucher. |
-| `created_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm tạo. |
-
-### 3.2. Bảng `finance.invoices`
-
-**Mục đích:** Quản lý hóa đơn học phí, loại hóa đơn, Voucher áp dụng, số tiền phải thu, số đã thanh toán và số còn lại.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã hóa đơn. |
-| `invoice_code` | VARCHAR(50) | NO | – | UNIQUE | Mã hóa đơn duy nhất. |
-| `student_id` | INT | NO | – | Logical FK | ID học viên. |
-| `course_id` | INT | NO | – | Logical FK | ID khóa học. |
-| `enrollment_id` | INT | YES | NULL | Logical FK | ID đăng ký khóa học. |
-| `invoice_type` | VARCHAR(30) | NO | COURSE_PACKAGE | CHECK | COURSE_PACKAGE, STANDALONE_RETAKE, MIXED. |
-| `amount` | DECIMAL(12,2) | NO | – | CHECK >= 0 | Giá trị hóa đơn trước giảm giá. |
-| `voucher_id` | INT | YES | NULL | FK vouchers(id) | Voucher được áp dụng. |
-| `discount_applied` | DECIMAL(12,2) | YES | 0 | CHECK >= 0 | Số tiền được giảm. |
-| `final_amount` | DECIMAL(12,2) | NO | – | CHECK >= 0; final_amount = amount - discount_applied | Số tiền cuối cùng phải thu. |
-| `paid_amount` | DECIMAL(12,2) | NO | 0 | CHECK >= 0; <= final_amount | Tổng số tiền đã thanh toán. |
-| `remaining_amount` | DECIMAL(12,2) | Generated | Generated | GENERATED ALWAYS | Số tiền còn lại = final_amount - paid_amount. |
-| `status` | VARCHAR(20) | NO | PENDING | CHECK | PENDING, PARTIAL, PAID, CANCELLED, REFUNDED. |
-| `notes` | TEXT | YES | NULL | – | Ghi chú hóa đơn. |
-| `created_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm tạo hóa đơn. |
-| `paid_at` | TIMESTAMP | YES | NULL | – | Thời điểm thanh toán. |
-
-### 3.3. Bảng `finance.invoice_items`
-
-**Mục đích:** Lưu các khoản mục cấu thành hóa đơn, bao gồm gói học phí và phí học lại.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã khoản mục. |
-| `invoice_id` | INT | NO | – | FK invoices(id), ON DELETE CASCADE | Hóa đơn chứa khoản mục. |
-| `course_id` | INT | YES | NULL | – | ID khóa học liên quan. |
-| `item_type` | VARCHAR(30) | NO | – | CHECK | TUITION_PACKAGE hoặc RETAKE_FEE. |
-| `description` | VARCHAR(255) | NO | – | – | Mô tả khoản mục. |
-| `quantity` | INT | NO | 1 | CHECK > 0 | Số lượng. |
-| `unit_price` | DECIMAL(12,2) | NO | – | CHECK >= 0 | Đơn giá. |
-| `line_total` | DECIMAL(12,2) | NO | – | CHECK >= 0; quantity × unit_price | Thành tiền khoản mục. |
-| `created_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm tạo. |
-
-### 3.4. Bảng `finance.installments`
-
-**Mục đích:** Quản lý lịch thanh toán theo nhiều đợt hoặc đặt cọc giữ chỗ.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã kỳ thanh toán. |
-| `invoice_id` | INT | NO | – | FK invoices(id), ON DELETE CASCADE | Hóa đơn sở hữu kỳ thanh toán. |
-| `installment_no` | INT | NO | – | CHECK >= 1; UNIQUE theo invoice_id | Số thứ tự kỳ. |
-| `payment_ref_code` | VARCHAR(50) | NO | – | UNIQUE | Mã tham chiếu thanh toán. |
-| `amount_due` | DECIMAL(12,2) | NO | – | CHECK > 0 | Số tiền phải đóng trong kỳ. |
-| `amount_paid` | DECIMAL(12,2) | NO | 0 | CHECK >= 0 | Số tiền đã đóng trong kỳ. |
-| `due_date` | DATE | NO | – | – | Ngày đến hạn. |
-| `status` | VARCHAR(20) | NO | PENDING | CHECK | PENDING, PARTIAL, PAID, OVERDUE, CANCELLED. |
-| `paid_at` | TIMESTAMP | YES | NULL | – | Thời điểm hoàn tất thanh toán kỳ. |
-| `created_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm tạo kỳ. |
-
-### 3.5. Bảng `finance.payments`
-
-**Mục đích:** Lưu các giao dịch thanh toán tiền mặt, VietQR hoặc cấn trừ ví.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã giao dịch. |
-| `payment_code` | VARCHAR(50) | NO | – | UNIQUE | Mã phiếu thu duy nhất. |
-| `invoice_id` | INT | NO | – | FK invoices(id) | Hóa đơn được thanh toán. |
-| `installment_id` | INT | YES | NULL | FK installments(id) | Kỳ thanh toán liên quan. |
-| `payment_method` | VARCHAR(20) | NO | – | CHECK | CASH, VIETQR, WALLET_OFFSET. |
-| `amount` | DECIMAL(12,2) | NO | – | CHECK > 0 | Số tiền giao dịch. |
-| `bank_transaction_id` | VARCHAR(100) | YES | NULL | UNIQUE | Mã giao dịch ngân hàng. |
-| `qr_reference_code` | VARCHAR(50) | YES | NULL | – | Mã tham chiếu QR. |
-| `webhook_payload` | JSONB | YES | NULL | – | Payload Webhook từ ngân hàng. |
-| `received_by_staff_id` | INT | YES | NULL | – | Nhân viên ghi nhận giao dịch. |
-| `status` | VARCHAR(20) | NO | SUCCESS | CHECK | PENDING, SUCCESS, FAILED. |
-| `paid_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm thanh toán. |
-
-### 3.6. Bảng `finance.student_wallets`
-
-**Mục đích:** Quản lý số dư ví bảo lưu nội bộ của từng học viên.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã ví. |
-| `student_id` | INT | NO | – | UNIQUE; Logical FK | Mỗi học viên có một ví. |
-| `balance` | DECIMAL(12,2) | NO | 0 | CHECK >= 0 | Số dư ví. |
-| `is_withdrawable` | BOOLEAN | NO | FALSE | – | Cờ cho phép rút tiền; mặc định FALSE. |
-| `status` | VARCHAR(20) | NO | ACTIVE | CHECK | ACTIVE hoặc FROZEN. |
-| `updated_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm cập nhật số dư. |
-
-### 3.7. Bảng `finance.wallet_transactions`
-
-**Mục đích:** Lưu lịch sử cộng tiền bảo lưu, cấn trừ học phí và điều chỉnh ví.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã giao dịch ví. |
-| `wallet_id` | INT | NO | – | FK student_wallets(id) | Ví liên quan. |
-| `tx_type` | VARCHAR(30) | NO | – | CHECK | RESERVATION_CREDIT, TUITION_OFFSET, ADJUSTMENT. |
-| `amount` | DECIMAL(12,2) | NO | – | CHECK > 0 | Số tiền giao dịch ví. |
-| `related_invoice_id` | INT | YES | NULL | FK invoices(id) | Hóa đơn được cấn trừ. |
-| `reason` | TEXT | NO | – | – | Lý do giao dịch. |
-| `created_by_staff_id` | INT | YES | NULL | – | Nhân viên thực hiện. |
-| `created_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm ghi nhận. |
-
-### 3.8. Bảng `finance.refund_requests`
-
-**Mục đích:** Quản lý yêu cầu hoàn phí, điều kiện số buổi học, thông tin nhận tiền và phê duyệt 3 cấp.
-
-| Cột | Kiểu dữ liệu | Nullable | Mặc định | Ràng buộc | Diễn giải |
-|---|---|:---:|---|---|---|
-| `id` | SERIAL | NO | Auto | PK | Mã yêu cầu hoàn phí. |
-| `refund_code` | VARCHAR(50) | NO | – | UNIQUE | Mã yêu cầu hoàn phí. |
-| `invoice_id` | INT | NO | – | FK invoices(id) | Hóa đơn cần hoàn. |
-| `student_id` | INT | NO | – | Logical FK | Học viên yêu cầu hoàn. |
-| `class_id` | INT | YES | NULL | Logical FK | Lớp học liên quan. |
-| `total_sessions` | INT | NO | – | CHECK > 0 | Tổng số buổi. |
-| `attended_sessions` | INT | NO | – | CHECK >= 0 | Số buổi học viên đã tham gia. |
-| `max_allowed_sessions` | INT | NO | 3 | – | Số buổi tối đa được xét hoàn. |
-| `paid_amount_snapshot` | DECIMAL(12,2) | NO | – | – | Snapshot số tiền đã thanh toán. |
-| `refundable_percent` | INT | NO | – | CHECK 0–100 | Tỷ lệ hoàn theo hợp đồng. |
-| `deduction_amount` | DECIMAL(12,2) | NO | 0 | – | Số tiền khấu trừ. |
-| `requested_refund_amount` | DECIMAL(12,2) | NO | – | CHECK >= 0 | Số tiền đề nghị hoàn. |
-| `approved_refund_amount` | DECIMAL(12,2) | YES | NULL | CHECK >= 0 | Số tiền được duyệt hoàn. |
-| `reason` | TEXT | NO | – | – | Lý do yêu cầu hoàn phí. |
-| `bank_name` | VARCHAR(100) | YES | NULL | – | Ngân hàng nhận hoàn. |
-| `bank_account_no` | VARCHAR(50) | YES | NULL | – | Số tài khoản nhận hoàn. |
-| `bank_account_holder` | VARCHAR(150) | YES | NULL | – | Chủ tài khoản nhận hoàn. |
-| `status` | VARCHAR(30) | NO | PENDING_ACCOUNTANT | CHECK | PENDING_ACCOUNTANT, PENDING_DIRECTOR, APPROVED, REJECTED, COMPLETED. |
-| `requested_by_staff_id` | INT | NO | – | – | Nhân viên tạo yêu cầu. |
-| `requested_at` | TIMESTAMP | YES | CURRENT_TIMESTAMP | – | Thời điểm tạo yêu cầu. |
-| `verified_by_accountant_id` | INT | YES | NULL | – | Kế toán xác minh. |
-| `verified_at` | TIMESTAMP | YES | NULL | – | Thời điểm xác minh. |
-| `accountant_note` | TEXT | YES | NULL | – | Ghi chú kế toán. |
-| `approved_by_director_id` | INT | YES | NULL | – | Giám đốc phê duyệt. |
-| `approved_at` | TIMESTAMP | YES | NULL | – | Thời điểm phê duyệt. |
-| `director_note` | TEXT | YES | NULL | – | Ghi chú phê duyệt. |
-| `completed_at` | TIMESTAMP | YES | NULL | – | Thời điểm hoàn tất giải ngân. |
-
-Ràng buộc cấp bảng: `attended_sessions <= max_allowed_sessions`.
-
----
-
-## 4. Máy trạng thái & Quy tắc Bất biến
-
-### 4.1. Trạng thái hóa đơn
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING
-    PENDING --> PARTIAL : Thanh toán một phần
-    PENDING --> PAID : Thanh toán đủ
-    PARTIAL --> PAID : Thanh toán đủ phần còn lại
-    PENDING --> CANCELLED : Hủy hóa đơn
-    PARTIAL --> CANCELLED : Hủy hóa đơn
-    PAID --> REFUNDED : Hoàn tiền hoàn tất
-```
-
-### 4.2. Trạng thái kỳ thanh toán
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING
-    PENDING --> PARTIAL : Đã thu một phần
-    PENDING --> PAID : Đã thu đủ
-    PARTIAL --> PAID : Đã thu đủ
-    PENDING --> OVERDUE : Quá hạn due_date
-    PARTIAL --> OVERDUE : Quá hạn due_date
-    PENDING --> CANCELLED : Hủy kỳ
-```
-
-### 4.3. Quy trình phê duyệt hoàn tiền
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING_ACCOUNTANT
-    PENDING_ACCOUNTANT --> PENDING_DIRECTOR : Kế toán xác nhận
-    PENDING_ACCOUNTANT --> REJECTED : Từ chối
-    PENDING_DIRECTOR --> APPROVED : Giám đốc phê duyệt
-    PENDING_DIRECTOR --> REJECTED : Từ chối
-    APPROVED --> COMPLETED : Kế toán giải ngân
-```
-
-### 4.4. Bất biến tài chính
-
-| Mã | Tên quy tắc | Ràng buộc |
+| Cột | Trỏ tới | Ý nghĩa |
 |---|---|---|
-| INV-FIN-01 | Hóa đơn đã thanh toán | Invoice PAID hoặc REFUNDED không được xóa hoặc sửa trực tiếp các cột amount, discount_applied, final_amount. |
-| INV-FIN-02 | Đẳng thức hóa đơn và trả góp | final_amount = amount - discount_applied >= 0; 0 <= paid_amount <= final_amount; tổng amount_due của installments bằng final_amount. |
-| INV-FIN-03 | Cô lập Schema | Finance chỉ truy cập schema finance; student_id, course_id, class_id là INTEGER Logical FK, không JOIN/FK vật lý sang admission hoặc learning. |
-| INV-FIN-04 | Chống race condition Voucher | Kiểm tra is_active, expires_at, current_uses < max_uses và SELECT ... FOR UPDATE trước khi tăng current_uses. |
-| INV-FIN-05 | Idempotency VietQR | bank_transaction_id UNIQUE; giao dịch đã tồn tại trả 200 OK nhưng không ghi nhận phiếu thu lần hai. |
-| INV-FIN-06 | Khóa rút ví bảo lưu | is_withdrawable luôn FALSE; số dư chỉ giảm qua TUITION_OFFSET. |
-| INV-FIN-07 | Điều kiện hoàn phí theo số buổi | Chỉ tạo yêu cầu khi attended_sessions <= max_allowed_sessions và đi qua đủ ba cấp duyệt. |
+| `finance.tuition_fees.course_id` | `admission.courses.id` | Khóa học áp dụng biểu phí chuẩn (FIN-01) |
+| `finance.invoices.student_id` | `admission.users.id` | Người học (R-ID-1: dùng users.id) |
+| `finance.invoices.course_id` | `admission.courses.id` | Khóa học thu phí |
+| `finance.invoices.enrollment_id` | `admission.enrollments.id` | Đơn đăng ký phát sinh hóa đơn |
+| `finance.invoice_items.course_id` | `admission.courses.id` | Khóa học của khoản mục |
+| `finance.payments.received_by_staff_id` | `admission.users.id` | Nhân viên thu tiền |
+| `finance.student_wallets.student_id` | `admission.users.id` | Chủ ví (R-ID-1) |
+| `finance.wallet_transactions.created_by_staff_id` | `admission.users.id` | Nhân viên thao tác ví |
+| `finance.refund_requests.student_id` | `admission.users.id` | Học viên được hoàn (R-ID-1) |
+| `finance.refund_requests.class_id` | `admission.classes.id` | Lớp liên quan |
+| `finance.refund_requests.requested_by_staff_id` | `admission.users.id` | Nhân viên tạo yêu cầu (cấp 1) |
+| `finance.refund_requests.verified_by_accountant_id` | `admission.users.id` | Kế toán xác minh (cấp 2) |
+| `finance.refund_requests.approved_by_director_id` | `admission.users.id` | Giám đốc duyệt (cấp 3) |
 
----
+**Schema khác trỏ vào đây:**
 
-## 5. Toàn văn DDL PostgreSQL
+| Cột nguồn | Trỏ tới | Ý nghĩa |
+|---|---|---|
+| `admission.enrollments.invoice_code` | `finance.invoices.invoice_code` | Mã hóa đơn Finance cấp (tham chiếu theo mã) |
+
+Toàn vẹn tham chiếu của các liên kết này do **tầng ứng dụng** bảo đảm (kiểm tra bằng REST trước khi ghi). Khi xóa dữ liệu gốc, dùng xóa mềm (`is_active`, `status`) thay vì xóa cứng.
+
+## 5. Từ điển dữ liệu chi tiết
+
+#### `finance.tuition_fees`
+
+Biểu phí chuẩn theo khóa học (FIN-01 / contract.md); hỗ trợ tra cứu học phí niêm yết và mức ưu đãi mặc định.
+
+Số dòng seed: **4**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `course_id` | integer | NO |  | `UNIQUE` | Logical FK sang admission.courses.id (UNIQUE). |
+| 3 | `course_name` | character varying(255) | NO | `''` |  | Tên khóa học hiển thị trên bảng giá. |
+| 4 | `amount` | numeric(12,2) | NO | `0` | `CHECK ((amount >= (0)::numeric))` | Mức học phí niêm yết theo contract.md (VND), >= 0; đồng bộ tự động với base_amount. |
+| 5 | `base_amount` | numeric(12,2) | NO | `0` | `CHECK ((base_amount >= (0)::numeric))` | Mức học phí gốc (VND), >= 0; đồng bộ tự động với amount. |
+| 6 | `currency` | character varying(10) | NO | `'VND'` |  | Đơn vị tiền tệ (mặc định VND). |
+| 7 | `discount_pct` | numeric(5,2) | NO | `0` | `CHECK (((discount_pct >= (0)::numeric) AND (discount_pct <= (100)::numeric)))` | Phần trăm giảm giá mặc định (0-100). |
+| 8 | `note` | text | YES |  |  | Ghi chú biểu phí (theo contract.md; đồng bộ tự động với description). |
+| 9 | `description` | text | YES |  |  | Mô tả chính sách học phí của khóa. |
+| 10 | `is_active` | boolean | NO | `true` |  | TRUE = đang áp dụng. |
+| 11 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo. |
+| 12 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Index:**
+
+- `idx_tuition_fees_course`: `CREATE INDEX idx_tuition_fees_course ON finance.tuition_fees USING btree (course_id)`
+- `tuition_fees_course_id_key`: `CREATE UNIQUE INDEX tuition_fees_course_id_key ON finance.tuition_fees USING btree (course_id)`
+- `tuition_fees_pkey`: `CREATE UNIQUE INDEX tuition_fees_pkey ON finance.tuition_fees USING btree (id)`
+
+**Trigger:**
+
+- `trg_tuition_fees_compat`: `CREATE TRIGGER trg_tuition_fees_compat BEFORE INSERT OR UPDATE ON finance.tuition_fees FOR EACH ROW EXECUTE FUNCTION finance.sync_tuition_fees_compat()`
+- `trg_tuition_fees_updated_at`: `CREATE TRIGGER trg_tuition_fees_updated_at BEFORE UPDATE ON finance.tuition_fees FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.vouchers`
+
+Chiến dịch mã giảm giá học phí.
+
+Số dòng seed: **2**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `code` | character varying(50) | NO |  | `UNIQUE` | Mã voucher duy nhất. |
+| 3 | `campaign_name` | character varying(150) | NO | `'Chiến dịch ưu đãi học phí'` |  | Tên chiến dịch. |
+| 4 | `discount_percent` | integer | NO | `0` | `CHECK (((discount_percent >= 0) AND (discount_percent <= 100)))` | Giảm theo phần trăm (0-100). |
+| 5 | `discount_amount` | numeric(12,2) | NO | `0` | `CHECK ((discount_amount >= (0)::numeric))` | Giảm số tiền cố định (VND). |
+| 6 | `min_order_value` | numeric(12,2) | NO | `0` | `CHECK ((min_order_value >= (0)::numeric))` | Giá trị hóa đơn tối thiểu để áp dụng. |
+| 7 | `max_discount_amount` | numeric(12,2) | YES |  |  | Mức giảm tối đa khi giảm theo phần trăm; NULL = không giới hạn. |
+| 8 | `max_uses` | integer | NO | `100` | `CHECK nhiều cột: chk_voucher_usage_limit`<br>`CHECK ((max_uses > 0))` | Tổng lượt dùng tối đa. |
+| 9 | `current_uses` | integer | NO | `0` | `CHECK nhiều cột: chk_voucher_usage_limit`<br>`CHECK ((current_uses >= 0))` | Số lượt đã dùng (<= max_uses). Phải SELECT ... FOR UPDATE trước khi tăng (INV-FIN-04). |
+| 10 | `valid_from` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` | `CHECK nhiều cột: chk_voucher_dates` | Bắt đầu hiệu lực. |
+| 11 | `expires_at` | timestamp without time zone | NO |  | `CHECK nhiều cột: chk_voucher_dates` | Hết hiệu lực (> valid_from). |
+| 12 | `is_active` | boolean | NO | `true` |  | Công tắc bật/tắt chiến dịch. |
+| 13 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo. |
+| 14 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Ràng buộc cấp bảng (nhiều cột):**
+
+| Tên | Loại | Định nghĩa |
+|---|---|---|
+| `chk_voucher_dates` | CHECK | `CHECK ((expires_at > valid_from))` |
+| `chk_voucher_usage_limit` | CHECK | `CHECK ((current_uses <= max_uses))` |
+
+**Index:**
+
+- `vouchers_code_key`: `CREATE UNIQUE INDEX vouchers_code_key ON finance.vouchers USING btree (code)`
+- `vouchers_pkey`: `CREATE UNIQUE INDEX vouchers_pkey ON finance.vouchers USING btree (id)`
+
+**Trigger:**
+
+- `trg_vouchers_updated_at`: `CREATE TRIGGER trg_vouchers_updated_at BEFORE UPDATE ON finance.vouchers FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.invoices`
+
+Hóa đơn học phí. Sau khi PAID/REFUNDED không được sửa amount, discount_applied, final_amount (INV-FIN-01).
+
+Số dòng seed: **3**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `invoice_code` | character varying(50) | NO | `auto (INV-YYYY-NNNN)` | `UNIQUE` | Mã hóa đơn duy nhất (sinh tự động nếu không truyền); Admission lưu lại ở enrollments.invoice_code. |
+| 3 | `student_id` | integer | NO |  |  | users.id của người học (quy ước R-ID-1) vì hóa đơn được sinh khi đơn còn PENDING, lúc chưa có hồ sơ student.students. |
+| 4 | `course_id` | integer | NO | `1` |  | Logical FK sang admission.courses.id. |
+| 5 | `enrollment_id` | integer | YES |  |  | Logical FK sang admission.enrollments.id; NULL với hóa đơn học lại độc lập. |
+| 6 | `invoice_type` | character varying(30) | NO | `'COURSE_PACKAGE'` | `CHECK (((invoice_type)::text = ANY ((ARRAY['COURSE_PACKAGE'::character varying, 'STANDALONE_RETAKE'::character varying, 'MIXED'::character varying])::text[])))` | COURSE_PACKAGE \| STANDALONE_RETAKE \| MIXED. |
+| 7 | `amount` | numeric(12,2) | NO |  | `CHECK nhiều cột: chk_invoice_math`<br>`CHECK ((amount >= (0)::numeric))` | Giá trị trước giảm giá (>= 0). |
+| 8 | `voucher_id` | integer | YES |  | `FK REFERENCES finance.vouchers(id) ON DELETE SET NULL` | Voucher đã áp dụng; NULL nếu không có. |
+| 9 | `discount_applied` | numeric(12,2) | NO | `0` | `CHECK nhiều cột: chk_invoice_math`<br>`CHECK ((discount_applied >= (0)::numeric))` | Số tiền được giảm (>= 0). |
+| 10 | `final_amount` | numeric(12,2) | NO |  | `CHECK nhiều cột: chk_invoice_math`<br>`CHECK nhiều cột: chk_invoice_paid_bound`<br>`CHECK ((final_amount >= (0)::numeric))` | Số phải thu = amount - discount_applied (tự động tính qua trigger nếu không truyền). |
+| 11 | `paid_amount` | numeric(12,2) | NO | `0` | `CHECK nhiều cột: chk_invoice_paid_bound`<br>`CHECK ((paid_amount >= (0)::numeric))` | Tổng đã thu, 0 <= paid_amount <= final_amount. |
+| 12 | `remaining_amount` | numeric(12,2) | YES | `GENERATED: (final_amount - paid_amount)` |  | Cột sinh tự động = final_amount - paid_amount. |
+| 13 | `status` | character varying(20) | NO | `'PENDING'` | `CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'UNPAID'::character varying, 'PARTIAL'::character varying, 'PAID'::character varying, 'OVERDUE'::character varying, 'CANCELLED'::character varying, 'REFUNDED'::character varying])::text[])))` | PENDING \| UNPAID \| PARTIAL \| PAID \| OVERDUE \| CANCELLED \| REFUNDED. |
+| 14 | `due_date` | date | YES |  |  | Hạn thanh toán. Cột mở rộng của bản tổng hợp. |
+| 15 | `notes` | text | YES |  |  | Ghi chú. |
+| 16 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo. |
+| 17 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+| 18 | `paid_at` | timestamp without time zone | YES |  |  | Thời điểm thanh toán đủ. |
+
+**Ràng buộc cấp bảng (nhiều cột):**
+
+| Tên | Loại | Định nghĩa |
+|---|---|---|
+| `chk_invoice_math` | CHECK | `CHECK ((final_amount = (amount - discount_applied)))` |
+| `chk_invoice_paid_bound` | CHECK | `CHECK ((paid_amount <= final_amount))` |
+
+**Index:**
+
+- `idx_invoices_code`: `CREATE INDEX idx_invoices_code ON finance.invoices USING btree (invoice_code)`
+- `idx_invoices_enrollment`: `CREATE INDEX idx_invoices_enrollment ON finance.invoices USING btree (enrollment_id)`
+- `idx_invoices_status`: `CREATE INDEX idx_invoices_status ON finance.invoices USING btree (status)`
+- `idx_invoices_student`: `CREATE INDEX idx_invoices_student ON finance.invoices USING btree (student_id)`
+- `invoices_invoice_code_key`: `CREATE UNIQUE INDEX invoices_invoice_code_key ON finance.invoices USING btree (invoice_code)`
+- `invoices_pkey`: `CREATE UNIQUE INDEX invoices_pkey ON finance.invoices USING btree (id)`
+
+**Trigger:**
+
+- `trg_invoices_normalize`: `CREATE TRIGGER trg_invoices_normalize BEFORE INSERT OR UPDATE ON finance.invoices FOR EACH ROW EXECUTE FUNCTION finance.normalize_invoice_row()`
+- `trg_invoices_updated_at`: `CREATE TRIGGER trg_invoices_updated_at BEFORE UPDATE ON finance.invoices FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.invoice_items`
+
+Khoản mục cấu thành hóa đơn (gói học phí, phí học lại).
+
+Số dòng seed: **3**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `invoice_id` | integer | NO |  | `FK REFERENCES finance.invoices(id) ON DELETE CASCADE` | Hóa đơn chứa khoản mục (xóa hóa đơn thì xóa khoản mục). |
+| 3 | `course_id` | integer | YES |  |  | Logical FK sang admission.courses.id. |
+| 4 | `item_type` | character varying(30) | NO |  | `CHECK (((item_type)::text = ANY ((ARRAY['TUITION_PACKAGE'::character varying, 'RETAKE_FEE'::character varying])::text[])))` | TUITION_PACKAGE \| RETAKE_FEE. |
+| 5 | `description` | character varying(255) | NO |  |  | Mô tả khoản mục. |
+| 6 | `quantity` | integer | NO | `1` | `CHECK nhiều cột: chk_line_total_math`<br>`CHECK ((quantity > 0))` | Số lượng (> 0). |
+| 7 | `unit_price` | numeric(12,2) | NO |  | `CHECK nhiều cột: chk_line_total_math`<br>`CHECK ((unit_price >= (0)::numeric))` | Đơn giá (>= 0). |
+| 8 | `line_total` | numeric(12,2) | NO |  | `CHECK nhiều cột: chk_line_total_math`<br>`CHECK ((line_total >= (0)::numeric))` | Thành tiền = quantity x unit_price (CHECK). |
+| 9 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo. |
+| 10 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Ràng buộc cấp bảng (nhiều cột):**
+
+| Tên | Loại | Định nghĩa |
+|---|---|---|
+| `chk_line_total_math` | CHECK | `CHECK ((line_total = ((quantity)::numeric * unit_price)))` |
+
+**Index:**
+
+- `invoice_items_pkey`: `CREATE UNIQUE INDEX invoice_items_pkey ON finance.invoice_items USING btree (id)`
+
+**Trigger:**
+
+- `trg_invoice_items_updated_at`: `CREATE TRIGGER trg_invoice_items_updated_at BEFORE UPDATE ON finance.invoice_items FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.installments`
+
+Lịch đóng học phí nhiều đợt hoặc đặt cọc. Tổng amount_due các kỳ bằng final_amount hóa đơn (INV-FIN-02).
+
+Số dòng seed: **4**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `invoice_id` | integer | NO |  | `FK REFERENCES finance.invoices(id) ON DELETE CASCADE`<br>`UNIQUE(invoice_id, installment_no)` | Hóa đơn sở hữu kỳ. |
+| 3 | `installment_no` | integer | NO |  | `CHECK ((installment_no >= 1))`<br>`UNIQUE(invoice_id, installment_no)` | Số thứ tự kỳ (>= 1), duy nhất theo hóa đơn. |
+| 4 | `payment_ref_code` | character varying(50) | NO |  | `UNIQUE` | Mã tham chiếu thanh toán duy nhất (nội dung chuyển khoản VietQR). |
+| 5 | `amount_due` | numeric(12,2) | NO |  | `CHECK ((amount_due > (0)::numeric))` | Số phải đóng trong kỳ (> 0). |
+| 6 | `amount_paid` | numeric(12,2) | NO | `0` | `CHECK ((amount_paid >= (0)::numeric))` | Số đã đóng (>= 0). |
+| 7 | `due_date` | date | NO |  |  | Ngày đến hạn. |
+| 8 | `status` | character varying(20) | NO | `'PENDING'` | `CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'PARTIAL'::character varying, 'PAID'::character varying, 'OVERDUE'::character varying, 'CANCELLED'::character varying])::text[])))` | PENDING \| PARTIAL \| PAID \| OVERDUE \| CANCELLED. |
+| 9 | `paid_at` | timestamp without time zone | YES |  |  | Thời điểm đóng đủ kỳ. |
+| 10 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo. |
+| 11 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Ràng buộc cấp bảng (nhiều cột):**
+
+| Tên | Loại | Định nghĩa |
+|---|---|---|
+| `installments_invoice_id_installment_no_key` | UNIQUE | `UNIQUE (invoice_id, installment_no)` |
+
+**Index:**
+
+- `idx_installments_invoice`: `CREATE INDEX idx_installments_invoice ON finance.installments USING btree (invoice_id, status)`
+- `installments_invoice_id_installment_no_key`: `CREATE UNIQUE INDEX installments_invoice_id_installment_no_key ON finance.installments USING btree (invoice_id, installment_no)`
+- `installments_payment_ref_code_key`: `CREATE UNIQUE INDEX installments_payment_ref_code_key ON finance.installments USING btree (payment_ref_code)`
+- `installments_pkey`: `CREATE UNIQUE INDEX installments_pkey ON finance.installments USING btree (id)`
+
+**Trigger:**
+
+- `trg_installments_updated_at`: `CREATE TRIGGER trg_installments_updated_at BEFORE UPDATE ON finance.installments FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.payments`
+
+Phiếu thu: tiền mặt, VietQR hoặc cấn trừ ví. bank_transaction_id / transaction_ref UNIQUE đảm bảo idempotency (INV-FIN-05).
+
+Số dòng seed: **2**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `payment_code` | character varying(50) | NO | `auto (PAY-YYYY-NNNN)` | `UNIQUE` | Mã phiếu thu duy nhất (sinh tự động nếu không truyền). |
+| 3 | `invoice_id` | integer | NO |  | `FK REFERENCES finance.invoices(id) ON DELETE RESTRICT` | Hóa đơn được thanh toán. |
+| 4 | `installment_id` | integer | YES |  | `FK REFERENCES finance.installments(id) ON DELETE SET NULL` | Kỳ thanh toán được gạch nợ; NULL nếu thu không theo kỳ. |
+| 5 | `payment_method` | character varying(20) | NO |  | `CHECK (((payment_method)::text = ANY ((ARRAY['CASH'::character varying, 'VIETQR'::character varying, 'WALLET_OFFSET'::character varying, 'BANK_TRANSFER'::character varying, 'CARD'::character varying, 'MOMO'::character varying])::text[])))` | CASH \| VIETQR \| WALLET_OFFSET \| BANK_TRANSFER \| CARD \| MOMO. |
+| 6 | `amount` | numeric(12,2) | NO |  | `CHECK ((amount > (0)::numeric))` | Số tiền giao dịch (> 0). |
+| 7 | `bank_transaction_id` | character varying(100) | YES |  | `UNIQUE` | Mã giao dịch ngân hàng, duy nhất; giao dịch trùng trả 200 OK nhưng không ghi lần hai. |
+| 8 | `transaction_ref` | character varying(100) | YES |  | `UNIQUE` | Alias mã tham chiếu giao dịch (tương thích contract.md & skeleton; đồng bộ 2 chiều với bank_transaction_id). |
+| 9 | `qr_reference_code` | character varying(50) | YES |  |  | Mã tham chiếu trong nội dung QR. |
+| 10 | `webhook_payload` | jsonb | YES |  |  | JSONB: payload gốc từ ngân hàng để đối soát. |
+| 11 | `received_by_staff_id` | integer | YES |  |  | Logical FK sang admission.users.id: nhân viên thu tiền mặt. |
+| 12 | `status` | character varying(20) | NO | `'SUCCESS'` | `CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'SUCCESS'::character varying, 'FAILED'::character varying])::text[])))` | PENDING \| SUCCESS \| FAILED. |
+| 13 | `paid_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm thanh toán. |
+| 14 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo bản ghi. |
+| 15 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Index:**
+
+- `idx_payments_bank_txn`: `CREATE INDEX idx_payments_bank_txn ON finance.payments USING btree (bank_transaction_id) WHERE (bank_transaction_id IS NOT NULL)`
+- `idx_payments_invoice`: `CREATE INDEX idx_payments_invoice ON finance.payments USING btree (invoice_id)`
+- `payments_bank_transaction_id_key`: `CREATE UNIQUE INDEX payments_bank_transaction_id_key ON finance.payments USING btree (bank_transaction_id)`
+- `payments_payment_code_key`: `CREATE UNIQUE INDEX payments_payment_code_key ON finance.payments USING btree (payment_code)`
+- `payments_pkey`: `CREATE UNIQUE INDEX payments_pkey ON finance.payments USING btree (id)`
+- `payments_transaction_ref_key`: `CREATE UNIQUE INDEX payments_transaction_ref_key ON finance.payments USING btree (transaction_ref)`
+
+**Trigger:**
+
+- `trg_payments_sync_refs`: `CREATE TRIGGER trg_payments_sync_refs BEFORE INSERT OR UPDATE ON finance.payments FOR EACH ROW EXECUTE FUNCTION finance.sync_payment_refs()`
+- `trg_payments_updated_at`: `CREATE TRIGGER trg_payments_updated_at BEFORE UPDATE ON finance.payments FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.student_wallets`
+
+Ví bảo lưu học phí, mỗi học viên một ví. Không cho rút tiền (INV-FIN-06).
+
+Số dòng seed: **3**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `student_id` | integer | NO |  | `UNIQUE` | users.id của học viên (R-ID-1), duy nhất = mỗi người một ví. |
+| 3 | `balance` | numeric(12,2) | NO | `0` | `CHECK ((balance >= (0)::numeric))` | Số dư (>= 0). |
+| 4 | `is_withdrawable` | boolean | NO | `false` |  | Luôn FALSE; số dư chỉ giảm bằng TUITION_OFFSET. |
+| 5 | `status` | character varying(20) | NO | `'ACTIVE'` | `CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'FROZEN'::character varying])::text[])))` | ACTIVE \| FROZEN. |
+| 6 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm mở ví. |
+| 7 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật số dư. |
+
+**Index:**
+
+- `idx_wallets_student`: `CREATE INDEX idx_wallets_student ON finance.student_wallets USING btree (student_id)`
+- `student_wallets_pkey`: `CREATE UNIQUE INDEX student_wallets_pkey ON finance.student_wallets USING btree (id)`
+- `student_wallets_student_id_key`: `CREATE UNIQUE INDEX student_wallets_student_id_key ON finance.student_wallets USING btree (student_id)`
+
+**Trigger:**
+
+- `trg_student_wallets_updated_at`: `CREATE TRIGGER trg_student_wallets_updated_at BEFORE UPDATE ON finance.student_wallets FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.wallet_transactions`
+
+Sổ cái ví bảo lưu: cộng tiền bảo lưu, cấn trừ học phí, điều chỉnh.
+
+Số dòng seed: **0**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `wallet_id` | integer | NO |  | `FK REFERENCES finance.student_wallets(id) ON DELETE RESTRICT` | Ví liên quan. |
+| 3 | `tx_type` | character varying(30) | NO |  | `CHECK (((tx_type)::text = ANY ((ARRAY['RESERVATION_CREDIT'::character varying, 'TUITION_OFFSET'::character varying, 'ADJUSTMENT'::character varying])::text[])))` | RESERVATION_CREDIT \| TUITION_OFFSET \| ADJUSTMENT. |
+| 4 | `amount` | numeric(12,2) | NO |  | `CHECK ((amount > (0)::numeric))` | Số tiền (> 0); chiều cộng/trừ do tx_type quyết định. |
+| 5 | `related_invoice_id` | integer | YES |  | `FK REFERENCES finance.invoices(id) ON DELETE SET NULL` | Hóa đơn được cấn trừ (khi TUITION_OFFSET). |
+| 6 | `reason` | text | NO |  |  | Lý do giao dịch (bắt buộc để truy vết). |
+| 7 | `created_by_staff_id` | integer | YES |  |  | Logical FK sang admission.users.id: nhân viên thực hiện. |
+| 8 | `created_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm ghi nhận. |
+| 9 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Index:**
+
+- `idx_wallet_tx_wallet`: `CREATE INDEX idx_wallet_tx_wallet ON finance.wallet_transactions USING btree (wallet_id, created_at DESC)`
+- `wallet_transactions_pkey`: `CREATE UNIQUE INDEX wallet_transactions_pkey ON finance.wallet_transactions USING btree (id)`
+
+**Trigger:**
+
+- `trg_wallet_transactions_updated_at`: `CREATE TRIGGER trg_wallet_transactions_updated_at BEFORE UPDATE ON finance.wallet_transactions FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+#### `finance.refund_requests`
+
+Yêu cầu hoàn học phí, duyệt 3 cấp: tư vấn tạo, kế toán xác minh, giám đốc duyệt, kế toán giải ngân (INV-FIN-07/08).
+
+Số dòng seed: **0**
+
+| # | Cột | Kiểu dữ liệu | Null | Mặc định | Ràng buộc | Diễn giải |
+|--:|---|---|:--:|---|---|---|
+| 1 | `id` | integer | NO | `auto (SERIAL)` | `PK` | Khóa chính. |
+| 2 | `refund_code` | character varying(50) | NO |  | `UNIQUE` | Mã yêu cầu duy nhất. |
+| 3 | `invoice_id` | integer | NO |  | `FK REFERENCES finance.invoices(id) ON DELETE RESTRICT` | Hóa đơn cần hoàn. |
+| 4 | `student_id` | integer | NO |  |  | users.id của học viên (R-ID-1). |
+| 5 | `class_id` | integer | YES |  |  | Logical FK sang admission.classes.id. |
+| 6 | `total_sessions` | integer | NO |  | `CHECK ((total_sessions > 0))` | Tổng số buổi của khóa (> 0). |
+| 7 | `attended_sessions` | integer | NO |  | `CHECK nhiều cột: chk_valid_early_withdrawal`<br>`CHECK ((attended_sessions >= 0))` | Số buổi đã học; phải <= max_allowed_sessions. |
+| 8 | `max_allowed_sessions` | integer | NO | `3` | `CHECK nhiều cột: chk_valid_early_withdrawal` | Ngưỡng buổi tối đa được xét hoàn (mặc định 3). |
+| 9 | `paid_amount_snapshot` | numeric(12,2) | NO |  |  | Ảnh chụp số đã thanh toán tại thời điểm yêu cầu. |
+| 10 | `refundable_percent` | integer | NO |  | `CHECK (((refundable_percent >= 0) AND (refundable_percent <= 100)))` | Tỷ lệ hoàn (0-100). |
+| 11 | `deduction_amount` | numeric(12,2) | NO | `0` |  | Số tiền khấu trừ. |
+| 12 | `requested_refund_amount` | numeric(12,2) | NO |  | `CHECK ((requested_refund_amount >= (0)::numeric))` | Số tiền đề nghị hoàn (>= 0). |
+| 13 | `approved_refund_amount` | numeric(12,2) | YES |  | `CHECK ((approved_refund_amount >= (0)::numeric))` | Số tiền được duyệt (>= 0). |
+| 14 | `reason` | text | NO |  |  | Lý do hoàn. |
+| 15 | `bank_name` | character varying(100) | YES |  |  | Ngân hàng nhận. |
+| 16 | `bank_account_no` | character varying(50) | YES |  |  | Số tài khoản nhận. |
+| 17 | `bank_account_holder` | character varying(150) | YES |  |  | Chủ tài khoản. |
+| 18 | `transaction_ref` | character varying(100) | YES |  |  | Mã chứng từ chuyển khoản giải ngân hoàn tiền (FIN-F08 / API_CATALOG). |
+| 19 | `status` | character varying(30) | NO | `'PENDING_ACCOUNTANT'` | `CHECK (((status)::text = ANY ((ARRAY['PENDING_ACCOUNTANT'::character varying, 'PENDING_DIRECTOR'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'COMPLETED'::character varying])::text[])))` | PENDING_ACCOUNTANT \| PENDING_DIRECTOR \| APPROVED \| REJECTED \| COMPLETED. |
+| 20 | `requested_by_staff_id` | integer | NO |  |  | Logical FK sang admission.users.id: nhân viên tạo (cấp 1). |
+| 21 | `requested_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm tạo. |
+| 22 | `verified_by_accountant_id` | integer | YES |  |  | Logical FK sang admission.users.id: kế toán xác minh (cấp 2). |
+| 23 | `verified_at` | timestamp without time zone | YES |  |  | Thời điểm xác minh. |
+| 24 | `accountant_note` | text | YES |  |  | Ghi chú kế toán. |
+| 25 | `approved_by_director_id` | integer | YES |  |  | Logical FK sang admission.users.id (ADMIN): giám đốc duyệt (cấp 3). |
+| 26 | `approved_at` | timestamp without time zone | YES |  |  | Thời điểm duyệt. |
+| 27 | `director_note` | text | YES |  |  | Ghi chú giám đốc. |
+| 28 | `completed_at` | timestamp without time zone | YES |  |  | Thời điểm giải ngân xong. |
+| 29 | `updated_at` | timestamp without time zone | NO | `CURRENT_TIMESTAMP` |  | Thời điểm cập nhật gần nhất. |
+
+**Ràng buộc cấp bảng (nhiều cột):**
+
+| Tên | Loại | Định nghĩa |
+|---|---|---|
+| `chk_valid_early_withdrawal` | CHECK | `CHECK ((attended_sessions <= max_allowed_sessions))` |
+
+**Index:**
+
+- `idx_refund_invoice`: `CREATE INDEX idx_refund_invoice ON finance.refund_requests USING btree (invoice_id)`
+- `idx_refund_student`: `CREATE INDEX idx_refund_student ON finance.refund_requests USING btree (student_id, status)`
+- `refund_requests_pkey`: `CREATE UNIQUE INDEX refund_requests_pkey ON finance.refund_requests USING btree (id)`
+- `refund_requests_refund_code_key`: `CREATE UNIQUE INDEX refund_requests_refund_code_key ON finance.refund_requests USING btree (refund_code)`
+
+**Trigger:**
+
+- `trg_refund_requests_updated_at`: `CREATE TRIGGER trg_refund_requests_updated_at BEFORE UPDATE ON finance.refund_requests FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
+
+## 6. View báo cáo
+
+### `finance.vw_bi_cash_revenue_monthly`
+
+BI: doanh thu thực thu (tiền mặt + VietQR) và hoàn phí theo tháng. WALLET_OFFSET không tính là dòng tiền mới.
+
+| Cột | Kiểu |
+|---|---|
+| `report_month` | timestamp without time zone |
+| `cash_at_counter` | numeric |
+| `vietqr_transfer` | numeric |
+| `gross_cash_in` | numeric |
+| `refund_count` | bigint |
+| `total_refunded` | numeric |
+| `net_cash_revenue` | numeric |
+| `refund_rate_pct` | numeric |
 
 ```sql
--- ============================================================================
--- SCHEMA: finance
--- Primary Key / Logical Foreign Key: SERIAL / INTEGER
--- ============================================================================
-
-CREATE SCHEMA IF NOT EXISTS finance;
-
--- 1. BẢNG CHIẾN DỊCH VOUCHER
-CREATE TABLE IF NOT EXISTS finance.vouchers (
-    id SERIAL PRIMARY KEY,
-    code VARCHAR(50) UNIQUE NOT NULL,
-    campaign_name VARCHAR(150) NOT NULL DEFAULT 'Chiến dịch ưu đãi học phí',
-    discount_percent INT DEFAULT 0 CHECK (discount_percent >= 0 AND discount_percent <= 100),
-    discount_amount DECIMAL(12, 2) DEFAULT 0 CHECK (discount_amount >= 0),
-    min_order_value DECIMAL(12, 2) DEFAULT 0 CHECK (min_order_value >= 0),
-    max_discount_amount DECIMAL(12, 2) DEFAULT NULL,
-    max_uses INT DEFAULT 100 CHECK (max_uses > 0),
-    current_uses INT DEFAULT 0 CHECK (current_uses >= 0),
-    valid_from TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_voucher_usage_limit CHECK (current_uses <= max_uses)
-);
-
--- 2. BẢNG HÓA ĐƠN
-CREATE TABLE IF NOT EXISTS finance.invoices (
-    id SERIAL PRIMARY KEY,
-    invoice_code VARCHAR(50) UNIQUE NOT NULL,
-    student_id INT NOT NULL,
-    course_id INT NOT NULL,
-    enrollment_id INT,
-    invoice_type VARCHAR(30) NOT NULL DEFAULT 'COURSE_PACKAGE'
-        CHECK (invoice_type IN ('COURSE_PACKAGE', 'STANDALONE_RETAKE', 'MIXED')),
-    amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
-    voucher_id INT REFERENCES finance.vouchers(id),
-    discount_applied DECIMAL(12, 2) DEFAULT 0 CHECK (discount_applied >= 0),
-    final_amount DECIMAL(12, 2) NOT NULL CHECK (final_amount >= 0),
-    paid_amount DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (paid_amount >= 0),
-    remaining_amount DECIMAL(12, 2) GENERATED ALWAYS AS (final_amount - paid_amount) STORED,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'PARTIAL', 'PAID', 'CANCELLED', 'REFUNDED')),
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    paid_at TIMESTAMP,
-    CONSTRAINT chk_invoice_math CHECK (final_amount = amount - discount_applied),
-    CONSTRAINT chk_invoice_paid_bound CHECK (paid_amount <= final_amount)
-);
-
--- 3. BẢNG CHI TIẾT KHOẢN MỤC HÓA ĐƠN
-CREATE TABLE IF NOT EXISTS finance.invoice_items (
-    id SERIAL PRIMARY KEY,
-    invoice_id INT NOT NULL REFERENCES finance.invoices(id) ON DELETE CASCADE,
-    course_id INT,
-    item_type VARCHAR(30) NOT NULL
-        CHECK (item_type IN ('TUITION_PACKAGE', 'RETAKE_FEE')),
-    description VARCHAR(255) NOT NULL,
-    quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
-    unit_price DECIMAL(12, 2) NOT NULL CHECK (unit_price >= 0),
-    line_total DECIMAL(12, 2) NOT NULL CHECK (line_total >= 0),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_line_total_math CHECK (line_total = quantity * unit_price)
-);
-
--- 4. BẢNG LỊCH ĐÓNG HỌC PHÍ NHIỀU ĐỢT / ĐẶT CỌC
-CREATE TABLE IF NOT EXISTS finance.installments (
-    id SERIAL PRIMARY KEY,
-    invoice_id INT NOT NULL REFERENCES finance.invoices(id) ON DELETE CASCADE,
-    installment_no INT NOT NULL CHECK (installment_no >= 1),
-    payment_ref_code VARCHAR(50) UNIQUE NOT NULL,
-    amount_due DECIMAL(12, 2) NOT NULL CHECK (amount_due > 0),
-    amount_paid DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
-    due_date DATE NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'PARTIAL', 'PAID', 'OVERDUE', 'CANCELLED')),
-    paid_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (invoice_id, installment_no)
-);
-
--- 5. BẢNG GIAO DỊCH THU TIỀN & GẠCH NỢ VIETQR
-CREATE TABLE IF NOT EXISTS finance.payments (
-    id SERIAL PRIMARY KEY,
-    payment_code VARCHAR(50) UNIQUE NOT NULL,
-    invoice_id INT NOT NULL REFERENCES finance.invoices(id),
-    installment_id INT REFERENCES finance.installments(id),
-    payment_method VARCHAR(20) NOT NULL
-        CHECK (payment_method IN ('CASH', 'VIETQR', 'WALLET_OFFSET')),
-    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
-    bank_transaction_id VARCHAR(100) UNIQUE,
-    qr_reference_code VARCHAR(50),
-    webhook_payload JSONB,
-    received_by_staff_id INT,
-    status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS'
-        CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
-    paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 6. BẢNG VÍ BẢO LƯU HỌC VIÊN
-CREATE TABLE IF NOT EXISTS finance.student_wallets (
-    id SERIAL PRIMARY KEY,
-    student_id INT UNIQUE NOT NULL,
-    balance DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
-    is_withdrawable BOOLEAN NOT NULL DEFAULT FALSE,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
-        CHECK (status IN ('ACTIVE', 'FROZEN')),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 7. BẢNG LỊCH SỬ GIAO DỊCH VÍ BẢO LƯU
-CREATE TABLE IF NOT EXISTS finance.wallet_transactions (
-    id SERIAL PRIMARY KEY,
-    wallet_id INT NOT NULL REFERENCES finance.student_wallets(id),
-    tx_type VARCHAR(30) NOT NULL
-        CHECK (tx_type IN ('RESERVATION_CREDIT', 'TUITION_OFFSET', 'ADJUSTMENT')),
-    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
-    related_invoice_id INT REFERENCES finance.invoices(id),
-    reason TEXT NOT NULL,
-    created_by_staff_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 8. BẢNG YÊU CẦU & PHÊ DUYỆT HOÀN TIỀN 3 CẤP
-CREATE TABLE IF NOT EXISTS finance.refund_requests (
-    id SERIAL PRIMARY KEY,
-    refund_code VARCHAR(50) UNIQUE NOT NULL,
-    invoice_id INT NOT NULL REFERENCES finance.invoices(id),
-    student_id INT NOT NULL,
-    class_id INT,
-    total_sessions INT NOT NULL CHECK (total_sessions > 0),
-    attended_sessions INT NOT NULL CHECK (attended_sessions >= 0),
-    max_allowed_sessions INT NOT NULL DEFAULT 3,
-    paid_amount_snapshot DECIMAL(12, 2) NOT NULL,
-    refundable_percent INT NOT NULL CHECK (refundable_percent BETWEEN 0 AND 100),
-    deduction_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
-    requested_refund_amount DECIMAL(12, 2) NOT NULL CHECK (requested_refund_amount >= 0),
-    approved_refund_amount DECIMAL(12, 2) CHECK (approved_refund_amount >= 0),
-    reason TEXT NOT NULL,
-    bank_name VARCHAR(100),
-    bank_account_no VARCHAR(50),
-    bank_account_holder VARCHAR(150),
-    status VARCHAR(30) NOT NULL DEFAULT 'PENDING_ACCOUNTANT'
-        CHECK (status IN (
-            'PENDING_ACCOUNTANT',
-            'PENDING_DIRECTOR',
-            'APPROVED',
-            'REJECTED',
-            'COMPLETED'
-        )),
-    requested_by_staff_id INT NOT NULL,
-    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    verified_by_accountant_id INT,
-    verified_at TIMESTAMP,
-    accountant_note TEXT,
-    approved_by_director_id INT,
-    approved_at TIMESTAMP,
-    director_note TEXT,
-    completed_at TIMESTAMP,
-    CONSTRAINT chk_valid_early_withdrawal CHECK (attended_sessions <= max_allowed_sessions)
-);
-
--- VIEW 1: BÁO CÁO DOANH THU THỰC THU VÀ HOÀN PHÍ THEO THÁNG
 CREATE OR REPLACE VIEW finance.vw_bi_cash_revenue_monthly AS
 WITH cash_in AS (
-    SELECT
-        DATE_TRUNC('month', paid_at) AS report_month,
-        SUM(CASE WHEN payment_method = 'CASH' THEN amount ELSE 0 END) AS cash_at_counter,
-        SUM(CASE WHEN payment_method = 'VIETQR' THEN amount ELSE 0 END) AS vietqr_transfer,
-        SUM(CASE WHEN payment_method IN ('CASH', 'VIETQR') THEN amount ELSE 0 END) AS gross_cash_in
-    FROM finance.payments
-    WHERE status = 'SUCCESS'
-    GROUP BY DATE_TRUNC('month', paid_at)
-),
-cash_refund AS (
-    SELECT
-        DATE_TRUNC('month', completed_at) AS report_month,
-        COUNT(id) AS refund_count,
-        SUM(approved_refund_amount) AS total_refunded
-    FROM finance.refund_requests
-    WHERE status = 'COMPLETED'
-    GROUP BY DATE_TRUNC('month', completed_at)
-)
-SELECT
-    COALESCE(ci.report_month, cr.report_month) AS report_month,
-    COALESCE(ci.cash_at_counter, 0) AS cash_at_counter,
-    COALESCE(ci.vietqr_transfer, 0) AS vietqr_transfer,
-    COALESCE(ci.gross_cash_in, 0) AS gross_cash_in,
-    COALESCE(cr.refund_count, 0) AS refund_count,
-    COALESCE(cr.total_refunded, 0) AS total_refunded,
-    (COALESCE(ci.gross_cash_in, 0) - COALESCE(cr.total_refunded, 0)) AS net_cash_revenue,
-    CASE
-        WHEN COALESCE(ci.gross_cash_in, 0) > 0
-        THEN ROUND((COALESCE(cr.total_refunded, 0) / ci.gross_cash_in) * 100, 2)
-        ELSE 0
-    END AS refund_rate_pct
-FROM cash_in ci
-FULL OUTER JOIN cash_refund cr ON ci.report_month = cr.report_month
-ORDER BY report_month DESC;
+         SELECT date_trunc('month'::text, payments.paid_at) AS report_month,
+            sum(
+                CASE
+                    WHEN payments.payment_method::text = 'CASH'::text THEN payments.amount
+                    ELSE 0::numeric
+                END) AS cash_at_counter,
+            sum(
+                CASE
+                    WHEN payments.payment_method::text = 'VIETQR'::text THEN payments.amount
+                    ELSE 0::numeric
+                END) AS vietqr_transfer,
+            sum(
+                CASE
+                    WHEN payments.payment_method::text = ANY (ARRAY['CASH'::character varying, 'VIETQR'::character varying]::text[]) THEN payments.amount
+                    ELSE 0::numeric
+                END) AS gross_cash_in
+           FROM finance.payments
+          WHERE payments.status::text = 'SUCCESS'::text
+          GROUP BY (date_trunc('month'::text, payments.paid_at))
+        ), cash_refund AS (
+         SELECT date_trunc('month'::text, refund_requests.completed_at) AS report_month,
+            count(refund_requests.id) AS refund_count,
+            sum(refund_requests.approved_refund_amount) AS total_refunded
+           FROM finance.refund_requests
+          WHERE refund_requests.status::text = 'COMPLETED'::text
+          GROUP BY (date_trunc('month'::text, refund_requests.completed_at))
+        )
+ SELECT COALESCE(ci.report_month, cr.report_month) AS report_month,
+    COALESCE(ci.cash_at_counter, 0::numeric) AS cash_at_counter,
+    COALESCE(ci.vietqr_transfer, 0::numeric) AS vietqr_transfer,
+    COALESCE(ci.gross_cash_in, 0::numeric) AS gross_cash_in,
+    COALESCE(cr.refund_count, 0::bigint) AS refund_count,
+    COALESCE(cr.total_refunded, 0::numeric) AS total_refunded,
+    COALESCE(ci.gross_cash_in, 0::numeric) - COALESCE(cr.total_refunded, 0::numeric) AS net_cash_revenue,
+        CASE
+            WHEN COALESCE(ci.gross_cash_in, 0::numeric) > 0::numeric THEN round(COALESCE(cr.total_refunded, 0::numeric) / ci.gross_cash_in * 100::numeric, 2)
+            ELSE 0::numeric
+        END AS refund_rate_pct
+   FROM cash_in ci
+     FULL JOIN cash_refund cr ON ci.report_month = cr.report_month
+  ORDER BY (COALESCE(ci.report_month, cr.report_month)) DESC;
+```
 
--- VIEW 2: BÁO CÁO HIỆU QUẢ CHIẾN DỊCH VOUCHER
+### `finance.vw_bi_voucher_campaigns`
+
+BI: hiệu quả từng chiến dịch voucher (tỷ lệ dùng, tổng giảm, tiền thực thu).
+
+| Cột | Kiểu |
+|---|---|
+| `voucher_id` | integer |
+| `code` | character varying(50) |
+| `campaign_name` | character varying(150) |
+| `discount_percent` | integer |
+| `discount_amount` | numeric(12,2) |
+| `max_uses` | integer |
+| `current_uses` | integer |
+| `usage_rate_pct` | numeric |
+| `total_invoices` | bigint |
+| `total_discount_given` | numeric |
+| `actual_cash_collected` | numeric |
+
+```sql
 CREATE OR REPLACE VIEW finance.vw_bi_voucher_campaigns AS
-SELECT
-    v.id AS voucher_id,
+SELECT v.id AS voucher_id,
     v.code,
     v.campaign_name,
     v.discount_percent,
     v.discount_amount,
     v.max_uses,
     v.current_uses,
-    ROUND((v.current_uses::DECIMAL / v.max_uses) * 100, 2) AS usage_rate_pct,
-    COUNT(i.id) AS total_invoices,
-    COALESCE(SUM(i.discount_applied), 0) AS total_discount_given,
-    COALESCE(SUM(i.paid_amount), 0) AS actual_cash_collected
-FROM finance.vouchers v
-LEFT JOIN finance.invoices i ON v.id = i.voucher_id AND i.status != 'CANCELLED'
-GROUP BY v.id;
+    round(v.current_uses::numeric / NULLIF(v.max_uses, 0)::numeric * 100::numeric, 2) AS usage_rate_pct,
+    count(i.id) AS total_invoices,
+    COALESCE(sum(i.discount_applied), 0::numeric) AS total_discount_given,
+    COALESCE(sum(i.paid_amount), 0::numeric) AS actual_cash_collected
+   FROM finance.vouchers v
+     LEFT JOIN finance.invoices i ON v.id = i.voucher_id AND i.status::text <> 'CANCELLED'::text
+  GROUP BY v.id;
 ```
 
+## 7. Máy trạng thái
+
+### Hóa đơn `invoices.status`
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> PARTIAL : Thu một phần
+    PENDING --> PAID : Thu đủ
+    PARTIAL --> PAID : Thu nốt phần còn lại
+    PENDING --> CANCELLED : Hủy
+    PARTIAL --> CANCELLED : Hủy
+    PAID --> REFUNDED : Hoàn tiền xong
+```
+
+### Kỳ thanh toán `installments.status`
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> PARTIAL : Thu một phần
+    PENDING --> PAID : Thu đủ
+    PARTIAL --> PAID : Thu đủ
+    PENDING --> OVERDUE : Quá due_date
+    PARTIAL --> OVERDUE : Quá due_date
+    PENDING --> CANCELLED : Hủy kỳ
+```
+
+### Hoàn tiền `refund_requests.status`
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_ACCOUNTANT : Tư vấn tạo yêu cầu (cấp 1)
+    PENDING_ACCOUNTANT --> PENDING_DIRECTOR : Kế toán xác minh (cấp 2)
+    PENDING_ACCOUNTANT --> REJECTED : Từ chối
+    PENDING_DIRECTOR --> APPROVED : Giám đốc duyệt (cấp 3)
+    PENDING_DIRECTOR --> REJECTED : Từ chối
+    APPROVED --> COMPLETED : Kế toán giải ngân
+```
+
+### Ví bảo lưu
+
+`student_wallets.status`: `ACTIVE <-> FROZEN`. Số dư chỉ tăng bằng `RESERVATION_CREDIT` / `ADJUSTMENT`, chỉ giảm bằng `TUITION_OFFSET`.
+
+## 8. Quy tắc bất biến
+
+| Mã | Quy tắc |
+|---|---|
+| **INV-FIN-01 (module)** | Invoice PAID hoặc REFUNDED không được xóa hay sửa `amount`, `discount_applied`, `final_amount` (trigger hoặc kiểm tra ở service). |
+| **INV-FIN-02 (module)** | `final_amount = amount - discount_applied >= 0`; `0 <= paid_amount <= final_amount` (CHECK); `SUM(installments.amount_due) = final_amount` (kiểm tra ở service). |
+| **INV-FIN-03 (module)** | Finance chỉ truy cập schema `finance`; `student_id`, `course_id`, `class_id`, `enrollment_id` là INTEGER logic. |
+| **INV-FIN-04 (module)** | Voucher: kiểm tra `is_active`, `valid_from <= now < expires_at`, `current_uses < max_uses`, `min_order_value`, và `SELECT ... FOR UPDATE` trước khi tăng `current_uses`. |
+| **INV-FIN-05 (module)** | `payments.bank_transaction_id` / `transaction_ref` UNIQUE: giao dịch đã có trả 200 OK, không ghi phiếu thu lần hai (idempotency VietQR). |
+| **INV-FIN-06 (module)** | `is_withdrawable` luôn FALSE; số dư chỉ giảm qua `TUITION_OFFSET`. |
+| **INV-FIN-07 (module)** | Chỉ tạo hoàn tiền khi `attended_sessions <= max_allowed_sessions` (CHECK `chk_valid_early_withdrawal`). |
+| **INV-FIN-08 (module)** | Hoàn tiền phải đi đủ PENDING_ACCOUNTANT, PENDING_DIRECTOR, APPROVED, COMPLETED; không nhảy cấp. |
+| **INV-FIN-01 (hệ thống)** | `payment.amount > 0` và `invoice.amount >= 0` (CHECK). |
+| **INV-FIN-02 (hệ thống)** | Không ghi nhận trùng giao dịch cùng mã tham chiếu (`bank_transaction_id` / `transaction_ref` UNIQUE). |
+| **INV-FIN-03 (hệ thống)** | Invoice chỉ PAID khi tổng payment SUCCESS `>=` `final_amount`. |
+
+## 9. Quy tắc API liên service
+
+### 9.1. API công khai của module
+
+| Method | Endpoint | Quyền |
+|---|---|---|
+| GET / POST | `/api/finance/tuition-fees` | ADMIN, STAFF |
+| POST / GET | `/api/finance/vouchers` | ADMIN, STAFF |
+| POST | `/api/finance/vouchers/validate` | ADMIN, STAFF, STUDENT |
+| POST | `/api/finance/invoices/auto-generate` | ADMIN, STAFF, Internal |
+| GET / POST | `/api/finance/invoices`, `/api/finance/invoices/{id}` | ADMIN, STAFF, STUDENT (chỉ của mình) |
+| POST | `/api/finance/payments/cash` (hoặc `/api/finance/payments`) | ADMIN, STAFF |
+| GET | `/api/finance/invoices/{id}/vietqr` | STUDENT, STAFF |
+| POST | `/api/finance/webhooks/vietqr` | Ngân hàng |
+| GET | `/api/finance/wallets/{student_id}` | ADMIN, STAFF, STUDENT |
+| POST | `/api/finance/wallets/{student_id}/reserve` | ADMIN, STAFF |
+| POST | `/api/finance/refunds` | STAFF (cấp 1) |
+| PUT | `/api/finance/refunds/{id}/verify` | STAFF kế toán (cấp 2) |
+| PUT | `/api/finance/refunds/{id}/approve` | ADMIN giám đốc (cấp 3) |
+| PUT | `/api/finance/refunds/{id}/complete` | STAFF kế toán |
+| GET | `/api/finance/bi/cash-revenue`, `/bi/voucher-campaigns`, `/bi/refund-summary` | ADMIN, STAFF |
+
+Danh mục đầy đủ: [`../tasks/API_CATALOG.md`](../tasks/API_CATALOG.md).
+
+### 9.2. API nội bộ module cung cấp (header `X-Internal-Secret`)
+
+| Endpoint | Người gọi | Mục đích |
+|---|---|---|
+| `POST /api/finance/invoices/auto-generate` | Admission | Sinh hóa đơn khi nộp đơn tuyển sinh (idempotent theo `enrollment_id`) |
+| `GET /api/finance/internal/wallets?student_id=` | Student | Kiểm tra ví bảo lưu khi duyệt RESERVE |
+| `POST /api/finance/webhooks/vietqr` | Ngân hàng | Gạch nợ tự động (idempotent theo `bank_transaction_id`) |
+
+### 9.3. API module gọi sang service khác
+
+| Gọi tới | Khi nào | Nội dung |
+|---|---|---|
+| `POST admission /api/admission/webhooks/payment-success` | Invoice chuyển PAID | Báo duyệt đơn; kèm `event_id` duy nhất |
+| `GET admission /api/admission/internal/courses/{id}` | Lập hóa đơn | Lấy `tuition_amount` |
+| `GET student /api/student/internal/attendance/summary` | Tạo yêu cầu hoàn tiền | Lấy `attended_sessions` |
+
+Nguyên tắc chung (timeout, retry, idempotency, định dạng) xem [`docs/MASTER_DB_AND_API_RULES.md`](../../../docs/MASTER_DB_AND_API_RULES.md) mục 8 và 9.
+
+## 10. Ghi chú triển khai & quyết định thiết kế
+
+- **Công thức giảm giá (đề xuất):** giảm theo phần trăm `LEAST(amount * discount_percent / 100, COALESCE(max_discount_amount, amount))`; giảm cố định `discount_amount`; kết quả không vượt `amount`; chỉ áp dụng khi `amount >= min_order_value`.
+- **Tên mã bất biến bị trùng:** `docs/invariants.md` (cấp hệ thống) và spec Finance (cấp module) cùng dùng `INV-FIN-01..03` với nghĩa khác nhau. Tài liệu này ghi rõ "(module)" hoặc "(hệ thống)".
+- **Tương thích ngược ("thừa còn hơn thiếu"):**
+  - Bổ sung bảng `finance.tuition_fees` (theo `docs/contract.md` và `FIN-01`) bên cạnh 8 bảng nghiệp vụ chính.
+  - `invoices`: có sequence `finance.invoice_code_seq` tự sinh `invoice_code`, `course_id DEFAULT 1`, trigger `finance.normalize_invoice_row()` tự tính `final_amount = amount - discount_applied` nếu INSERT không truyền `final_amount`, và mở rộng `status` chấp nhận cả `'UNPAID'`, `'OVERDUE'` bên cạnh `'PENDING'`, `'PARTIAL'`, `'PAID'`, `'CANCELLED'`, `'REFUNDED'`.
+  - `payments`: có sequence `finance.payment_code_seq` tự sinh `payment_code`, trigger `finance.sync_payment_refs()` đồng bộ 2 chiều `bank_transaction_id <-> transaction_ref`, và mở rộng `payment_method` chấp nhận cả `'BANK_TRANSFER'`, `'CARD'`, `'MOMO'` bên cạnh `'CASH'`, `'VIETQR'`, `'WALLET_OFFSET'`.
+- **Cột sinh tự động:** `invoices.remaining_amount` là `GENERATED ALWAYS ... STORED`, không được INSERT/UPDATE trực tiếp (ORM phải đánh dấu `Computed`/`server_default`).
+
 ---
-
-## 6. Định nghĩa 2 BI Views
-
-### 6.1. `finance.vw_bi_cash_revenue_monthly`
-
-View tổng hợp doanh thu thực thu và hoàn phí theo tháng:
-- `cash_at_counter`: tiền mặt thu tại quầy.
-- `vietqr_transfer`: tiền chuyển khoản VietQR.
-- `gross_cash_in`: tổng thực thu từ CASH và VIETQR.
-- `refund_count`: số yêu cầu hoàn tiền hoàn tất.
-- `total_refunded`: tổng tiền hoàn.
-- `net_cash_revenue`: gross_cash_in trừ total_refunded.
-- `refund_rate_pct`: tỷ lệ hoàn phí trên tổng thực thu.
-
-Chỉ tính payment có `status = 'SUCCESS'`; WALLET_OFFSET không được tính vào dòng tiền mới.
-
-### 6.2. `finance.vw_bi_voucher_campaigns`
-
-View tổng hợp hiệu quả Voucher:
-- Thông tin Voucher: code, campaign_name, discount_percent, discount_amount.
-- Hạn mức và lượt dùng: max_uses, current_uses, usage_rate_pct.
-- Số hóa đơn áp dụng: total_invoices.
-- Tổng giá trị giảm giá: total_discount_given.
-- Tổng số tiền đã thu từ hóa đơn áp dụng Voucher: actual_cash_collected.

@@ -10,8 +10,8 @@
 - **Người thực hiện**: Chi
 - **Nội dung công việc**:
   - Hoàn thiện toàn bộ 5 tài liệu đặc tả chuẩn:
-    1. `tong_hop_finance_tinh_nang_va_schema_ver2.md`: Danh mục 9 tính năng (FIN-F01 đến FIN-F09), 8 bảng CSDL, 2 BI Views và toàn văn DDL SQL.
-    2. `finance-ba-bi-spec.md` & `finance-ba-bi-spec_ver2.md`: Đặc tả chi tiết phân tích nghiệp vụ, tác nhân, quy tắc bất biến INV-FIN-01 đến INV-FIN-07 và KPI quản trị.
+    1. `tong_hop_finance_tinh_nang_va_schema.md`: Danh mục 9 tính năng (FIN-F01 đến FIN-F09), 8 bảng CSDL, 2 BI Views và toàn văn DDL SQL.
+    2. `finance-ba-bi-spec.md`: Đặc tả chi tiết phân tích nghiệp vụ, tác nhân, quy tắc bất biến INV-FIN-01 đến INV-FIN-07 và KPI quản trị.
     3. `finance-tech-spec.md`: Đặc tả kiến trúc kỹ thuật FastAPI, JWT, tích hợp Admission/Learning, xử lý khóa dòng `SELECT FOR UPDATE` và Idempotency VietQR.
     4. `finance-schema-spec.md`: Từ điển dữ liệu 8 bảng, constraints, State Machine hóa đơn/hoàn tiền và DDL.
     5. `finance-uml-spec.md`: Sơ đồ Use Case, Sequence Diagram sinh hóa đơn VietQR, Sequence Diagram hoàn tiền 3 cấp và ERD.

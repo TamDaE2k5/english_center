@@ -1,160 +1,115 @@
 # Hợp đồng Kỹ thuật & Ràng buộc Hệ thống (Technical Contract)
 
-> **Trạng thái**: APPROVED (Nền tảng đã thống nhất) & PROPOSED (Các quy tắc mở rộng)
+> **Trạng thái**: APPROVED (Bản chốt hợp nhất toàn nhóm — Final 1.0)
+> **Tài liệu chi tiết liên kết**:
+> - Bản đặc tả tổng thể CSDL & Quy tắc API liên service: [`docs/MASTER_DB_AND_API_RULES.md`](MASTER_DB_AND_API_RULES.md)
+> - Chỉ mục Từ điển Dữ liệu toàn hệ thống (28 bảng, 4 views, 342 cột, 35 triggers): [`docs/database/DATA_DICTIONARY_INDEX.md`](database/DATA_DICTIONARY_INDEX.md)
+> - DDL khởi tạo chuẩn trên PostgreSQL 16: [`scripts/init-db.sql`](../scripts/init-db.sql)
 
 ---
 
-## 1. Domain Model (Dữ liệu nghiệp vụ)
+## 1. Domain Model (Dữ liệu nghiệp vụ — 4 Schemas độc lập)
 
-Hệ thống phân tách dữ liệu thành 4 Schema độc lập trên PostgreSQL:
+Hệ thống phân tách dữ liệu thành **4 Schema độc lập** trên cùng 1 PostgreSQL 16 instance (`english_center`), tuân thủ tuyệt đối bất biến **`INV-SYS-02`** (không có Physical FK chéo schema, chỉ dùng Logical FK kiểu `INTEGER` hoặc mã định danh).
 
-### A. Schema `admission` (Tuyển sinh & Quản trị tài khoản)
-- **`users`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `email` (VARCHAR(255) UNIQUE NOT NULL)
-  - `password_hash` (VARCHAR(255) NOT NULL)
-  - `full_name` (VARCHAR(255) NOT NULL)
-  - `role` (VARCHAR(50) NOT NULL: `ADMIN`, `STAFF`, `TEACHER`, `STUDENT`)
-  - `phone` (VARCHAR(50))
-  - `is_active` (BOOLEAN DEFAULT TRUE)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`courses`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `code` (VARCHAR(50) UNIQUE NOT NULL)
-  - `name` (VARCHAR(255) NOT NULL)
-  - `description` (TEXT)
-  - `level` (VARCHAR(50): `Beginner`, `Intermediate`, `Advanced`)
-  - `duration_weeks` (INTEGER DEFAULT 12)
-  - `tuition_amount` (NUMERIC(12,2) DEFAULT 0)
-  - `is_active` (BOOLEAN DEFAULT TRUE)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`classes`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `course_id` (INTEGER REFERENCES admission.courses(id) ON DELETE CASCADE)
-  - `code` (VARCHAR(50) UNIQUE NOT NULL)
-  - `name` (VARCHAR(255) NOT NULL)
-  - `room` (VARCHAR(100))
-  - `teacher_name` (VARCHAR(255))
-  - `schedule` (VARCHAR(255))
-  - `start_date` (DATE), `end_date` (DATE)
-  - `max_students` (INTEGER DEFAULT 25 CHECK (max_students > 0))
-  - `status` (VARCHAR(50) DEFAULT 'OPEN': `OPEN`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`enrollments`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `student_id` (INTEGER NOT NULL) -- Tham chiếu logic sang `student.students(id)`
-  - `class_id` (INTEGER REFERENCES admission.classes(id) ON DELETE CASCADE)
-  - `status` (VARCHAR(50) DEFAULT 'PENDING': `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`)
-  - `enrolled_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-  - *Ràng buộc logic*: Không được vượt quá `max_students` của lớp khi chuyển sang `APPROVED`.
+| Schema | Service | Port | Tech Stack | Số bảng | Số View | Đặc tả chi tiết từng cột |
+|---|---|---:|---|---:|---:|---|
+| `admission` | `admission-service` | `8081` | Java 21 / Spring Boot 3.3.4 | **14** | 0 | [`admission-schema-spec.md`](../services/admission/docs/admission-schema-spec.md) |
+| `student` | `student-service` | `8082` | Python 3.10+ / FastAPI | **3** | 0 | [`student-schema-spec.md`](../services/student/docs/student-schema-spec.md) |
+| `learning` | `learning-service` | `8083` | Python 3.10+ / FastAPI | **2** | **2** | [`learning-schema-spec.md`](../services/learning/docs/learning-schema-spec.md) |
+| `finance` | `finance-service` | `8084` | Python 3.11 / FastAPI | **9** | **2** | [`finance-schema-spec.md`](../services/finance/docs/finance-schema-spec.md) |
+| **Tổng cộng** | **4 Microservices** | `8080` (GW) | **Polyglot** | **28** | **4** | [`DATA_DICTIONARY_INDEX.md`](database/DATA_DICTIONARY_INDEX.md) |
 
-### B. Schema `student` (Hồ sơ học viên & Điểm danh)
-- **`students`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `user_id` (INTEGER) -- Liên kết tùy chọn tới `admission.users(id)`
-  - `full_name` (VARCHAR(255) NOT NULL)
-  - `email` (VARCHAR(255) NOT NULL)
-  - `phone` (VARCHAR(50))
-  - `date_of_birth` (DATE)
-  - `address` (TEXT)
-  - `status` (VARCHAR(50) DEFAULT 'STUDYING': `STUDYING`, `RESERVED`, `DROPPED`, `GRADUATED`)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`attendance`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `class_id` (INTEGER NOT NULL)
-  - `student_id` (INTEGER REFERENCES student.students(id) ON DELETE CASCADE)
-  - `session_date` (DATE NOT NULL)
-  - `status` (VARCHAR(50) DEFAULT 'PRESENT': `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`)
-  - `notes` (TEXT)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-  - *Ràng buộc logic*: Mỗi học viên chỉ có 1 bản ghi điểm danh trên 1 buổi học của lớp (`UNIQUE(class_id, student_id, session_date)`).
+> [!IMPORTANT]
+> **Quy ước định danh người học (`R-ID-1`):**
+> - Trong schema **`admission`** và **`finance`**: cột `student_id` lưu **`admission.users(id)`** (vì đơn tuyển sinh `enrollments` và hóa đơn `invoices` được sinh ở trạng thái `PENDING` trước khi hồ sơ học vụ chính thức được khởi tạo).
+> - Trong schema **`student`** và **`learning`**: cột `student_id` lưu **`student.students(id)`**.
+> - Cầu nối duy nhất giữa 2 định danh là cột **`student.students.user_id`** (`Logical FK -> admission.users.id`).
 
-### C. Schema `learning` (Học liệu & Đánh giá kết quả)
-- **`materials`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `class_id` (INTEGER NOT NULL)
-  - `title` (VARCHAR(255) NOT NULL)
-  - `description` (TEXT)
-  - `material_type` (VARCHAR(50) DEFAULT 'DOCUMENT': `DOCUMENT`, `VIDEO`, `EXERCISE`, `SLIDE`)
-  - `file_url` (TEXT)
-  - `uploaded_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`grades`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `class_id` (INTEGER NOT NULL)
-  - `student_id` (INTEGER NOT NULL)
-  - `assessment_name` (VARCHAR(255) NOT NULL)
-  - `score` (NUMERIC(5,2) NOT NULL CHECK (score >= 0))
-  - `max_score` (NUMERIC(5,2) DEFAULT 100.0 CHECK (max_score > 0))
-  - `feedback` (TEXT)
-  - `graded_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-  - *Ràng buộc logic*: `score <= max_score`.
+### A. Schema `admission` (Tuyển sinh, Khảo thí & Định danh — 14 bảng)
+1. **`users`**: Tài khoản đăng nhập tập trung (`ADMIN`, `STAFF`, `TEACHER`, `STUDENT`), BCrypt password, `must_change_password`, `email_verified_at`.
+2. **`refresh_tokens`**: Phiên đăng nhập stateful hỗ trợ Refresh Token Rotation (`token` & `token_hash` tự đồng bộ qua trigger).
+3. **`password_reset_tokens`**: Token đặt lại mật khẩu hiệu lực 15 phút (`token` & `token_hash` tự đồng bộ).
+4. **`auth_audit_logs`**: Nhật ký kiểm toán bảo mật (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `REFRESH_TOKEN`, `LOGOUT`, `PASSWORD_CHANGED`, `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED`).
+5. **`rooms`**: Danh mục phòng học & sức chứa (`capacity > 0`).
+6. **`courses`**: Danh mục khóa học (`code` UNIQUE, `level`, `duration_weeks`, `tuition_amount`, `prerequisite_course_id`).
+7. **`classes`**: Lớp học & thời khóa biểu (`course_id`, `room_id`, `teacher_id`, `day_pattern`, `start_time`, `end_time`, `min_students`, `max_students`, `status`, kèm các cột tương thích `room`, `teacher_name`, `schedule`).
+8. **`enrollments`**: Đơn đăng ký tuyển sinh & giữ chỗ 48h (`student_id`, `class_id`, `status`, `hold_expires_at`, `invoice_code`, `enrollment_channel`, `student_sync_status` / `is_synced_to_student`).
+9. **`test_sets`**: Bộ đề khảo thí đầu vào (`code`, `title`, `duration_minutes`, `total_max_score`).
+10. **`test_questions`**: Câu hỏi trắc nghiệm 3 kỹ năng (`LISTENING`, `READING`, `GRAMMAR`; `order_index` / `display_order`).
+11. **`test_recommendation_rules`**: Ma trận quy đổi dải điểm sang trình độ & khóa học khuyến nghị (`advice_text` / `advice_note`).
+12. **`test_attempts`**: Lượt làm bài thi theo giờ server (`STARTED`, `SUBMITTED`, `EXPIRED` — chống nộp trễ hạn & chấm lặp `INV-TST-02`).
+13. **`test_submissions`**: Kết quả bài khảo thí đã chấm (`attempt_id` UNIQUE, điểm 3 kỹ năng, `answers_detail` JSONB).
+14. **`processed_finance_events`**: Sổ đối soát callback thanh toán từ Finance (`finance_event_id` UNIQUE — đảm bảo Idempotency `INV-ENR-02` & xử lý thanh toán muộn `INV-ENR-03`).
 
-### D. Schema `finance` (Học phí, Hóa đơn & Thanh toán)
-- **`tuition_fees`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `course_id` (INTEGER NOT NULL)
-  - `amount` (NUMERIC(12,2) NOT NULL CHECK (amount >= 0))
-  - `currency` (VARCHAR(10) DEFAULT 'VND')
-  - `note` (TEXT)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`invoices`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `invoice_code` (VARCHAR(50) UNIQUE NOT NULL)
-  - `student_id` (INTEGER NOT NULL)
-  - `enrollment_id` (INTEGER)
-  - `amount` (NUMERIC(12,2) NOT NULL CHECK (amount >= 0))
-  - `status` (VARCHAR(50) DEFAULT 'UNPAID': `UNPAID`, `PAID`, `CANCELLED`, `OVERDUE`)
-  - `due_date` (DATE)
-  - `created_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
-- **`payments`**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `invoice_id` (INTEGER REFERENCES finance.invoices(id) ON DELETE CASCADE)
-  - `amount` (NUMERIC(12,2) NOT NULL CHECK (amount > 0))
-  - `payment_method` (VARCHAR(50) DEFAULT 'BANK_TRANSFER': `CASH`, `BANK_TRANSFER`, `CARD`, `MOMO`)
-  - `transaction_ref` (VARCHAR(100) UNIQUE)
-  - `paid_at` (TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)
+### B. Schema `student` (Hồ sơ học viên, Điểm danh & Học vụ — 3 bảng)
+1. **`students`**: Hồ sơ học viên (`id`, `user_id` Logical FK, `student_code` UNIQUE dạng `HV-YYYY-NNNN` tự sinh qua sequence `student.student_code_seq`, `full_name`, `email` UNIQUE, `status`: `STUDYING`, `RESERVED`, `DROPPED`, `GRADUATED`).
+2. **`attendance`**: Điểm danh theo buổi (`class_id` Logical FK, `student_id`, `session_date`, `status`: `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`; ràng buộc `UNIQUE(class_id, student_id, session_date)` theo `INV-STU-01`).
+3. **`status_requests`**: Yêu cầu học vụ (`student_id`, `request_type`: `RESERVE`, `TRANSFER`, `DROP`, `class_id`, `target_class_id`, `status`: `PENDING`, `APPROVED`, `REJECTED`, `reviewed_by`).
+- *Bất biến `INV-STU-03`*: Tuyệt đối không tạo bảng `class_members`; danh sách học viên của lớp lấy qua REST API từ `admission.enrollments` (`status = 'APPROVED'`).
+
+### C. Schema `learning` (Học liệu, Bảng điểm & Báo cáo — 2 bảng + 2 views)
+1. **`materials`**: Học liệu gắn với lớp (`class_id` Logical FK, `title`, `material_type`: `DOCUMENT`, `VIDEO`, `EXERCISE`, `SLIDE`, `file_url` không rỗng `INV-LRN-04`, `original_filename`, `file_size`, `uploaded_by`).
+2. **`grades`**: Điểm đánh giá học viên (`class_id`, `student_id` Logical FK tới `student.students(id)`, `assessment_name`, `0 <= score <= max_score` theo `INV-LRN-01`, `weight` trong `(0, 1]` hoặc `NULL` coi là `1.0`, `graded_by`; ràng buộc `UNIQUE(class_id, student_id, assessment_name)` theo `INV-LRN-06`).
+- **Views báo cáo**: `learning.v_student_grade_summary` (chuẩn hóa từng đầu điểm về thang 100% trước khi tính trung bình trọng số; `average_percentage >= 50` là `Pass`) và `learning.v_class_pass_rate`.
+
+### D. Schema `finance` (Biểu phí, Hóa đơn, Thanh toán, Ví & Hoàn tiền — 9 bảng + 2 BI views)
+1. **`tuition_fees`**: Biểu phí chuẩn theo khóa học (`course_id` UNIQUE Logical FK, `course_name`, `amount` / `base_amount` tự đồng bộ, `currency`, `discount_pct`, `note` / `description`).
+2. **`vouchers`**: Chiến dịch mã giảm giá (`code` UNIQUE, `discount_percent`, `discount_amount`, `min_order_value`, `max_discount_amount`, `current_uses <= max_uses` khóa bi quan `INV-FIN-04`).
+3. **`invoices`**: Hóa đơn học phí (`invoice_code` UNIQUE tự sinh, `student_id`, `course_id`, `enrollment_id`, `amount`, `discount_applied`, `final_amount = amount - discount_applied`, `paid_amount <= final_amount`, `remaining_amount` GENERATED, `status`: `PENDING`, `UNPAID`, `PARTIAL`, `PAID`, `OVERDUE`, `CANCELLED`, `REFUNDED`).
+4. **`invoice_items`**: Chi tiết khoản mục hóa đơn (`TUITION_PACKAGE`, `RETAKE_FEE`, `line_total = quantity * unit_price`).
+5. **`installments`**: Lịch đóng học phí nhiều đợt (`installment_no`, `payment_ref_code` UNIQUE, `amount_due`, `amount_paid`, `status`).
+6. **`payments`**: Phiếu thu & gạch nợ (`payment_code` UNIQUE tự sinh, `invoice_id`, `installment_id`, `payment_method`: `CASH`, `VIETQR`, `WALLET_OFFSET`, `BANK_TRANSFER`, `CARD`, `MOMO`, `amount > 0`, `bank_transaction_id` / `transaction_ref` UNIQUE đảm bảo Idempotency `INV-FIN-05`).
+7. **`student_wallets`**: Ví bảo lưu học viên (`student_id` UNIQUE, `balance >= 0`, `is_withdrawable = FALSE` theo `INV-FIN-06`).
+8. **`wallet_transactions`**: Lịch sử giao dịch ví (`RESERVATION_CREDIT`, `TUITION_OFFSET`, `ADJUSTMENT`).
+9. **`refund_requests`**: Yêu cầu hoàn tiền 3 cấp duyệt (`attended_sessions <= max_allowed_sessions` theo `INV-FIN-07`, trạng thái `PENDING_ACCOUNTANT -> PENDING_DIRECTOR -> APPROVED -> COMPLETED` theo `INV-FIN-08`).
+- **BI Views**: `finance.vw_bi_cash_revenue_monthly` và `finance.vw_bi_voucher_campaigns`.
 
 ---
 
-## 2. State Machines (Vòng đời đối tượng)
+## 2. State Machines (Vòng đời đối tượng cốt lõi)
 
 ### A. Vòng đời Đăng ký (`admission.enrollments`)
 ```
-[PENDING] --(Duyệt hồ sơ & Lớp còn chỗ)--> [APPROVED]
-[PENDING] --(Từ chối / Hết chỗ)---------> [REJECTED]
-[PENDING / APPROVED] --(Học viên rút đơn)--> [CANCELLED]
+[PENDING (giữ chỗ 48h)] --(Finance PAID webhook / Staff duyệt)--> [APPROVED]
+[PENDING] --------------(Quá hạn hold_expires_at)---------------> [EXPIRED]
+[PENDING] --------------(Từ chối)-------------------------------> [REJECTED]
+[PENDING] --------------(Học viên / Staff hủy)------------------> [CANCELLED]
+[APPROVED] -------------(Hủy lớp thiếu sĩ số)-------------------> [CANCELLED_REFUND_PENDING] --> [CANCELLED]
 ```
-- **Quy tắc**: Không được chuyển từ `PENDING` sang `APPROVED` nếu sĩ số lớp đã đạt `max_students`.
+- **Quy tắc (`INV-ADM-01`, `INV-ADM-03`)**: Không được chuyển sang `APPROVED` nếu `APPROVED + PENDING (còn hạn) >= max_students`. Các đơn đã `CANCELLED`, `REJECTED`, `EXPIRED` không được chuyển ngược thành `APPROVED`.
 
 ### B. Vòng đời Hóa đơn (`finance.invoices`)
 ```
-[UNPAID] --(Thanh toán đủ tổng tiền)------> [PAID]
-[UNPAID] --(Quá hạn thanh toán)----------> [OVERDUE]
-[OVERDUE] --(Thanh toán hoàn tất)---------> [PAID]
-[UNPAID / OVERDUE] --(Hủy khóa / Đổi đơn)-> [CANCELLED]
+[PENDING / UNPAID] --(Thu một phần)-------------> [PARTIAL]
+[PENDING / PARTIAL] -(Thu đủ final_amount)------> [PAID]
+[PENDING / PARTIAL] -(Hủy đơn)------------------> [CANCELLED]
+[PAID] --------------(Hoàn tiền cấp 3 hoàn tất)-> [REFUNDED]
 ```
-- **Quy tắc**: Chỉ chuyển sang `PAID` khi có giao dịch thanh toán hợp lệ với `sum(payments.amount) >= invoices.amount`.
+- **Quy tắc (`INV-FIN-01`, `INV-FIN-03`)**: Chỉ chuyển sang `PAID` khi tổng giao dịch `SUCCESS` đạt `final_amount`. Khi đã `PAID` hoặc `REFUNDED`, cấm sửa `amount`, `discount_applied`, `final_amount`.
 
 ---
 
 ## 3. API Contract & Conventions
 
-- **Cấu trúc JSON chung**:
+- **Định tuyến qua Nginx Gateway (`:8080`)**:
+  - `/auth/*` và `/api/admission/*` → `admission-service:8081`
+  - `/api/student/*` (và alias `/api/v1/*`) → `student-service:8082`
+  - `/api/learning/*` → `learning-service:8083`
+  - `/api/finance/*` → `finance-service:8084`
+- **Cấu trúc JSON chung (`INV-SYS-01`)**:
   - Thành công: `{ "success": true, "data": ..., "message": "..." }`
   - Lỗi: `{ "success": false, "error": { "code": "ERR_CODE", "message": "..." } }`
 - **Naming style**: `snake_case` cho toàn bộ JSON fields và query parameters.
-- **Header xác thực**: `Authorization: Bearer <jwt_token>` trên tất cả API yêu cầu bảo mật.
-- **Tiền tố mã lỗi**:
-  - Auth: `AUTH_`
-  - Admission: `ADM_`
-  - Student: `STU_`
-  - Learning: `LRN_`
-  - Finance: `FIN_`
+- **Header xác thực**:
+  - Người dùng: `Authorization: Bearer <jwt_token>`
+  - Giao tiếp nội bộ liên service (`/internal/*`, webhooks): `X-Internal-Secret: <shared_secret>`
+- **Tiền tố mã lỗi**: `AUTH_`, `ADM_`, `STU_`, `LRN_`, `FIN_`.
 
 ---
 
 ## 4. Phân quyền & Ranh giới Bảo mật (Authorization)
-- `ADMIN`: Toàn quyền hệ thống.
-- `STAFF`: Quản lý danh mục khóa, lớp, tiếp nhận hồ sơ, lập hóa đơn.
-- `TEACHER`: Chỉ được xem danh sách lớp mình dạy, điểm danh lớp mình dạy, nhập điểm bài học mình phụ trách. Không được sửa học phí, không được xem doanh thu tài chính.
-- `STUDENT`: Chỉ được xem thông tin cá nhân của chính mình, điểm thi của mình, tài liệu lớp mình đang học, và hóa đơn thanh toán của bản thân. Tuyệt đối không xem được hồ sơ/điểm của học viên khác.
+- `ADMIN`: Toàn quyền hệ thống, phê duyệt hoàn tiền cấp 3 (Giám đốc), xem BI Dashboard.
+- `STAFF`: Quản lý danh mục khóa/lớp/phòng, tiếp nhận & duyệt hồ sơ tuyển sinh, duyệt yêu cầu học vụ, lập hóa đơn, thu tiền mặt, xác minh hoàn tiền cấp 1 & 2.
+- `TEACHER`: Chỉ xem danh sách lớp mình dạy, điểm danh lớp mình dạy, upload học liệu và nhập điểm lớp mình phụ trách (`INV-SEC-02` / `INV-LRN-03`). Không được sửa học phí hoặc xem báo cáo tài chính.
+- `STUDENT`: Chỉ xem và cập nhật thông tin cá nhân của chính mình (`INV-SEC-01`), làm bài test đầu vào, đăng ký lớp, xem điểm/học liệu của lớp mình học (`INV-LRN-02`), và tra cứu hóa đơn/ví bảo lưu của bản thân.
