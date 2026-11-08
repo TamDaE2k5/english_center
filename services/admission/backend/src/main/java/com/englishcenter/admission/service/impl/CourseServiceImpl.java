@@ -136,7 +136,8 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional(readOnly = true)
     public List<CourseResponse> getCourses(String level, Boolean isActive) {
-        return courseRepository.searchCourses(level, isActive)
+        String normalizedLevel = (level != null && !level.trim().isEmpty()) ? level.trim().toUpperCase() : null;
+        return courseRepository.searchCourses(normalizedLevel, isActive)
                 .stream()
                 .map(CourseResponse::fromEntity)
                 .collect(Collectors.toList());

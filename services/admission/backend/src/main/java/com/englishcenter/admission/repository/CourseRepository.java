@@ -57,7 +57,7 @@ public interface CourseRepository extends JpaRepository<Course, Integer> {
      * @return Danh sách khóa học phù hợp
      */
     @Query("SELECT c FROM Course c LEFT JOIN FETCH c.prerequisiteCourse WHERE " +
-           "(:level IS NULL OR UPPER(c.level) = UPPER(:level)) AND " +
+           "(:level IS NULL OR c.level = :level) AND " +
            "(:isActive IS NULL OR c.isActive = :isActive) " +
            "ORDER BY c.code ASC")
     List<Course> searchCourses(@Param("level") String level, @Param("isActive") Boolean isActive);
