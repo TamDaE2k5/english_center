@@ -1,14 +1,14 @@
 package com.englishcenter.admission.controller;
 
 import com.englishcenter.admission.common.dto.ApiResponse;
-import com.englishcenter.admission.dto.test.StartTestRequest;
-import com.englishcenter.admission.dto.test.SubmitTestRequest;
-import com.englishcenter.admission.dto.test.TakeTestResponse;
-import com.englishcenter.admission.dto.test.TestResultResponse;
+import com.englishcenter.admission.dto.test.*;
 import com.englishcenter.admission.service.PlacementTestService;
+import com.englishcenter.admission.service.TestManagementService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Controller xử lý các yêu cầu khảo thí trực tuyến cho học viên (FR-TST-03, FR-TST-04, INV-TST-02).
@@ -19,9 +19,23 @@ import org.springframework.web.bind.annotation.*;
 public class PlacementTestController {
 
     private final PlacementTestService placementTestService;
+    private final TestManagementService testManagementService;
 
-    public PlacementTestController(PlacementTestService placementTestService) {
+    public PlacementTestController(PlacementTestService placementTestService,
+                                   TestManagementService testManagementService) {
         this.placementTestService = placementTestService;
+        this.testManagementService = testManagementService;
+    }
+
+    /**
+     * Lấy danh sách các bộ đề thi khảo thí đang mở công khai.
+     *
+     * @return Danh sách bộ đề
+     */
+    @GetMapping("/public/sets")
+    public ResponseEntity<ApiResponse<List<TestSetResponse>>> getPublicTestSets() {
+        List<TestSetResponse> sets = testManagementService.listTestSets(true);
+        return ResponseEntity.ok(ApiResponse.success(sets, "Lấy danh sách bộ đề thi thành công"));
     }
 
     /**

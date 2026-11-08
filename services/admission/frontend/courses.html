@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quản lý Khóa học - Admission</title>
+  <title>Quản lý Khóa học - Admission Module</title>
   <link rel="stylesheet" href="/shared/css/variables.css">
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/shared/css/components.css">
@@ -24,7 +24,7 @@
           <div class="card-header">
             <div>
               <h1 class="heading-1">Danh Sách Khóa Học Đào Tạo</h1>
-              <p class="text-secondary text-sm">Chương trình đào tạo tiếng Anh đang mở tại trung tâm</p>
+              <p class="text-secondary text-sm">Chương trình đào tạo tiếng Anh và biểu phí chuẩn tại trung tâm (FR-ACA-01)</p>
             </div>
             <button class="btn btn-primary" onclick="openCreateModal()">
               + Thêm khóa học mới
@@ -37,17 +37,18 @@
                   <tr>
                     <th>Mã khóa</th>
                     <th>Tên khóa học</th>
-                    <th>Cấp độ</th>
+                    <th>Trình độ</th>
                     <th>Thời lượng</th>
                     <th>Học phí</th>
+                    <th>Khóa tiên quyết</th>
                     <th>Trạng thái</th>
                     <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="course-table-body">
                   <tr>
-                    <td colspan="7" style="text-align: center; color: var(--color-text-secondary);">
-                      Đang tải dữ liệu khóa học...
+                    <td colspan="8" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
+                      Đang tải danh mục khóa học...
                     </td>
                   </tr>
                 </tbody>
@@ -60,7 +61,7 @@
     </div>
   </div>
 
-  <!-- Modal Thêm Khóa Học -->
+  <!-- Modal Thêm Khóa Học Mới -->
   <div class="modal-overlay" id="courseModal">
     <div class="modal">
       <div class="modal-header">
@@ -69,35 +70,53 @@
       </div>
       <form id="courseForm">
         <div class="modal-body">
-          <div class="form-group">
-            <label class="label" for="courseCode">Mã khóa học <span class="required">*</span></label>
-            <input type="text" id="courseCode" class="form-input" placeholder="Ví dụ: ENG-IELTS-70" required>
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="courseCode">Mã khóa học <span class="required">*</span></label>
+              <input type="text" id="courseCode" class="form-input" placeholder="Ví dụ: ENG-IELTS-65" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="courseName">Tên khóa học <span class="required">*</span></label>
+              <input type="text" id="courseName" class="form-input" placeholder="Ví dụ: IELTS Chuyên Sâu 6.5+" required>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="label" for="courseName">Tên khóa học <span class="required">*</span></label>
-            <input type="text" id="courseName" class="form-input" placeholder="Ví dụ: IELTS Master 7.5+" required>
-          </div>
+
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
-              <label class="label" for="courseLevel">Cấp độ</label>
-              <select id="courseLevel" class="form-select">
-                <option value="Beginner">Beginner (Cơ bản)</option>
-                <option value="Intermediate" selected>Intermediate (Trung cấp)</option>
-                <option value="Advanced">Advanced (Nâng cao)</option>
+              <label class="label" for="courseLevel">Trình độ <span class="required">*</span></label>
+              <select id="courseLevel" class="form-select" required>
+                <option value="BEGINNER">BEGINNER (Cơ bản / Mất gốc)</option>
+                <option value="INTERMEDIATE" selected>INTERMEDIATE (Trung cấp / Tiền đề)</option>
+                <option value="ADVANCED">ADVANCED (Nâng cao / Chuyên sâu)</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="label" for="courseDuration">Thời lượng (tuần)</label>
-              <input type="number" id="courseDuration" class="form-input" value="12" min="1">
+              <label class="label" for="courseDuration">Thời lượng (tuần) <span class="required">*</span></label>
+              <input type="number" id="courseDuration" class="form-input" value="12" min="1" required>
             </div>
           </div>
-          <div class="form-group">
-            <label class="label" for="courseTuition">Học phí (VND)</label>
-            <input type="number" id="courseTuition" class="form-input" placeholder="6500000" step="100000">
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="courseTuition">Học phí chuẩn (VND) <span class="required">*</span></label>
+              <input type="number" id="courseTuition" class="form-input" placeholder="6500000" min="0" step="50000" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="coursePrerequisite">Khóa học tiên quyết</label>
+              <select id="coursePrerequisite" class="form-select">
+                <option value="">-- Không yêu cầu tiên quyết --</option>
+              </select>
+            </div>
           </div>
+
           <div class="form-group">
-            <label class="label" for="courseDesc">Mô tả tóm tắt</label>
-            <textarea id="courseDesc" class="form-textarea" rows="3" placeholder="Mục tiêu đầu ra và nội dung học..."></textarea>
+            <label class="label" for="courseTarget">Chuẩn đầu ra cam kết</label>
+            <input type="text" id="courseTarget" class="form-input" placeholder="Ví dụ: Đạt IELTS 6.5 toàn diện 4 kỹ năng">
+          </div>
+
+          <div class="form-group">
+            <label class="label" for="courseDesc">Mô tả chương trình học</label>
+            <textarea id="courseDesc" class="form-textarea" rows="3" placeholder="Chi tiết nội dung giảng dạy và giáo trình..."></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -112,38 +131,63 @@
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
   <script>
+    let coursesCache = [];
+
+    function formatVND(amount) {
+      if (amount === null || amount === undefined) return '0 ₫';
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    }
+
     async function loadCourses() {
       const tbody = document.getElementById('course-table-body');
       try {
         const res = await apiGet('/api/admission/courses');
-        const courses = (res && res.data) ? res.data : [];
+        coursesCache = (res && res.data) ? res.data : [];
 
-        if (courses.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Chưa có khóa học nào.</td></tr>`;
+        // Đồng bộ dropdown khóa tiên quyết
+        const prereqSelect = document.getElementById('coursePrerequisite');
+        prereqSelect.innerHTML = '<option value="">-- Không yêu cầu tiên quyết --</option>' +
+          coursesCache.map(c => `<option value="${c.id}">${c.code} - ${c.name}</option>`).join('');
+
+        if (coursesCache.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px;">Chưa có khóa học nào trong hệ thống.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = courses.map(c => `
-          <tr>
-            <td><code>${c.code}</code></td>
-            <td><strong>${c.name}</strong></td>
-            <td><span class="badge badge-info">${c.level || 'Chung'}</span></td>
-            <td>${c.duration_weeks || c.durationWeeks || 0} tuần</td>
-            <td><strong style="color: var(--color-primary);">${formatCurrency(c.tuition_amount || c.tuitionAmount)}</strong></td>
-            <td>
-              <span class="badge ${c.is_active || c.isActive ? 'badge-success' : 'badge-danger'}">
-                ${c.is_active || c.isActive ? 'Đang mở' : 'Đóng'}
-              </span>
-            </td>
-            <td>
-              <button class="btn btn-ghost btn-sm" onclick="deleteCourse(${c.id})" title="Xóa">🗑️ Xóa</button>
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = coursesCache.map(c => {
+          const prereqName = c.prerequisite_course_id ?
+            (coursesCache.find(p => p.id === c.prerequisite_course_id)?.name || `ID #${c.prerequisite_course_id}`) : 'Không';
+          
+          return `
+            <tr>
+              <td><code>${c.code}</code></td>
+              <td><strong>${c.name}</strong></td>
+              <td><span class="badge badge-info">${c.level}</span></td>
+              <td>${c.duration_weeks} tuần</td>
+              <td><strong style="color: var(--color-primary);">${formatVND(c.tuition_amount)}</strong></td>
+              <td><span class="text-sm text-secondary">${prereqName}</span></td>
+              <td>
+                <span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">
+                  ${c.is_active ? 'Đang mở' : 'Ngưng mở'}
+                </span>
+              </td>
+              <td>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn btn-ghost btn-sm" onclick="toggleCourseActive(${c.id}, ${!c.is_active})">
+                    ${c.is_active ? '⏸️ Tạm ngưng' : '▶️ Mở lại'}
+                  </button>
+                  <button class="btn btn-ghost btn-sm" style="color: var(--color-danger);" onclick="deleteCourse(${c.id})">
+                    🗑️ Xóa
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
       } catch (err) {
         tbody.innerHTML = `
-          <tr><td colspan="7" style="text-align: center; color: var(--color-danger);">
-            Không thể tải dữ liệu từ API Admission (:8081). Vui lòng kiểm tra container.
+          <tr><td colspan="8" style="text-align: center; color: var(--color-danger); padding: 30px;">
+            Không thể tải dữ liệu từ API Admission (:8081). Vui lòng thử lại sau.
           </td></tr>
         `;
       }
@@ -160,31 +204,68 @@
 
     document.getElementById('courseForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const saveBtn = document.getElementById('saveCourseBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Đang lưu...';
+
+      const prereqVal = document.getElementById('coursePrerequisite').value;
       const payload = {
         code: document.getElementById('courseCode').value.trim(),
         name: document.getElementById('courseName').value.trim(),
         level: document.getElementById('courseLevel').value,
         duration_weeks: parseInt(document.getElementById('courseDuration').value, 10),
         tuition_amount: parseFloat(document.getElementById('courseTuition').value) || 0,
+        prerequisite_course_id: prereqVal ? parseInt(prereqVal, 10) : null,
+        target_output: document.getElementById('courseTarget').value.trim(),
         description: document.getElementById('courseDesc').value.trim(),
         is_active: true
       };
 
       try {
         await apiPost('/api/admission/courses', payload);
-        showToast('success', 'Đã thêm khóa học mới thành công!');
+        showToast('success', 'Thêm khóa học mới thành công!');
         closeModal();
         loadCourses();
       } catch (err) {
         // Handled in apiRequest
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Lưu khóa học';
       }
     });
 
+    async function toggleCourseActive(id, newStatus) {
+      const course = coursesCache.find(c => c.id === id);
+      if (!course) return;
+
+      const actionText = newStatus ? 'mở lại' : 'tạm ngưng';
+      if (!confirm(`Bạn có chắc chắn muốn ${actionText} khóa học này?`)) return;
+
+      try {
+        const payload = {
+          name: course.name,
+          level: course.level,
+          duration_weeks: course.duration_weeks,
+          tuition_amount: course.tuition_amount,
+          prerequisite_course_id: course.prerequisite_course_id,
+          target_output: course.target_output,
+          description: course.description,
+          is_active: newStatus
+        };
+        await apiPut(`/api/admission/courses/${id}`, payload);
+        showToast('success', `Đã cập nhật trạng thái khóa học.`);
+        loadCourses();
+      } catch (err) {
+        // Handled
+      }
+    }
+
     async function deleteCourse(id) {
-      if (!confirm('Bạn có chắc chắn muốn xóa khóa học này?')) return;
+      if (!confirm('Bạn có chắc chắn muốn xóa khóa học này? Lưu ý: Không thể xóa nếu đã có lớp học.')) return;
+
       try {
         await apiDelete(`/api/admission/courses/${id}`);
-        showToast('success', 'Đã xóa khóa học.');
+        showToast('success', 'Xóa khóa học thành công!');
         loadCourses();
       } catch (err) {
         // Handled

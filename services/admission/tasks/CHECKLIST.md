@@ -18,10 +18,10 @@
 | **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 6 | 100% | 🟢 Hoàn thành |
 | **Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA)** | 5 | 5 | 100% | 🟢 Hoàn thành |
 | **Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)** | 3 | 3 | 100% | 🟢 Hoàn thành |
-| **Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)** | 8 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **Phase 5: Xuất Dữ liệu & Phân tích BI (OPS/BI)** | 4 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **Phase 6: Giao diện Người dùng Frontend (UI)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **TỔNG CỘNG** | **35 Tasks** | **18** | **51.4%** | **Đang triển khai** |
+| **Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)** | 8 | 8 | 100% | 🟢 Hoàn thành |
+| **Phase 5: Xuất Dữ liệu & Phân tích BI (OPS/BI)** | 4 | 4 | 100% | 🟢 Hoàn thành |
+| **Phase 6: Giao diện Người dùng Frontend (UI)** | 5 | 5 | 100% | 🟢 Hoàn thành |
+| **TỔNG CỘNG** | **35 Tasks** | **35** | **100%** | 🟢 **Hoàn thành 100%** |
 
 ---
 
@@ -157,18 +157,18 @@
 ---
 
 ### Phase 6: Giao diện Người dùng Frontend (UI)
-- [ ] **`TASK-ADM-60`**: Giao diện Quản lý Khóa học & Lớp học (`courses.html`, `classes.html`)
+- [x] **`TASK-ADM-60`**: Giao diện Quản lý Khóa học & Lớp học (`courses.html`, `classes.html`)
   - *File chi tiết*: [`phase-6-frontend/TASK-ADM-60-UI-COURSE-CLASS.md`](phase-6-frontend/TASK-ADM-60-UI-COURSE-CLASS.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-61`**: Giao diện Bàn Tuyển sinh, Giữ chỗ 48h & Xét duyệt (`enrollments.html`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-61`**: Giao diện Bàn Tuyển sinh, Giữ chỗ 48h & Xét duyệt (`enrollments.html`)
   - *File chi tiết*: [`phase-6-frontend/TASK-ADM-61-UI-ENROLLMENT-DESK.md`](phase-6-frontend/TASK-ADM-61-UI-ENROLLMENT-DESK.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-62`**: Giao diện Làm bài Khảo thí Trực tuyến Đếm ngược & Tra cứu (`test.html`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-62`**: Giao diện Làm bài Khảo thí Trực tuyến Đếm ngược & Tra cứu (`test.html`)
   - *File chi tiết*: [`phase-6-frontend/TASK-ADM-62-UI-ONLINE-TEST.md`](phase-6-frontend/TASK-ADM-62-UI-ONLINE-TEST.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-63`**: Giao diện Quản lý Phòng học & Lịch phân ca (`rooms.html`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-63`**: Giao diện Quản lý Phòng học & Lịch phân ca (`rooms.html`)
   - *File chi tiết*: [`phase-6-frontend/TASK-ADM-63-UI-ROOM-SCHEDULE.md`](phase-6-frontend/TASK-ADM-63-UI-ROOM-SCHEDULE.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-64`**: Dashboard Trực quan hóa Báo cáo BI Tuyển sinh (`bi-dashboard.html`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-64`**: Dashboard Trực quan hóa Báo cáo BI Tuyển sinh (`bi-dashboard.html`)
   - *File chi tiết*: [`phase-6-frontend/TASK-ADM-64-UI-BI-DASHBOARD.md`](phase-6-frontend/TASK-ADM-64-UI-BI-DASHBOARD.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`

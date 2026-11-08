@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khảo Thí Đầu Vào Trực Tuyến - English Center</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+  <style>
+    .test-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: var(--space-xl) var(--space-md);
+    }
+    .sticky-timer {
+      position: sticky;
+      top: 16px;
+      z-index: 100;
+      background: var(--color-surface);
+      border: 2px solid var(--color-primary);
+      box-shadow: var(--shadow-lg);
+      border-radius: var(--radius-lg);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-lg);
+    }
+    .timer-display {
+      font-size: var(--font-xl);
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--color-primary);
+    }
+    .question-palette {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .palette-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg);
+      font-weight: 600;
+      font-size: var(--font-xs);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .palette-btn.answered {
+      background: var(--color-success);
+      color: white;
+      border-color: var(--color-success);
+    }
+    .palette-btn.current {
+      border: 2px solid var(--color-primary);
+    }
+    .option-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .option-card:hover {
+      background-color: var(--color-bg);
+      border-color: var(--color-primary);
+    }
+    .option-card.selected {
+      background-color: #eff6ff;
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+    .passage-box {
+      background: #f8fafc;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      font-size: var(--font-sm);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+
+        <!-- VIEW 1: TIẾP NHẬN THÔNG TIN THÍ SINH (PRE-EXAM) -->
+        <div id="view-intro" class="test-container">
+          <div class="card" style="max-width: 650px; margin: 0 auto;">
+            <div class="card-header" style="text-align: center; display: block;">
+              <h1 class="heading-1">Bài Thi Khảo Thí Trình Độ Đầu Vào</h1>
+              <p class="text-secondary text-sm">Đánh giá toàn diện 3 kỹ năng: Nghe (Listening), Đọc (Reading), và Ngữ pháp (Grammar)</p>
+            </div>
+            <div class="card-body">
+              <form id="introForm">
+                <div class="form-group">
+                  <label class="label" for="candidateTestSet">Lựa chọn bộ đề thi <span class="required">*</span></label>
+                  <select id="candidateTestSet" class="form-select" required>
+                    <option value="">-- Đang tải danh sách bộ đề... --</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="label" for="candidateName">Họ và tên thí sinh <span class="required">*</span></label>
+                  <input type="text" id="candidateName" class="form-input" placeholder="Ví dụ: Nguyễn Hoàng Nam" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+                  <div class="form-group">
+                    <label class="label" for="candidateEmail">Email nhận kết quả <span class="required">*</span></label>
+                    <input type="email" id="candidateEmail" class="form-input" placeholder="nam.nguyen@gmail.com" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="label" for="candidatePhone">Số điện thoại liên lạc <span class="required">*</span></label>
+                    <input type="tel" id="candidatePhone" class="form-input" placeholder="0912345678" required>
+                  </div>
+                </div>
+
+                <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 16px; margin: 20px 0;">
+                  <h4 style="margin: 0 0 8px 0; color: var(--color-primary); font-size: var(--font-sm);">📌 Lưu ý phòng thi trực tuyến:</h4>
+                  <ul style="margin: 0; padding-left: 20px; font-size: var(--font-xs); color: var(--color-text-secondary); line-height: 1.6;">
+                    <li>Thời gian làm bài đếm ngược tự động từ máy chủ.</li>
+                    <li>Khi hết giờ, hệ thống sẽ tự động thu bài và khóa form ngay lập tức.</li>
+                    <li>Vui lòng chuẩn bị tai nghe hoặc loa ngoài để làm phần thi Listening.</li>
+                  </ul>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="btnStartExam" style="width: 100%; padding: 12px; font-size: var(--font-md);">
+                  🚀 Bắt đầu làm bài thi ngay
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 2: PHÒNG THI TRỰC TUYẾN (EXAM IN-PROGRESS) -->
+        <div id="view-exam" class="test-container" style="display: none;">
+          <!-- Sticky Timer Bar -->
+          <div class="sticky-timer">
+            <div>
+              <div class="text-secondary text-xs">THỜI GIAN LÀM BÀI CÒN LẠI</div>
+              <div class="timer-display" id="examTimer">45:00</div>
+            </div>
+            <div style="display: flex; gap: var(--space-md); align-items: center;">
+              <span id="answeredCounter" class="badge badge-info">Đã làm: 0/0 câu</span>
+              <button class="btn btn-success" onclick="confirmSubmitExam()">📝 Nộp bài thi</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-lg);">
+            <!-- Khung nội dung câu hỏi -->
+            <div class="card">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="badge badge-primary" id="currentSkillBadge">KỸ NĂNG</span>
+                <span class="text-secondary text-sm" id="currentQuestionNum">Câu hỏi 1 / 10</span>
+              </div>
+              <div class="card-body">
+                <!-- Listening Audio Player -->
+                <div id="audioSection" style="display: none; margin-bottom: 16px;">
+                  <label class="label">🎧 Đoạn băng nghe:</label>
+                  <audio id="audioPlayer" controls style="width: 100%;"></audio>
+                </div>
+
+                <!-- Reading Passage Box -->
+                <div id="passageSection" style="display: none;">
+                  <label class="label">📖 Bài đọc hiểu:</label>
+                  <div class="passage-box" id="passageText"></div>
+                </div>
+
+                <!-- Câu hỏi -->
+                <h3 class="heading-3" id="questionContent" style="margin-bottom: 20px;">Nội dung câu hỏi</h3>
+
+                <!-- 4 Lựa chọn A B C D -->
+                <div id="optionsContainer">
+                  <div class="option-card" onclick="selectOption('A')"><span class="badge">A</span> <span id="optA">Lựa chọn A</span></div>
+                  <div class="option-card" onclick="selectOption('B')"><span class="badge">B</span> <span id="optB">Lựa chọn B</span></div>
+                  <div class="option-card" onclick="selectOption('C')"><span class="badge">C</span> <span id="optC">Lựa chọn C</span></div>
+                  <div class="option-card" onclick="selectOption('D')"><span class="badge">D</span> <span id="optD">Lựa chọn D</span></div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 24px;">
+                  <button class="btn btn-secondary btn-sm" id="btnPrev" onclick="navigateQuestion(-1)">⬅️ Câu trước</button>
+                  <button class="btn btn-primary btn-sm" id="btnNext" onclick="navigateQuestion(1)">Câu tiếp theo ➡️</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Question Palette -->
+            <div class="card" style="height: fit-content;">
+              <div class="card-header">
+                <h4 class="heading-4" style="margin: 0;">Danh Sách Câu Hỏi</h4>
+              </div>
+              <div class="card-body">
+                <div class="question-palette" id="questionPalette"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 3: KẾT QUẢ & ĐỀ XUẤT LỘ TRÌNH (POST-EXAM RESULT) -->
+        <div id="view-result" class="test-container" style="display: none;">
+          <div class="card" style="max-width: 800px; margin: 0 auto;">
+            <div class="card-header" style="text-align: center; display: block; background-color: #f0fdf4;">
+              <h1 class="heading-1" style="color: #15803d;">🎉 Chúc Mừng Bạn Đã Hoàn Thành Bài Khảo Thí!</h1>
+              <p class="text-secondary text-sm">Hệ thống đã tự động chấm điểm và xây dựng lộ trình học phù hợp nhất</p>
+            </div>
+            <div class="card-body">
+              <!-- Bảng điểm chi tiết -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); text-align: center; margin-bottom: var(--space-xl);">
+                <div class="card" style="background: #f8fafc; padding: 16px;">
+                  <div class="text-secondary text-xs">NGHE (LISTENING)</div>
+                  <div style="font-size: 28px; font-weight: 700; color: var(--color-primary);" id="resListening">0.0</div>
+                </div>
+                <div class="card" style="background: #f8fafc; padding: 16px;">
+                  <div class="text-secondary text-xs">ĐỌC (READING)</div>
+                  <div style="font-size: 28px; font-weight: 700; color: var(--color-primary);" id="resReading">0.0</div>
+                </div>
+                <div class="card" style="background: #f8fafc; padding: 16px;">
+                  <div class="text-secondary text-xs">NGỮ PHÁP (GRAMMAR)</div>
+                  <div style="font-size: 28px; font-weight: 700; color: var(--color-primary);" id="resGrammar">0.0</div>
+                </div>
+                <div class="card" style="background: #eff6ff; border: 2px solid var(--color-primary); padding: 16px;">
+                  <div class="text-secondary text-xs">TỔNG ĐIỂM ĐẠT ĐƯỢC</div>
+                  <div style="font-size: 32px; font-weight: 800; color: var(--color-primary);" id="resTotal">0.0</div>
+                </div>
+              </div>
+
+              <!-- Thẻ Khóa Học Đề Xuất -->
+              <div class="card" style="border: 2px solid #22c55e; background-color: #f0fdf4; margin-bottom: var(--space-xl);">
+                <div class="card-body">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                      <span class="badge badge-success">Khóa học được đề xuất tối ưu</span>
+                      <h2 class="heading-2" id="resCourseName" style="margin-top: 8px;">IELTS Chuyên Sâu 6.5+</h2>
+                      <p class="text-secondary text-sm" id="resCourseTarget">Cam kết đầu ra chuẩn quốc tế</p>
+                    </div>
+                    <div style="text-align: right;">
+                      <div class="text-secondary text-xs">HỌC PHÍ KHÓA HỌC</div>
+                      <div style="font-size: 22px; font-weight: 700; color: #15803d;" id="resCourseTuition">6.500.000 ₫</div>
+                    </div>
+                  </div>
+                  <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #86efac; font-size: var(--font-sm);" id="resFeedback">
+                    Tư vấn lộ trình học phù hợp với năng lực hiện tại của bạn.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Lớp học gợi ý để đăng ký giữ chỗ 48h ngay -->
+              <h3 class="heading-3" style="margin-bottom: 12px;">Các Lớp Học Sắp Khai Giảng Dành Cho Bạn</h3>
+              <div id="suggestedClassesContainer" style="display: grid; gap: var(--space-md); margin-bottom: var(--space-xl);">
+                <!-- Rendered dynamically -->
+              </div>
+
+              <div style="text-align: center;">
+                <button class="btn btn-secondary" onclick="restartTest()">🔄 Làm bài khảo thí khác</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    let currentAttemptId = null;
+    let questionsList = [];
+    let currentIndex = 0;
+    let studentAnswers = {}; // { questionId: 'A' | 'B' | 'C' | 'D' }
+    let timerInterval = null;
+    let remainingSeconds = 0;
+    let candidateData = {};
+
+    async function loadTestSets() {
+      try {
+        const res = await apiGet('/api/admission/tests/public/sets');
+        if (res && res.data) {
+          const sel = document.getElementById('candidateTestSet');
+          sel.innerHTML = res.data.map(t => `<option value="${t.id}">${t.code} - ${t.title} (${t.duration_minutes} phút)</option>`).join('');
+        }
+      } catch (err) {
+        console.warn('Lỗi khi tải bộ đề:', err);
+      }
+    }
+
+    document.getElementById('introForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnStartExam');
+      btn.disabled = true;
+      btn.textContent = 'Đang khởi tạo phòng thi...';
+
+      candidateData = {
+        test_set_id: parseInt(document.getElementById('candidateTestSet').value, 10),
+        full_name: document.getElementById('candidateName').value.trim(),
+        email: document.getElementById('candidateEmail').value.trim(),
+        phone: document.getElementById('candidatePhone').value.trim()
+      };
+
+      try {
+        const res = await apiPost(`/api/admission/tests/public/${candidateData.test_set_id}/start`, candidateData);
+        if (res && res.data) {
+          currentAttemptId = res.data.attempt_id;
+          questionsList = res.data.questions || [];
+          remainingSeconds = (res.data.duration_minutes || 45) * 60;
+
+          document.getElementById('view-intro').style.display = 'none';
+          document.getElementById('view-exam').style.display = 'block';
+
+          renderPalette();
+          showQuestion(0);
+          startExamTimer();
+        }
+      } catch (err) {
+        showToast('error', err.message || 'Không thể bắt đầu bài thi!');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Bắt đầu làm bài thi ngay';
+      }
+    });
+
+    function startExamTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+
+      timerInterval = setInterval(() => {
+        if (remainingSeconds > 0) {
+          remainingSeconds -= 1;
+          const mins = Math.floor(remainingSeconds / 60);
+          const secs = remainingSeconds % 60;
+          document.getElementById('examTimer').textContent = 
+            `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          
+          if (remainingSeconds < 300) {
+            document.getElementById('examTimer').style.color = 'var(--color-danger)';
+          }
+        } else {
+          clearInterval(timerInterval);
+          showToast('warning', 'Hết thời gian làm bài! Hệ thống tự động thu bài.');
+          submitExam();
+        }
+      }, 1000);
+    }
+
+    function renderPalette() {
+      const palette = document.getElementById('questionPalette');
+      palette.innerHTML = questionsList.map((q, idx) => `
+        <button class="palette-btn ${idx === 0 ? 'current' : ''} ${studentAnswers[q.id] ? 'answered' : ''}" 
+                id="palette-${idx}" onclick="showQuestion(${idx})">
+          ${idx + 1}
+        </button>
+      `).join('');
+    }
+
+    function showQuestion(index) {
+      if (index < 0 || index >= questionsList.length) return;
+      currentIndex = index;
+
+      document.querySelectorAll('.palette-btn').forEach((b, idx) => {
+        b.classList.toggle('current', idx === index);
+      });
+
+      const q = questionsList[index];
+      document.getElementById('currentSkillBadge').textContent = q.skill_type || 'TEST';
+      document.getElementById('currentQuestionNum').textContent = `Câu hỏi ${index + 1} / ${questionsList.length}`;
+      document.getElementById('questionContent').textContent = q.content || '';
+
+      // Section Listening
+      const audioSec = document.getElementById('audioSection');
+      if (q.skill_type === 'LISTENING' && q.audio_url) {
+        audioSec.style.display = 'block';
+        document.getElementById('audioPlayer').src = q.audio_url;
+      } else {
+        audioSec.style.display = 'none';
+      }
+
+      // Section Reading
+      const passageSec = document.getElementById('passageSection');
+      if (q.skill_type === 'READING' && q.passage_text) {
+        passageSec.style.display = 'block';
+        document.getElementById('passageText').textContent = q.passage_text;
+      } else {
+        passageSec.style.display = 'none';
+      }
+
+      // 4 Options
+      document.getElementById('optA').textContent = q.option_a || 'A';
+      document.getElementById('optB').textContent = q.option_b || 'B';
+      document.getElementById('optC').textContent = q.option_c || 'C';
+      document.getElementById('optD').textContent = q.option_d || 'D';
+
+      // Highlight selected
+      const currentAns = studentAnswers[q.id];
+      document.querySelectorAll('.option-card').forEach(card => {
+        const optLetter = card.querySelector('.badge').textContent;
+        card.classList.toggle('selected', optLetter === currentAns);
+      });
+
+      // Navigation buttons
+      document.getElementById('btnPrev').disabled = index === 0;
+      document.getElementById('btnNext').disabled = index === questionsList.length - 1;
+    }
+
+    function selectOption(option) {
+      const q = questionsList[currentIndex];
+      studentAnswers[q.id] = option;
+
+      document.querySelectorAll('.option-card').forEach(card => {
+        const optLetter = card.querySelector('.badge').textContent;
+        card.classList.toggle('selected', optLetter === option);
+      });
+
+      const palBtn = document.getElementById(`palette-${currentIndex}`);
+      if (palBtn) palBtn.classList.add('answered');
+
+      const answeredCount = Object.keys(studentAnswers).length;
+      document.getElementById('answeredCounter').textContent = `Đã làm: ${answeredCount}/${questionsList.length} câu`;
+    }
+
+    function navigateQuestion(delta) {
+      showQuestion(currentIndex + delta);
+    }
+
+    function confirmSubmitExam() {
+      const answeredCount = Object.keys(studentAnswers).length;
+      const total = questionsList.length;
+      if (answeredCount < total) {
+        if (!confirm(`Bạn mới làm ${answeredCount}/${total} câu hỏi. Bạn có chắc chắn muốn nộp bài thi ngay không?`)) {
+          return;
+        }
+      } else {
+        if (!confirm('Bạn đã hoàn thành đủ câu hỏi. Xác nhận nộp bài?')) return;
+      }
+      submitExam();
+    }
+
+    async function submitExam() {
+      if (timerInterval) clearInterval(timerInterval);
+
+      const answersArray = Object.keys(studentAnswers).map(qId => ({
+        question_id: parseInt(qId, 10),
+        selected_option: studentAnswers[qId]
+      }));
+
+      const payload = {
+        attempt_id: currentAttemptId,
+        answers: answersArray
+      };
+
+      try {
+        const res = await apiPost('/api/admission/tests/public/submit', payload);
+        if (res && res.data) {
+          displayResult(res.data);
+        }
+      } catch (err) {
+        showToast('error', err.message || 'Lỗi khi nộp bài thi!');
+      }
+    }
+
+    function displayResult(data) {
+      document.getElementById('view-exam').style.display = 'none';
+      document.getElementById('view-result').style.display = 'block';
+
+      document.getElementById('resListening').textContent = (data.listening_score !== undefined ? data.listening_score : 0).toFixed(1);
+      document.getElementById('resReading').textContent = (data.reading_score !== undefined ? data.reading_score : 0).toFixed(1);
+      document.getElementById('resGrammar').textContent = (data.grammar_score !== undefined ? data.grammar_score : 0).toFixed(1);
+      document.getElementById('resTotal').textContent = (data.total_score !== undefined ? data.total_score : 0).toFixed(1);
+
+      if (data.recommended_course) {
+        const course = data.recommended_course;
+        document.getElementById('resCourseName').textContent = course.name || course.title || 'Khóa học đề xuất';
+        document.getElementById('resCourseTarget').textContent = course.target_output || 'Lộ trình phát triển toàn diện';
+        document.getElementById('resCourseTuition').textContent = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.tuition_amount || 0);
+      }
+
+      document.getElementById('resFeedback').textContent = data.consulting_notes || 'Khóa học này sẽ giúp bạn tối ưu hóa điểm số và phát triển đồng đều các kỹ năng.';
+
+      // Lớp học gợi ý
+      const classesContainer = document.getElementById('suggestedClassesContainer');
+      const openClasses = data.open_classes || [];
+      if (openClasses.length === 0) {
+        classesContainer.innerHTML = `<div class="text-secondary text-sm">Hiện tại các lớp của khóa này đang kín chỗ hoặc chuẩn bị mở đợt mới. Nhân viên học vụ sẽ liên hệ bạn sớm nhất.</div>`;
+      } else {
+        classesContainer.innerHTML = openClasses.map(cls => `
+          <div class="card" style="padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 700;">${cls.name} (<code>${cls.code}</code>)</div>
+              <div class="text-secondary text-sm">${cls.schedule || (cls.day_pattern + ' ' + cls.start_time)} | Phòng: ${cls.room || 'Chính'}</div>
+              <div class="text-sm" style="color: var(--color-success); margin-top: 4px;">Còn ${cls.available_slots} chỗ trống</div>
+            </div>
+            <button class="btn btn-primary" onclick="quickEnroll(${cls.id}, '${cls.name}')">
+              ✍️ Đăng ký giữ chỗ 48h
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function quickEnroll(classId, className) {
+      if (!confirm(`Bạn có muốn đăng ký giữ chỗ 48 giờ vào lớp ${className}?`)) return;
+
+      const payload = {
+        class_id: classId,
+        full_name: candidateData.full_name,
+        email: candidateData.email,
+        phone: candidateData.phone,
+        notes: 'Đăng ký sau khi hoàn thành bài test đầu vào'
+      };
+
+      try {
+        const res = await apiPost('/api/admission/enrollments', payload);
+        if (res && res.success) {
+          showToast('success', 'Đăng ký thành công! Slot giữ chỗ 48h của bạn đã được ghi nhận.');
+          setTimeout(() => {
+            window.location.href = '/admission/enrollments.html';
+          }, 1500);
+        }
+      } catch (err) {
+        showToast('error', err.message || 'Lỗi khi đăng ký lớp!');
+      }
+    }
+
+    function restartTest() {
+      studentAnswers = {};
+      currentAttemptId = null;
+      document.getElementById('view-result').style.display = 'none';
+      document.getElementById('view-intro').style.display = 'block';
+    }
+
+    loadTestSets();
+  </script>
+</body>
+</html>
