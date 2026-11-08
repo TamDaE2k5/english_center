@@ -43,6 +43,27 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 17:00] - AI Assistant (Pair with Team Lead) - TASK-ADM-20
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai Quản lý Danh mục Phòng học, Ca học & Mẫu Ngày học (FR-FAC-01, FR-FAC-02), định nghĩa 6 ca học chuẩn (StandardShift) và 5 mẫu ngày học (DayPattern), xây dựng đầy đủ API CRUD phòng học có kiểm tra tính duy nhất của mã phòng và kiểm tra sức chứa tối thiểu >= 1.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.common.constant.DayPattern`: Enum mẫu ngày học tuần (MON_WED_FRI, TUE_THU_SAT, SAT_SUN, DAILY, CUSTOM) kèm hàm kiểm tra trùng lặp overlapsWith.
+    - `com.englishcenter.admission.common.constant.StandardShift`: Enum 6 ca học tiêu chuẩn kèm thuật toán kiểm tra giao cắt thời gian isTimeOverlapping.
+    - `com.englishcenter.admission.dto.room.CreateRoomRequest`: DTO tạo phòng học với validation @NotBlank, @Min(1).
+    - `com.englishcenter.admission.dto.room.UpdateRoomRequest`: DTO cập nhật thông tin phòng học.
+    - `com.englishcenter.admission.dto.room.UpdateRoomStatusRequest`: DTO kích hoạt/vô hiệu hóa phòng học.
+    - `com.englishcenter.admission.dto.room.RoomResponse`: DTO phản hồi thông tin phòng học theo quy ước snake_case.
+    - `com.englishcenter.admission.repository.RoomRepository`: Interface JPA repository truy vấn phòng học và tìm kiếm lọc searchRooms.
+    - `com.englishcenter.admission.service.RoomService`: Interface nghiệp vụ quản lý phòng học.
+    - `com.englishcenter.admission.service.impl.RoomServiceImpl`: Hiện thực nghiệp vụ kiểm tra mã trùng ADM_ROOM_CODE_EXISTS, kiểm tra tồn tại ADM_ROOM_NOT_FOUND.
+    - `com.englishcenter.admission.controller.RoomController`: REST Controller cung cấp các endpoint /api/admission/rooms (POST, GET, GET /{id}, PUT /{id}, PATCH /{id}/status).
+    - `com.englishcenter.admission.service.RoomServiceTest`: 6 bộ kiểm thử đơn vị bao phủ toàn bộ luồng tạo, cập nhật, đổi trạng thái và xử lý ngoại lệ phòng học.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK`
+  - Compile / Build: `Build Success` (31/31 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Sẵn sàng phục vụ TASK-ADM-21 (Course Management) và TASK-ADM-22 (Class Management).
+
 ### [2026-11-08 16:50] - AI Assistant (Pair with Team Lead) - TASK-ADM-15
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai toàn diện Hệ thống Kiểm toán Bảo mật và Giám sát An toàn Thông tin (FR-IAM-07, BI-SEC-01), phát hiện và ngăn chặn Brute-force tự động khi thử sai >= 5 lần trong 10 phút, cung cấp API truy vấn nhật ký kiểm toán có phân trang và đa tiêu chí (`GET /api/admission/audit-logs`) chỉ dành cho Quản trị viên (ADMIN).
