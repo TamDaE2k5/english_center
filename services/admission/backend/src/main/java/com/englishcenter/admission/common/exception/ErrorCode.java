@@ -65,6 +65,8 @@ public enum ErrorCode {
     ADM_TEST_ALREADY_SUBMITTED(HttpStatus.BAD_REQUEST, "Lượt thi này đã nộp bài trước đó, không thể nộp lại"),
     ADM_ATTEMPT_EXPIRED(HttpStatus.BAD_REQUEST, "Lượt thi đã hết thời gian làm bài quy định"),
     ADM_RULE_OVERLAP(HttpStatus.CONFLICT, "Dải điểm của quy tắc đề xuất bị chồng lấn với quy tắc đã có"),
+    ADM_RULE_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy quy tắc đề xuất khóa học"),
+    ADM_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy tài nguyên yêu cầu"),
 
     // ==========================================
     // 8. Lỗi Hệ Thống & Tích Hợp Liên Service

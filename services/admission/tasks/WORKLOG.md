@@ -43,6 +43,33 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 17:45] - AI Assistant (Pair with Team Lead) - TASK-ADM-30, TASK-ADM-31, TASK-ADM-32
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai toàn bộ Phân hệ Khảo thí Đầu vào Chuyên sâu (TST) gồm: Quản lý Ngân hàng Bộ Đề & Câu hỏi 3 Kỹ năng (FR-TST-01, FR-TST-02), Động cơ Thi Trực tuyến Countdown, Tự động Chấm điểm bóc tách Listening, Reading, Grammar (FR-TST-03, FR-TST-04, INV-TST-02), và Động cơ Khớp Quy tắc Đề xuất Khóa học kèm danh sách lớp còn slot khả dụng (FR-TST-05, TASK-ADM-32).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.repository.TestSetRepository`: Interface JPA repository quản lý bộ đề thi.
+    - `com.englishcenter.admission.repository.TestQuestionRepository`: Interface JPA repository quản lý câu hỏi trắc nghiệm 3 kỹ năng, tính tổng điểm sumScoreWeightByTestSetId.
+    - `com.englishcenter.admission.repository.TestAttemptRepository`: Interface JPA repository theo dõi lượt thi countdown và hết hạn phía server.
+    - `com.englishcenter.admission.repository.TestSubmissionRepository`: Interface JPA repository lưu kết quả bài thi bóc tách 3 kỹ năng và details JSON.
+    - `com.englishcenter.admission.repository.TestRecommendationRuleRepository`: Interface JPA repository quản lý quy tắc dải điểm và kiểm tra chồng lấn findOverlappingRules.
+    - `com.englishcenter.admission.dto.test.*`: Bộ DTO tạo đề (CreateTestSetRequest), tạo câu hỏi (CreateQuestionRequest), đề thi công khai ẩn đáp án (PublicQuestionResponse, TakeTestResponse), nộp bài (SubmitTestRequest), kết quả chấm (TestResultResponse), cấu hình quy tắc (CreateRuleRequest, RecommendationRuleResponse), kết quả gợi ý (RecommendationResultDTO).
+    - `com.englishcenter.admission.service.TestManagementService` & `TestManagementServiceImpl`: Nghiệp vụ CRUD bộ đề, câu hỏi, kiểm tra tính hợp lệ file audio (Listening), đoạn văn (Reading), tự động cập nhật total_max_score.
+    - `com.englishcenter.admission.service.RecommendationService` & `RecommendationServiceImpl`: Động cơ so khớp dải điểm min_score <= score <= max_score, tìm khóa học tương ứng và các lớp OPEN còn slot.
+    - `com.englishcenter.admission.service.PlacementTestService` & `PlacementTestServiceImpl`: Động cơ thi trực tuyến bắt đầu lượt thi, countdown, tự động chấm điểm 3 kỹ năng, chống nộp lặp (INV-TST-02), chống nộp quá hạn, cách ly kết quả cá nhân (INV-SEC-01).
+    - `com.englishcenter.admission.controller.TestManagementController`: Endpoints quản lý bộ đề và câu hỏi dành cho STAFF/ADMIN (/api/admission/tests/sets, /questions).
+    - `com.englishcenter.admission.controller.RecommendationRuleController`: Endpoints quản lý quy tắc đề xuất (/api/admission/tests/rules).
+    - `com.englishcenter.admission.controller.PlacementTestController`: Endpoints công khai cho học viên thi và nộp bài (/api/admission/tests/public/{id}/start, /public/submit, /submissions/{id}).
+    - `com.englishcenter.admission.service.TestManagementServiceTest`: 5 unit tests kiểm tra tạo đề, thêm câu hỏi listening/reading có validation, xóa câu hỏi.
+    - `com.englishcenter.admission.service.RecommendationServiceTest`: 3 unit tests kiểm tra tạo rule, chặn chồng lấn dải điểm ADM_RULE_OVERLAP, so khớp đề xuất.
+    - `com.englishcenter.admission.service.PlacementTestServiceTest`: 4 unit tests kiểm tra ẩn đáp án bí mật khỏi đề thi, tự động chấm 3 kỹ năng, chặn nộp lần 2 (INV-TST-02), chặn nộp quá hạn.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `com.englishcenter.admission.common.exception.ErrorCode`: Bổ sung ADM_RULE_NOT_FOUND, ADM_NOT_FOUND.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK`.
+  - Compile / Build: `Build Success` (63/63 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Phase 3 hoàn tất 100% (3/3 tasks). Sẵn sàng chuyển tiếp sang Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR - TASK-ADM-40 đến 47).
+
 ### [2026-11-08 17:25] - AI Assistant (Pair with Team Lead) - TASK-ADM-22, TASK-ADM-23, TASK-ADM-24
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai trọn vẹn cụm tính năng Quản lý Lớp học (FR-ACA-02), Kiểm soát Sức chứa Phòng (FR-FAC-03), Động cơ Chống Xung đột Lịch Phòng & Giảng viên (Conflict Engine - FR-ACA-03), Vòng đời Lớp học (FR-ACA-04) và API Tính toán Sĩ số/Slot Khả dụng Thời gian thực (FR-ACA-05, TASK-ADM-24).

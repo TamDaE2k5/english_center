@@ -16,12 +16,12 @@
 |---|:---:|:---:|:---:|:---:|
 | **Phase 0: Nền móng & Hạ tầng (INF)** | 4 | 4 | 100% | 🟢 Hoàn thành |
 | **Phase 1: Quản trị Định danh & Phiên (IAM)** | 6 | 6 | 100% | 🟢 Hoàn thành |
-| **Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)** | 3 | 0 | 0% | 🟡 Chưa bắt đầu |
+| **Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA)** | 5 | 5 | 100% | 🟢 Hoàn thành |
+| **Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)** | 3 | 3 | 100% | 🟢 Hoàn thành |
 | **Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR)** | 8 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 5: Xuất Dữ liệu & Phân tích BI (OPS/BI)** | 4 | 0 | 0% | 🟡 Chưa bắt đầu |
 | **Phase 6: Giao diện Người dùng Frontend (UI)** | 5 | 0 | 0% | 🟡 Chưa bắt đầu |
-| **TỔNG CỘNG** | **35 Tasks** | **10** | **28.6%** | **Đang triển khai** |
+| **TỔNG CỘNG** | **35 Tasks** | **18** | **51.4%** | **Đang triển khai** |
 
 ---
 
@@ -96,15 +96,15 @@
 ---
 
 ### Phase 3: Khảo thí Đầu vào Chuyên sâu (TST)
-- [ ] **`TASK-ADM-30`**: Quản lý Ngân hàng Bộ Đề & Câu hỏi 3 Kỹ năng (Listening, Reading, Grammar) (`FR-TST-01`, `FR-TST-02`)
+- [x] **`TASK-ADM-30`**: Quản lý Ngân hàng Bộ Đề & Câu hỏi 3 Kỹ năng (Listening, Reading, Grammar) (`FR-TST-01`, `FR-TST-02`)
   - *File chi tiết*: [`phase-3-testing/TASK-ADM-30-TST-TESTSET-MANAGEMENT.md`](phase-3-testing/TASK-ADM-30-TST-TESTSET-MANAGEMENT.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-31`**: Động cơ Khảo thí Trực tuyến Countdown, Tự động Chấm & Bóc tách Kỹ năng (`FR-TST-03`, `FR-TST-04`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-31`**: Động cơ Khảo thí Trực tuyến Countdown, Tự động Chấm & Bóc tách Kỹ năng (`FR-TST-03`, `FR-TST-04`)
   - *File chi tiết*: [`phase-3-testing/TASK-ADM-31-TST-EXAM-ENGINE.md`](phase-3-testing/TASK-ADM-31-TST-EXAM-ENGINE.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-32`**: Động cơ Đề xuất Khóa học Tự động Theo Điểm Khảo thí (`FR-TST-05`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-32`**: Động cơ Đề xuất Khóa học Tự động Theo Điểm Khảo thí (`FR-TST-05`)
   - *File chi tiết*: [`phase-3-testing/TASK-ADM-32-TST-RECOMMENDATION.md`](phase-3-testing/TASK-ADM-32-TST-RECOMMENDATION.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 
 ---
 
