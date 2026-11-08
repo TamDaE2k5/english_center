@@ -36,10 +36,10 @@
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-01-SCHEMA-MIGRATION.md`](phase-0-foundation/TASK-ADM-01-SCHEMA-MIGRATION.md)
   - *Invariant*: `INV-SYS-02`
   - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
-- [ ] **`TASK-ADM-02`**: Thiết lập Spring Security 6 & Bộ Cấp phát Token Kép (Access 15m / Refresh 7d)
+- [x] **`TASK-ADM-02`**: Thiết lập Spring Security 6 & Bộ Cấp phát Token Kép (Access 15m / Refresh 7d)
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-02-SECURITY-JWT.md`](phase-0-foundation/TASK-ADM-02-SECURITY-JWT.md)
   - *Invariant*: `INV-SEC-01`, `INV-SEC-03`
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 - [ ] **`TASK-ADM-03`**: Cấu hình HTTP Clients Tích hợp Liên Service (Finance & Student)
   - *File chi tiết*: [`phase-0-foundation/TASK-ADM-03-INTERSERVICE-CLIENTS.md`](phase-0-foundation/TASK-ADM-03-INTERSERVICE-CLIENTS.md)
   - *Invariant*: `INV-SYS-02` (Không cross-schema query, gọi REST trực tiếp)

@@ -43,6 +43,26 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-02
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Thiết lập Spring Security 6, Bộ cấp phát Token kép (Access Token 15m / Refresh Token 7d), CustomUserDetailsService, UserPrincipal, JwtAuthenticationFilter, SecurityUtils và kiểm thử đơn vị.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `security/UserPrincipal.java`: Triển khai UserDetails từ thực thể User, quản lý vai trò và quyền hạn tiền tố `ROLE_`.
+    - `security/CustomUserDetailsService.java`: Nạp người dùng từ UserRepository theo email hoặc ID.
+    - `security/JwtTokenProvider.java`: Ký và giải mã JWT HS256, sinh Access Token (15m) chứa `sub`, `email`, `role`, `full_name` và Refresh Token (7d) chứa `jti`.
+    - `security/JwtAuthenticationFilter.java`: Filter chặn request, bóc tách Bearer token, xác thực và nạp Authentication vào SecurityContext.
+    - `security/SecurityUtils.java`: Lớp tiện ích lấy thông tin người dùng đang đăng nhập (`getCurrentUserId`, `getCurrentUserRole`, `hasRole`, ...).
+    - `config/SecurityConfig.java`: Cấu hình SecurityFilterChain Stateless, CSRF disable, CORS linh hoạt, phân quyền endpoint chuẩn REST và bắt lỗi 401/403 trả về ApiResponse JSON.
+    - `src/test/java/com/englishcenter/admission/security/JwtTokenProviderTest.java`: Bộ kiểm thử đơn vị JUnit 5 cho JwtTokenProvider và UserPrincipal (4 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `common/dto/ApiResponse.java`: Bổ sung các phương thức tiện ích `error(ErrorCode)`, `error(ErrorCode, String)`, `error(String, String)`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `4/4 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (33 source files compiled in 1.51s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-03` (Cấu hình RestClient tích hợp liên service Finance & Student với header X-Internal-Secret).
+
 ### [2026-11-08 16:10] - AI Assistant (Pair with Team Lead) - TASK-ADM-01
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Hoàn tất khởi tạo BaseEntity và toàn bộ 14 JPA Entities cho Schema `admission` theo đúng DDL trong `scripts/init-db.sql` và `docs/MASTER_DB_AND_API_RULES.md`.
