@@ -47,4 +47,31 @@ public interface TestSubmissionRepository extends JpaRepository<TestSubmission, 
      */
     @Query("SELECT s FROM TestSubmission s LEFT JOIN FETCH s.recommendedCourse WHERE s.id = :id")
     Optional<TestSubmission> findByIdWithDetails(@Param("id") Integer id);
+
+    /**
+     * Lấy danh sách kết quả bài thi theo bộ đề sắp xếp theo thời gian nộp giảm dần (phục vụ xuất CSV).
+     *
+     * @param testSetId ID bộ đề
+     * @return Danh sách bài nộp
+     */
+    List<TestSubmission> findByTestSetIdOrderBySubmittedAtDesc(Integer testSetId);
+
+    /**
+     * Đếm tổng số bài thi hoàn thành nộp bài trong khoảng thời gian (BI Funnel Stage 2).
+     *
+     * @param start Thời điểm bắt đầu
+     * @param end   Thời điểm kết thúc
+     * @return Số lượng bài nộp
+     */
+    long countBySubmittedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+    /**
+     * Đếm số bài thi hoàn thành nộp bài theo bộ đề trong khoảng thời gian.
+     *
+     * @param testSetId ID bộ đề
+     * @param start     Thời điểm bắt đầu
+     * @param end       Thời điểm kết thúc
+     * @return Số lượng bài nộp
+     */
+    long countByTestSetIdAndSubmittedAtBetween(Integer testSetId, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

@@ -43,6 +43,34 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 18:35] - AI Assistant (Pair with Team Lead) - TASK-ADM-50 -> TASK-ADM-53
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất 100% Phase 5: Xuất Dữ liệu & Báo cáo Thông minh BI (OPS/BI) gồm toàn bộ 4 tasks (TASK-ADM-50 đến TASK-ADM-53): Xuất danh sách lớp & điểm khảo thí ra CSV UTF-8 kèm BOM, API Phân tích Phễu tuyển sinh 4 giai đoạn, API Báo cáo Xếp hạng Khóa học / Doanh thu tiềm năng / Tỷ lệ lấp đầy, và API Giám sát Gắn kết DAU/MAU / Cảnh báo Brute-force dành cho ADMIN.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `util/CsvExportHelper.java`: Tiện ích xuất dữ liệu CSV chuẩn UTF-8 kèm BOM `\uFEFF` chống lỗi font Excel.
+    - `service/ExportService.java` & `service/impl/ExportServiceImpl.java`: Nghiệp vụ xuất danh sách lớp (phân quyền giáo viên INV-SEC-02) và bảng điểm khảo thí.
+    - `controller/ExportController.java`: Endpoints tải file CSV `/api/admission/exports/classes/{classId}/roster` và `/api/admission/exports/tests/{testSetId}/results`.
+    - `dto/bi/FunnelReportResponse.java`: DTO báo cáo phễu chuyển đổi 4 giai đoạn, 4 chỉ số KPI và cảnh báo tắc nghẽn.
+    - `dto/bi/RevenueOccupancyReportResponse.java`: DTO báo cáo doanh thu tuyển sinh, pipeline revenue và tỷ lệ lấp đầy sĩ số.
+    - `dto/bi/SecurityEngagementReportResponse.java`: DTO giám sát DAU/MAU theo vai trò, tỷ lệ login failed và Top IP khả nghi.
+    - `service/BiAnalyticsService.java` & `service/impl/BiAnalyticsServiceImpl.java`: Logic tính toán các chỉ số kinh doanh BI và phân tích bảo mật.
+    - `controller/BiAnalyticsController.java`: Endpoints RESTful báo cáo BI phân quyền chặt chẽ.
+    - `src/test/java/com/englishcenter/admission/service/ExportServiceTest.java`: 3 unit tests kiểm thử xuất CSV UTF-8.
+    - `src/test/java/com/englishcenter/admission/service/BiAnalyticsServiceTest.java`: 4 unit tests kiểm thử phễu chuyển đổi, doanh thu và an toàn bảo mật.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/ClassRepository.java`: Bổ sung `findByCourseId` và `findByStatusIn`.
+    - `repository/EnrollmentRepository.java`: Bổ sung `findByClassIdOrderByCreatedAtAsc` và các queries đếm theo khoảng thời gian.
+    - `repository/TestAttemptRepository.java` & `TestSubmissionRepository.java`: Bổ sung các queries đếm lượt thi và bài nộp theo thời gian.
+    - `repository/AuthAuditLogRepository.java`: Bổ sung queries DAU/MAU, đếm login attempts và tìm kiếm Top IP khả nghi.
+    - `config/SecurityConfig.java`: Phân quyền `/api/admission/exports/**` và `/api/admission/bi/**`.
+    - `tasks/CHECKLIST.md`: Đánh dấu hoàn thành toàn bộ 4 tasks Phase 5.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `84/84 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (143 source files compiled)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 5 (OPS/BI). Phân hệ Admission đã sẵn sàng bước vào Phase 6 cuối cùng: Giao diện Người dùng Frontend (UI - TASK-ADM-60 đến TASK-ADM-64) vào ca làm việc tối nay.
+
 ### [2026-11-08 18:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-40 -> TASK-ADM-47
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Hoàn tất 100% Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR) gồm toàn bộ 8 tasks (TASK-ADM-40 đến TASK-ADM-47), bảo vệ nghiêm ngặt các quy tắc bất biến INV-ADM-01, INV-ADM-03, INV-ENR-02, INV-ENR-03, INV-SYS-02 và INV-SEC-01.

@@ -141,18 +141,18 @@
 ---
 
 ### Phase 5: Xuất Dữ liệu & Báo cáo Thông minh BI (OPS/BI)
-- [ ] **`TASK-ADM-50`**: Xuất Danh sách Học viên Lớp học & Điểm Khảo thí ra File Excel/CSV (`FR-OPS-01`, `FR-OPS-02`)
+- [x] **`TASK-ADM-50`**: Xuất Danh sách Học viên Lớp học & Điểm Khảo thí ra File Excel/CSV (`FR-OPS-01`, `FR-OPS-02`)
   - *File chi tiết*: [`phase-5-operations-bi/TASK-ADM-50-OPS-EXPORT.md`](phase-5-operations-bi/TASK-ADM-50-OPS-EXPORT.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-51`**: API Phân tích Phễu Chuyển đổi Tuyển sinh 4 Giai đoạn (`BI-01`, `BI-FUN-01..04`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-51`**: API Phân tích Phễu Chuyển đổi Tuyển sinh 4 Giai đoạn (`BI-01`, `BI-FUN-01..04`)
   - *File chi tiết*: [`phase-5-operations-bi/TASK-ADM-51-BI-FUNNEL-ANALYTICS.md`](phase-5-operations-bi/TASK-ADM-51-BI-FUNNEL-ANALYTICS.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-52`**: API Báo cáo Xếp hạng Khóa học, Doanh thu Tiềm năng & Lấp đầy (`BI-02`, `BI-REV-01..02`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-52`**: API Báo cáo Xếp hạng Khóa học, Doanh thu Tiềm năng & Lấp đầy (`BI-02`, `BI-REV-01..02`)
   - *File chi tiết*: [`phase-5-operations-bi/TASK-ADM-52-BI-REVENUE-OCCUPANCY.md`](phase-5-operations-bi/TASK-ADM-52-BI-REVENUE-OCCUPANCY.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-53`**: API Giám sát DAU/MAU & Phát hiện Bất thường Tấn công Đăng nhập (`BI-03`, `BI-USR-01`, `SEC-01`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-53`**: API Giám sát DAU/MAU & Phát hiện Bất thường Tấn công Đăng nhập (`BI-03`, `BI-USR-01`, `SEC-01`)
   - *File chi tiết*: [`phase-5-operations-bi/TASK-ADM-53-BI-SECURITY-ENGAGEMENT.md`](phase-5-operations-bi/TASK-ADM-53-BI-SECURITY-ENGAGEMENT.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 
 ---
 

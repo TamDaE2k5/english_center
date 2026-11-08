@@ -72,4 +72,36 @@ public interface AuthAuditLogRepository extends JpaRepository<AuthAuditLog, Inte
             @org.springframework.data.repository.query.Param("fromDate") LocalDateTime fromDate,
             @org.springframework.data.repository.query.Param("toDate") LocalDateTime toDate,
             Pageable pageable);
+
+    /**
+     * Đếm số lượng người dùng duy nhất đăng nhập thành công từ mốc thời gian (DAU / MAU, TASK-ADM-53).
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT a.userId) FROM AuthAuditLog a WHERE a.action = 'LOGIN_SUCCESS' AND a.userId IS NOT NULL AND a.createdAt >= :since")
+    long countDistinctActiveUsersSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
+
+    /**
+     * Đếm số lượng người dùng duy nhất theo vai trò đăng nhập thành công từ mốc thời gian.
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT a.userId) FROM AuthAuditLog a, User u WHERE a.userId = u.id AND a.action = 'LOGIN_SUCCESS' AND u.role = :role AND a.createdAt >= :since")
+    long countDistinctActiveUsersByRoleSince(@org.springframework.data.repository.query.Param("role") String role, @org.springframework.data.repository.query.Param("since") LocalDateTime since);
+
+    /**
+     * Đếm tổng số lượt thử đăng nhập (thành công hoặc thất bại) từ mốc thời gian.
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(a) FROM AuthAuditLog a WHERE a.action IN ('LOGIN_SUCCESS', 'LOGIN_FAILED') AND a.createdAt >= :since")
+    long countLoginAttemptsSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
+
+    /**
+     * Đếm số lượt đăng nhập thất bại từ mốc thời gian.
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(a) FROM AuthAuditLog a WHERE a.action = 'LOGIN_FAILED' AND a.createdAt >= :since")
+    long countFailedLoginAttemptsSince(@org.springframework.data.repository.query.Param("since") LocalDateTime since);
+
+    /**
+     * Lấy danh sách Top các địa chỉ IP có lượt đăng nhập thất bại nhiều nhất (phát hiện tấn công brute-force).
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT a.ipAddress, COUNT(a.id), MAX(a.createdAt) FROM AuthAuditLog a " +
+            "WHERE a.action = 'LOGIN_FAILED' AND a.ipAddress IS NOT NULL AND a.createdAt >= :since " +
+            "GROUP BY a.ipAddress ORDER BY COUNT(a.id) DESC")
+    java.util.List<Object[]> findTopSuspiciousIps(@org.springframework.data.repository.query.Param("since") LocalDateTime since, Pageable pageable);
 }

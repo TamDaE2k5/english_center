@@ -46,6 +46,22 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
     boolean existsByCourseId(Integer courseId);
 
     /**
+     * Lấy danh sách các lớp học thuộc về một khóa học.
+     *
+     * @param courseId ID khóa học
+     * @return Danh sách lớp học
+     */
+    List<ClassEntity> findByCourseId(Integer courseId);
+
+    /**
+     * Lấy danh sách các lớp học theo danh sách trạng thái (ví dụ: OPEN, IN_PROGRESS).
+     *
+     * @param statuses Danh sách trạng thái
+     * @return Danh sách lớp học
+     */
+    List<ClassEntity> findByStatusIn(Collection<String> statuses);
+
+    /**
      * Kiểm tra xem phòng học có đang được sử dụng bởi các lớp có trạng thái chỉ định không.
      *
      * @param roomId ID phòng học

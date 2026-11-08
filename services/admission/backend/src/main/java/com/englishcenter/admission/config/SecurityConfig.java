@@ -96,11 +96,13 @@ public class SecurityConfig {
                         // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only)
                         .requestMatchers("/api/admission/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/audit-logs/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admission/bi/security-engagement").hasRole("ADMIN")
 
                         // 5. Nhóm API dành cho Học vụ & Quản trị viên (STAFF & ADMIN)
                         .requestMatchers("/api/admission/rooms/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/enrollments/*/approve-manual").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/bi/**").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers("/api/admission/exports/**").hasAnyRole("ADMIN", "STAFF", "TEACHER")
 
                         // 6. Mọi yêu cầu còn lại bắt buộc phải đăng nhập hợp lệ
                         .anyRequest().authenticated()

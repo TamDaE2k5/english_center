@@ -112,4 +112,33 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
     Page<Enrollment> searchEnrollments(@Param("classId") Integer classId,
                                        @Param("status") String status,
                                        Pageable pageable);
+
+    /**
+     * Lấy danh sách toàn bộ đơn đăng ký của một lớp học (phục vụ xuất danh sách CSV).
+     *
+     * @param classId ID lớp học
+     * @return Danh sách đơn đăng ký
+     */
+    @Query("SELECT e FROM Enrollment e LEFT JOIN FETCH e.student WHERE e.classId = :classId ORDER BY e.id ASC")
+    List<Enrollment> findByClassIdOrderByCreatedAtAsc(@Param("classId") Integer classId);
+
+    /**
+     * Đếm tổng số đơn đăng ký phát sinh trong khoảng thời gian.
+     */
+    long countByEnrolledAtBetween(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Đếm số đơn đăng ký theo trạng thái trong khoảng thời gian.
+     */
+    long countByStatusAndEnrolledAtBetween(String status, LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Đếm tổng số đơn đăng ký của danh sách lớp trong khoảng thời gian.
+     */
+    long countByClassIdInAndEnrolledAtBetween(List<Integer> classIds, LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Đếm số đơn theo trạng thái của danh sách lớp trong khoảng thời gian.
+     */
+    long countByClassIdInAndStatusAndEnrolledAtBetween(List<Integer> classIds, String status, LocalDateTime start, LocalDateTime end);
 }

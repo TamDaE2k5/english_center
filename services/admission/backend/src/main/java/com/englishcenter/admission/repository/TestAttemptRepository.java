@@ -29,4 +29,23 @@ public interface TestAttemptRepository extends JpaRepository<TestAttempt, Intege
      * @return Danh sách lượt thi
      */
     List<TestAttempt> findByUserIdOrderByStartedAtDesc(Integer userId);
+
+    /**
+     * Đếm tổng số lượt bắt đầu làm bài trong khoảng thời gian (BI Funnel Stage 1).
+     *
+     * @param start Thời điểm bắt đầu
+     * @param end   Thời điểm kết thúc
+     * @return Số lượng lượt thi
+     */
+    long countByStartedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+    /**
+     * Đếm số lượt bắt đầu làm bài theo bộ đề trong khoảng thời gian.
+     *
+     * @param testSetId ID bộ đề
+     * @param start     Thời điểm bắt đầu
+     * @param end       Thời điểm kết thúc
+     * @return Số lượng lượt thi
+     */
+    long countByTestSetIdAndStartedAtBetween(Integer testSetId, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }
