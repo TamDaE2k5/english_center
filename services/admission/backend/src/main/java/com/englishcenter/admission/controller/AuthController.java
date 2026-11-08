@@ -1,90 +1,59 @@
 package com.englishcenter.admission.controller;
 
-import com.englishcenter.admission.entity.User;
-import com.englishcenter.admission.repository.UserRepository;
-import com.englishcenter.admission.util.JwtUtil;
-import org.springframework.http.HttpStatus;
+import com.englishcenter.admission.common.dto.ApiResponse;
+import com.englishcenter.admission.dto.auth.LoginRequest;
+import com.englishcenter.admission.dto.auth.LoginResponse;
+import com.englishcenter.admission.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-import java.util.Optional;
-
+/**
+ * Controller xử lý các tác vụ xác thực danh tính, phiên làm việc và bảo mật tài khoản.
+ * Định tuyến chính thức: /api/admission/auth
+ */
 @RestController
-@RequestMapping("/auth")
+@RequestMapping({"/api/admission/auth", "/auth"})
 @CrossOrigin(origins = "*")
 public class AuthController {
 
-    private final UserRepository userRepository;
-    private final JwtUtil jwtUtil;
+    private final AuthService authService;
 
-    public AuthController(UserRepository userRepository, JwtUtil jwtUtil) {
-        this.userRepository = userRepository;
-        this.jwtUtil = jwtUtil;
+    public AuthController(AuthService authService) {
+        this.authService = authService;
     }
 
-    public record LoginRequest(String email, String password) {}
-
-    public record RegisterRequest(String email, String password, String full_name, String role, String phone) {}
-
+    /**
+     * Xác thực đăng nhập người dùng và cấp phát bộ token kép (Access Token & Refresh Token).
+     *
+     * @param request     DTO chứa email và mật khẩu
+     * @param httpRequest Đối tượng HttpServletRequest để trích xuất IP và User-Agent
+     * @return ApiResponse chứa LoginResponse và thông tin người dùng
+     */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest req) {
-        if (req.email() == null || req.password() == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", Map.of("code", "AUTH_INVALID_INPUT", "message", "Email và mật khẩu không được để trống")
-            ));
-        }
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
 
-        Optional<User> userOpt = userRepository.findByEmail(req.email());
-        if (userOpt.isEmpty() || !userOpt.get().getPasswordHash().equals(req.password())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                    "success", false,
-                    "error", Map.of("code", "AUTH_INVALID_CREDENTIALS", "message", "Email hoặc mật khẩu không chính xác")
-            ));
-        }
+        String ipAddress = extractClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
 
-        User user = userOpt.get();
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getFullName());
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Đăng nhập thành công",
-                "data", Map.of(
-                        "token", token,
-                        "user", Map.of(
-                                "id", user.getId(),
-                                "email", user.getEmail(),
-                                "name", user.getFullName(),
-                                "role", user.getRole()
-                        )
-                )
-        ));
+        LoginResponse response = authService.login(request, ipAddress, userAgent);
+        return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập thành công"));
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
-        if (userRepository.findByEmail(req.email()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
-                    "success", false,
-                    "error", Map.of("code", "AUTH_EMAIL_EXISTS", "message", "Email này đã được sử dụng")
-            ));
+    /**
+     * Trích xuất địa chỉ IP thực của client hỗ trợ trường hợp chạy sau Reverse Proxy / API Gateway.
+     *
+     * @param request HTTP Servlet Request
+     * @return Địa chỉ IP thực
+     */
+    private String extractClientIp(HttpServletRequest request) {
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader == null || xfHeader.isEmpty() || "unknown".equalsIgnoreCase(xfHeader)) {
+            return request.getRemoteAddr();
         }
-
-        User newUser = new User();
-        newUser.setEmail(req.email());
-        newUser.setPasswordHash(req.password());
-        newUser.setFullName(req.full_name());
-        newUser.setRole(req.role() != null ? req.role() : "STUDENT");
-        newUser.setPhone(req.phone());
-
-        User saved = userRepository.save(newUser);
-        String token = jwtUtil.generateToken(saved.getId(), saved.getEmail(), saved.getRole(), saved.getFullName());
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "success", true,
-                "message", "Đăng ký thành công",
-                "data", Map.of("token", token, "id", saved.getId(), "email", saved.getEmail())
-        ));
+        return xfHeader.split(",")[0].trim();
     }
 }

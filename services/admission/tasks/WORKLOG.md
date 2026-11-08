@@ -43,6 +43,27 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:35] - AI Assistant (Pair with Team Lead) - TASK-ADM-12
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai API Đăng nhập chuẩn REST (`POST /api/admission/auth/login`), cấp phát bộ token kép (Access Token 15m, Refresh Token 7d lưu vào `admission.refresh_tokens`), ghi nhận nhật ký kiểm toán `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGIN_BLOCKED` vào `admission.auth_audit_logs`.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/auth/LoginRequest.java`: DTO nhận thông tin đăng nhập với validation `@NotBlank` và `@Email`.
+    - `dto/auth/LoginResponse.java`: DTO trả về cặp token (`access_token`, `refresh_token`, `expires_in`, `token_type`, `user`).
+    - `dto/auth/UserSummary.java`: DTO tóm tắt người dùng (`user_id`, `email`, `full_name`, `role`).
+    - `service/AuthService.java`: Interface định nghĩa nghiệp vụ xác thực đăng nhập.
+    - `service/impl/AuthServiceImpl.java`: Triển khai xác thực mật khẩu BCrypt, kiểm tra trạng thái khóa tài khoản, cấp phát JWT kép, lưu phiên và ghi log kiểm toán.
+    - `src/test/java/com/englishcenter/admission/service/AuthServiceTest.java`: Bộ kiểm thử đơn vị JUnit 5 & Mockito (3 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `controller/AuthController.java`: Refactor sử dụng AuthService và chuẩn hóa response ApiResponse, hỗ trợ bóc tách IP qua `X-Forwarded-For`.
+  - 🔴 **Xóa bỏ (Deleted)**:
+    - `util/JwtUtil.java`: Xóa bỏ lớp util mẫu cũ do đã được thay thế hoàn toàn bởi `JwtTokenProvider` và `SecurityConfig`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `16/16 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (54 source files compiled in 3.63s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-13` (Cơ chế Refresh Token Rotation & Thu hồi Token Đang hoạt động).
+
 ### [2026-11-08 16:30] - AI Assistant (Pair with Team Lead) - TASK-ADM-11
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Xây dựng toàn bộ luồng quản lý nhân sự Staff/Teacher và cơ chế Khóa/Mở khóa tài khoản (FR-IAM-02, FR-IAM-05), thu hồi lập tức Refresh Token khi khóa tài khoản, ghi nhận nhật ký kiểm toán và bảo vệ ranh giới xem hồ sơ INV-SEC-01.
