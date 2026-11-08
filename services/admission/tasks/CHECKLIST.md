@@ -83,15 +83,15 @@
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-21-ACA-COURSE-MANAGEMENT.md`](phase-2-academic-facility/TASK-ADM-21-ACA-COURSE-MANAGEMENT.md)
   - *Invariant*: `INV-ADM-02` (Mã khóa học duy nhất)
   - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
-- [ ] **`TASK-ADM-22`**: Quản lý Mở Lớp học, Kiểm tra Sức chứa Phòng & Vòng đời Lớp (`FR-ACA-02`, `FR-ACA-04`, `FR-FAC-03`)
+- [x] **`TASK-ADM-22`**: Quản lý Mở Lớp học, Kiểm tra Sức chứa Phòng & Vòng đời Lớp (`FR-ACA-02`, `FR-ACA-04`, `FR-FAC-03`)
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-22-ACA-CLASS-MANAGEMENT.md`](phase-2-academic-facility/TASK-ADM-22-ACA-CLASS-MANAGEMENT.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-23`**: Động cơ Chống Xung đột Lịch Phòng & Giảng viên (Conflict Engine) (`FR-ACA-03`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-23`**: Động cơ Chống Xung đột Lịch Phòng & Giảng viên (Conflict Engine) (`FR-ACA-03`)
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-23-ACA-CONFLICT-ENGINE.md`](phase-2-academic-facility/TASK-ADM-23-ACA-CONFLICT-ENGINE.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
-- [ ] **`TASK-ADM-24`**: API Tính toán Slot Khả dụng Theo Thời gian Thực (`FR-ACA-05`)
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
+- [x] **`TASK-ADM-24`**: API Tính toán Slot Khả dụng Theo Thời gian Thực (`FR-ACA-05`)
   - *File chi tiết*: [`phase-2-academic-facility/TASK-ADM-24-ACA-AVAILABLE-SLOTS.md`](phase-2-academic-facility/TASK-ADM-24-ACA-AVAILABLE-SLOTS.md)
-  - *Assignee*: `_______________` | *Ngày xong*: `____/__/__`
+  - *Assignee*: `AI Assistant (Pair with Team Lead)` | *Ngày xong*: `2026-11-08`
 
 ---
 

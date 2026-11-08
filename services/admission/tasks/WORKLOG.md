@@ -43,6 +43,32 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 17:25] - AI Assistant (Pair with Team Lead) - TASK-ADM-22, TASK-ADM-23, TASK-ADM-24
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai trọn vẹn cụm tính năng Quản lý Lớp học (FR-ACA-02), Kiểm soát Sức chứa Phòng (FR-FAC-03), Động cơ Chống Xung đột Lịch Phòng & Giảng viên (Conflict Engine - FR-ACA-03), Vòng đời Lớp học (FR-ACA-04) và API Tính toán Sĩ số/Slot Khả dụng Thời gian thực (FR-ACA-05, TASK-ADM-24).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.engine.dto.ConflictCheckRequest`: DTO truyền dữ liệu kiểm tra xung đột thời khóa biểu giữa phòng học và giảng viên.
+    - `com.englishcenter.admission.engine.dto.ConflictCheckResult`: DTO chứa kết quả phân tích xung đột (ROOM_CONFLICT, TEACHER_CONFLICT, NONE).
+    - `com.englishcenter.admission.engine.ConflictEngine`: Động cơ phân tích giao cắt khoảng ngày [startDate, endDate], khung giờ [startTime, endTime] và đối chiếu mẫu ngày học (DayPattern).
+    - `com.englishcenter.admission.engine.ConflictEngineTest`: 5 unit tests bao phủ toàn bộ các kịch bản trùng/khác phòng, trùng/khác giảng viên, và giao thoa mẫu ngày (DAILY vs MON_WED_FRI).
+    - `com.englishcenter.admission.dto.clazz.CreateClassRequest`: DTO mở lớp với validation ngày/giờ và sĩ số tối đa >= tối thiểu.
+    - `com.englishcenter.admission.dto.clazz.UpdateClassRequest`: DTO cập nhật thông tin lớp.
+    - `com.englishcenter.admission.dto.clazz.UpdateClassStatusRequest`: DTO chuyển trạng thái vòng đời lớp.
+    - `com.englishcenter.admission.dto.clazz.ClassResponse`: DTO phản hồi thông tin chi tiết lớp kèm sĩ số và slot khả dụng.
+    - `com.englishcenter.admission.dto.clazz.ClassCapacityResponse`: DTO phản hồi sức chứa, số lượng đã duyệt (APPROVED), số lượng đang giữ chỗ 48h (activeHeldCount), và số slot còn lại.
+    - `com.englishcenter.admission.repository.EnrollmentRepository`: Interface JPA repository truy vấn và đếm slot tuyển sinh (countByClassIdAndStatus, countOccupiedSlots, countActiveHeldSlots).
+    - `com.englishcenter.admission.service.ClassService`: Interface nghiệp vụ quản lý lớp học.
+    - `com.englishcenter.admission.service.impl.ClassServiceImpl`: Hiện thực nghiệp vụ kiểm tra max_students <= room.capacity (ADM_ROOM_CAPACITY_EXCEEDED), gọi ConflictEngine chống trùng lịch, chuyển trạng thái OPEN -> IN_PROGRESS -> COMPLETED, tính toán available_slots thời gian thực.
+    - `com.englishcenter.admission.controller.ClassController`: REST Controller cung cấp các endpoint /api/admission/classes (GET danh sách public, GET /{id} public, GET /{id}/capacity public, POST mở lớp, PUT cập nhật, PATCH /{id}/status).
+    - `com.englishcenter.admission.service.ClassServiceTest`: 7 unit tests kiểm tra toàn diện mở lớp, chặn vượt sức chứa, chặn ngày sai, kiểm tra chuyển trạng thái hợp lệ/bất hợp lệ và tính toán capacity.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `com.englishcenter.admission.repository.ClassRepository`: Bổ sung query findConflictingRoomClasses và findConflictingTeacherClasses kiểm tra giao thoa ngày và giờ.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK`.
+  - Compile / Build: `Build Success` (51/51 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Phase 2 hoàn tất 100% (5/5 tasks). Sẵn sàng chuyển tiếp sang Phase 3: Khảo thí Đầu vào Chuyên sâu (TST - TASK-ADM-30 đến 32).
+
 ### [2026-11-08 17:10] - AI Assistant (Pair with Team Lead) - TASK-ADM-21
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai Quản lý Khóa học, Học phí Chuẩn & Khóa học Tiên quyết (FR-ACA-01, INV-ADM-02), bảo vệ tính duy nhất của mã khóa học code, hỗ trợ khóa học tiên quyết (prerequisite_course_id) với thuật toán phát hiện và ngăn ngừa chu trình phụ thuộc (Circular Dependency A -> B -> A), bảo vệ tính toàn vẹn khi xóa khóa học (chặn xóa nếu có lớp học hoặc đang là điều kiện tiên quyết của khóa khác).

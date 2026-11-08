@@ -66,42 +66,52 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
     List<ClassEntity> searchClasses(@Param("courseId") Integer courseId, @Param("status") String status);
 
     /**
-     * Tìm các lớp học trùng phòng có khả năng xung đột lịch:
-     * Cùng phòng học, trạng thái OPEN hoặc IN_PROGRESS, có khoảng ngày học giao cắt.
+     * Tìm các lớp học trùng phòng có giao cắt cả về khoảng ngày và khung giờ học.
      *
      * @param roomId ID phòng học
-     * @param excludeClassId ID lớp cần loại trừ (khi cập nhật lớp hiện tại, có thể null khi tạo mới)
+     * @param excludeClassId ID lớp cần loại trừ (khi cập nhật)
      * @param startDate Ngày bắt đầu lớp cần xếp
      * @param endDate Ngày kết thúc lớp cần xếp
-     * @return Danh sách các lớp học có khả năng xung đột phòng
+     * @param startTime Giờ bắt đầu ca học
+     * @param endTime Giờ kết thúc ca học
+     * @return Danh sách các lớp học có nguy cơ xung đột phòng
      */
-    @Query("SELECT c FROM ClassEntity c WHERE c.roomId = :roomId " +
+    @Query("SELECT c FROM ClassEntity c LEFT JOIN FETCH c.roomEntity WHERE " +
+           "c.roomId = :roomId " +
            "AND (:excludeClassId IS NULL OR c.id <> :excludeClassId) " +
            "AND c.status IN ('OPEN', 'IN_PROGRESS') " +
-           "AND c.startDate <= :endDate AND c.endDate >= :startDate")
-    List<ClassEntity> findPotentialRoomConflicts(
+           "AND c.startDate <= :endDate AND c.endDate >= :startDate " +
+           "AND c.startTime < :endTime AND c.endTime > :startTime")
+    List<ClassEntity> findConflictingRoomClasses(
             @Param("roomId") Integer roomId,
             @Param("excludeClassId") Integer excludeClassId,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("endDate") LocalDate endDate,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
 
     /**
-     * Tìm các lớp học trùng giảng viên có khả năng xung đột lịch:
-     * Cùng giảng viên, trạng thái OPEN hoặc IN_PROGRESS, có khoảng ngày học giao cắt.
+     * Tìm các lớp học trùng giảng viên có giao cắt cả về khoảng ngày và khung giờ học.
      *
      * @param teacherId ID giảng viên
      * @param excludeClassId ID lớp cần loại trừ (khi cập nhật)
-     * @param startDate Ngày bắt đầu
-     * @param endDate Ngày kết thúc
-     * @return Danh sách các lớp học có khả năng xung đột giảng viên
+     * @param startDate Ngày bắt đầu lớp cần xếp
+     * @param endDate Ngày kết thúc lớp cần xếp
+     * @param startTime Giờ bắt đầu ca học
+     * @param endTime Giờ kết thúc ca học
+     * @return Danh sách các lớp học có nguy cơ xung đột giảng viên
      */
-    @Query("SELECT c FROM ClassEntity c WHERE c.teacherId = :teacherId " +
+    @Query("SELECT c FROM ClassEntity c LEFT JOIN FETCH c.teacher WHERE " +
+           "c.teacherId = :teacherId " +
            "AND (:excludeClassId IS NULL OR c.id <> :excludeClassId) " +
            "AND c.status IN ('OPEN', 'IN_PROGRESS') " +
-           "AND c.startDate <= :endDate AND c.endDate >= :startDate")
-    List<ClassEntity> findPotentialTeacherConflicts(
+           "AND c.startDate <= :endDate AND c.endDate >= :startDate " +
+           "AND c.startTime < :endTime AND c.endTime > :startTime")
+    List<ClassEntity> findConflictingTeacherClasses(
             @Param("teacherId") Integer teacherId,
             @Param("excludeClassId") Integer excludeClassId,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("endDate") LocalDate endDate,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
 }
