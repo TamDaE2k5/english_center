@@ -43,6 +43,26 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
 
+### [2026-11-08 16:50] - AI Assistant (Pair with Team Lead) - TASK-ADM-15
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai toàn diện Hệ thống Kiểm toán Bảo mật và Giám sát An toàn Thông tin (FR-IAM-07, BI-SEC-01), phát hiện và ngăn chặn Brute-force tự động khi thử sai >= 5 lần trong 10 phút, cung cấp API truy vấn nhật ký kiểm toán có phân trang và đa tiêu chí (`GET /api/admission/audit-logs`) chỉ dành cho Quản trị viên (ADMIN).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/audit/AuditLogResponse.java`: DTO chuẩn hóa bản ghi nhật ký kiểm toán (`log_id`, `user_id`, `email`, `event_type`, `ip_address`, `user_agent`, `details`, `created_at`).
+    - `service/AuditLogService.java`: Interface quản lý ghi log, phát hiện brute-force và truy vấn nhật ký.
+    - `service/impl/AuditLogServiceImpl.java`: Triển khai logic kiểm toán an toàn, cảnh báo brute-force và truy vấn theo filter (action, userId, fromDate, toDate).
+    - `controller/AuditLogController.java`: Endpoint REST API `/api/admission/audit-logs` với phân quyền `@PreAuthorize("hasRole('ADMIN')")`.
+    - `src/test/java/com/englishcenter/admission/service/AuditLogServiceTest.java`: Bộ kiểm thử đơn vị JUnit 5 & Mockito (4 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/AuthAuditLogRepository.java`: Bổ sung `countByIpAddressAndActionAndCreatedAtAfter` và query tìm kiếm `searchAuditLogs`.
+    - `service/impl/AuthServiceImpl.java`: Tích hợp bộ đệm kiểm tra phòng vệ Brute-force tự động trước khi xác thực mật khẩu.
+    - `config/SecurityConfig.java`: Phân quyền tường minh `/api/admission/audit-logs/**` chỉ dành riêng cho ADMIN.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `25/25 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (64 source files compiled in 4.08s)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 1: Quản trị Định danh & Phiên làm việc (IAM - 6/6 tasks). Sẵn sàng chuyển tiếp sang Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA - `TASK-ADM-20` đến `TASK-ADM-24`).
+
 ### [2026-11-08 16:45] - AI Assistant (Pair with Team Lead) - TASK-ADM-14
 - **Nhánh Git (Branch)**: `feature/admission`
 - **Mục tiêu công việc**: Triển khai luồng quên mật khẩu tự phục vụ (`POST /api/admission/auth/forgot-password`) với cơ chế phòng chống rò quét email (Email Enumeration Prevention), cấp mã token bảo mật 15 phút lưu vào `admission.password_reset_tokens`, và API đặt lại mật khẩu (`POST /api/admission/auth/reset-password`) cập nhật mật khẩu băm BCrypt, vô hiệu hóa token và thu hồi toàn bộ session đăng nhập cũ của người dùng.

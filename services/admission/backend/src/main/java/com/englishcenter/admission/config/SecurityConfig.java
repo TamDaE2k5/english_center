@@ -95,6 +95,7 @@ public class SecurityConfig {
 
                         // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only)
                         .requestMatchers("/api/admission/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admission/audit-logs/**").hasRole("ADMIN")
 
                         // 5. Nhóm API dành cho Học vụ & Quản trị viên (STAFF & ADMIN)
                         .requestMatchers("/api/admission/rooms/**").hasAnyRole("ADMIN", "STAFF")

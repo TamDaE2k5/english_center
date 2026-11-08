@@ -84,6 +84,22 @@ public class AuthServiceImpl implements AuthService {
         String normalizedEmail = request.getEmail().trim().toLowerCase();
         Optional<User> userOpt = userRepository.findByEmail(normalizedEmail);
 
+        // 0. Phòng vệ Brute-force: Kiểm tra nếu IP hoặc email đã sai >= 5 lần trong 10 phút gần nhất
+        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
+        long failedIpCount = (ipAddress != null && !ipAddress.isEmpty())
+                ? authAuditLogRepository.countByIpAddressAndActionAndCreatedAtAfter(ipAddress, "LOGIN_FAILED", tenMinutesAgo)
+                : 0;
+        long failedEmailCount = authAuditLogRepository.countByEmailAndActionAndCreatedAtAfter(normalizedEmail, "LOGIN_FAILED", tenMinutesAgo);
+
+        if (failedIpCount >= 5 || failedEmailCount >= 5) {
+            recordAuditLog(userOpt.map(User::getId).orElse(null), normalizedEmail, "LOGIN_BLOCKED_BRUTEFORCE",
+                    ipAddress, userAgent, "Phát hiện hơn 5 lần đăng nhập thất bại trong 10 phút. Tạm khóa bảo vệ 15 phút.");
+            log.warn("Tạm khóa đăng nhập do Brute-force: IP={}, email={}, failedIp={}, failedEmail={}",
+                    ipAddress, normalizedEmail, failedIpCount, failedEmailCount);
+            throw new BusinessException(ErrorCode.AUTH_ACCOUNT_LOCKED,
+                    "Phát hiện nhiều lần đăng nhập thất bại liên tiếp. Hệ thống tạm khóa đăng nhập trong 15 phút để bảo vệ an toàn.");
+        }
+
         // 1. Kiểm tra tài khoản tồn tại và khớp mật khẩu BCrypt
         if (userOpt.isEmpty() || !passwordEncoder.matches(request.getPassword(), userOpt.get().getPasswordHash())) {
             recordAuditLog(userOpt.map(User::getId).orElse(null), normalizedEmail, "LOGIN_FAILED",
