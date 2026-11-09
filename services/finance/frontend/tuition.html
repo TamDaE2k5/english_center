@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Biểu phí học phí - Finance Module</title>
+  <title>Biểu phí & Chiến dịch Voucher - Finance Module</title>
   <link rel="stylesheet" href="/shared/css/variables.css">
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/shared/css/components.css">
@@ -16,17 +16,18 @@
       <div id="header"></div>
       <div class="content">
         <nav class="breadcrumb">
-          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Cấu hình biểu phí</span>
+          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Biểu phí & Chiến dịch Voucher</span>
         </nav>
 
-        <div class="card">
+        <!-- Bảng 1: Biểu phí khóa học -->
+        <div class="card" style="margin-bottom: var(--space-lg);">
           <div class="card-header">
             <div>
-              <h1 class="heading-1">Biểu Phí Khóa Học & Đào Tạo</h1>
-              <p class="text-secondary text-sm">Chính sách học phí tiêu chuẩn áp dụng cho các khóa học</p>
+              <h1 class="heading-1">Biểu Phí Khóa Học & Đào Tạo (FIN-F01)</h1>
+              <p class="text-secondary text-sm">Chính sách học phí tiêu chuẩn áp dụng cho các khóa học trong hệ thống</p>
             </div>
-            <button class="btn btn-primary" onclick="alert('Tính năng cập nhật biểu phí đang phát triển!')">
-              + Thiết lập biểu phí mới
+            <button class="btn btn-primary" onclick="openTuitionModal()">
+              + Thiết lập biểu phí
             </button>
           </div>
           <div class="card-body">
@@ -34,34 +35,57 @@
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>Mã khóa học</th>
+                    <th>ID Khóa học</th>
                     <th>Tên chương trình</th>
-                    <th>Thời lượng</th>
                     <th>Mức học phí niêm yết</th>
+                    <th>Ưu đãi mặc định</th>
                     <th>Ghi chú</th>
+                    <th>Trạng thái</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="tuition-tbody">
                   <tr>
-                    <td><code>ENG-IELTS-FOUND</code></td>
-                    <td><strong>IELTS Foundation 4.5 - 5.5</strong></td>
-                    <td>12 tuần</td>
-                    <td><strong style="color: var(--color-primary);">6.500.000 ₫</strong></td>
-                    <td>Đã bao gồm giáo trình và tài liệu Mock Test</td>
+                    <td colspan="6" style="text-align: center;">Đang tải biểu phí...</td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng 2: Chiến dịch Voucher -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="heading-2">Chiến Dịch Mã Giảm Giá Voucher (FIN-F01 & FIN-F02)</h2>
+              <p class="text-secondary text-sm">Quản lý hạn mức sử dụng, thời hạn và kiểm tra chiết khấu tự động</p>
+            </div>
+            <div style="display: flex; gap: var(--space-sm);">
+              <button class="btn btn-secondary" onclick="openValidateVoucherModal()">
+                Kiểm tra mã Voucher
+              </button>
+              <button class="btn btn-primary" onclick="openVoucherModal()">
+                + Tạo chiến dịch Voucher
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <td><code>ENG-IELTS-INT</code></td>
-                    <td><strong>IELTS Intensive 6.5+</strong></td>
-                    <td>14 tuần</td>
-                    <td><strong style="color: var(--color-primary);">8.500.000 ₫</strong></td>
-                    <td>Bao gồm 3 buổi chấm bài Writing 1:1 với cựu Examiner</td>
+                    <th>Mã Voucher</th>
+                    <th>Tên chiến dịch</th>
+                    <th>Mức giảm</th>
+                    <th>Đơn tối thiểu</th>
+                    <th>Lượt dùng</th>
+                    <th>Hết hạn</th>
+                    <th>Trạng thái</th>
                   </tr>
+                </thead>
+                <tbody id="vouchers-tbody">
                   <tr>
-                    <td><code>ENG-TOEIC-600</code></td>
-                    <td><strong>TOEIC Cấp Tốc 600+</strong></td>
-                    <td>8 tuần</td>
-                    <td><strong style="color: var(--color-primary);">4.200.000 ₫</strong></td>
-                    <td>Cam kết chuẩn đầu ra</td>
+                    <td colspan="7" style="text-align: center;">Đang tải danh sách voucher...</td>
                   </tr>
                 </tbody>
               </table>
@@ -71,8 +95,260 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal Thiết lập Biểu phí -->
+  <div class="modal-overlay" id="tuitionModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Cập Nhật Biểu Phí Khóa Học</h3>
+        <button class="modal-close" onclick="closeModal('tuitionModal')">&times;</button>
+      </div>
+      <form id="tuitionForm">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Course ID *</label>
+              <input type="number" id="tfCourseId" class="form-input" value="1" required>
+            </div>
+            <div class="form-group">
+              <label class="label">Tên khóa học *</label>
+              <input type="text" id="tfCourseName" class="form-input" placeholder="IELTS Foundation 4.5 - 5.5" required>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Học phí niêm yết (VND) *</label>
+              <input type="number" id="tfAmount" class="form-input" value="6500000" step="100000" required>
+            </div>
+            <div class="form-group">
+              <label class="label">Chiết khấu mặc định (%)</label>
+              <input type="number" id="tfDiscount" class="form-input" value="0" min="0" max="100">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label">Ghi chú chính sách</label>
+            <input type="text" id="tfNote" class="form-input" placeholder="Đã bao gồm giáo trình và tài liệu Mock Test">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('tuitionModal')">Đóng</button>
+          <button type="submit" class="btn btn-primary">Lưu biểu phí</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Tạo Voucher -->
+  <div class="modal-overlay" id="voucherModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Tạo Chiến Dịch Voucher Mới</h3>
+        <button class="modal-close" onclick="closeModal('voucherModal')">&times;</button>
+      </div>
+      <form id="voucherForm">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Mã Voucher *</label>
+              <input type="text" id="vCode" class="form-input" placeholder="SUMMER2026" required>
+            </div>
+            <div class="form-group">
+              <label class="label">Số lượt tối đa *</label>
+              <input type="number" id="vMaxUses" class="form-input" value="100" min="1" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label">Tên chiến dịch *</label>
+            <input type="text" id="vCampaign" class="form-input" placeholder="Ưu đãi học phí mùa hè" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Giảm theo % (0-100)</label>
+              <input type="number" id="vPercent" class="form-input" value="10" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label class="label">Hoặc giảm tiền mặt (VND)</label>
+              <input type="number" id="vAmount" class="form-input" value="0" min="0" step="50000">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Đơn tối thiểu (VND)</label>
+              <input type="number" id="vMinOrder" class="form-input" value="3000000" step="100000">
+            </div>
+            <div class="form-group">
+              <label class="label">Hạn sử dụng *</label>
+              <input type="datetime-local" id="vExpires" class="form-input" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('voucherModal')">Đóng</button>
+          <button type="submit" class="btn btn-primary">Tạo Voucher</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Kiểm tra Voucher -->
+  <div class="modal-overlay" id="validateModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Kiểm Tra & Tính Chiết Khấu Voucher (FIN-F02)</h3>
+        <button class="modal-close" onclick="closeModal('validateModal')">&times;</button>
+      </div>
+      <form id="validateForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="label">Mã Voucher *</label>
+            <input type="text" id="valCode" class="form-input" value="KHAI_GIANG_2026" required>
+          </div>
+          <div class="form-group">
+            <label class="label">Học phí gốc dự kiến (VND) *</label>
+            <input type="number" id="valOrderAmount" class="form-input" value="6500000" step="100000" required>
+          </div>
+          <div id="validateResult" style="margin-top: var(--space-md); padding: var(--space-md); background: var(--color-bg-secondary, #f8fafc); border-radius: 8px; display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('validateModal')">Đóng</button>
+          <button type="submit" class="btn btn-primary">Kiểm tra ngay</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script>
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+    function openTuitionModal() {
+      document.getElementById('tuitionForm').reset();
+      document.getElementById('tuitionModal').classList.add('active');
+    }
+    function openVoucherModal() {
+      document.getElementById('voucherForm').reset();
+      document.getElementById('vExpires').value = '2027-12-31T23:59';
+      document.getElementById('voucherModal').classList.add('active');
+    }
+    function openValidateVoucherModal() {
+      document.getElementById('validateResult').style.display = 'none';
+      document.getElementById('validateModal').classList.add('active');
+    }
+
+    async function loadTuitionFees() {
+      const tbody = document.getElementById('tuition-tbody');
+      try {
+        const res = await apiGet('/api/finance/tuition-fees');
+        const list = (res && res.data) ? res.data : [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Chưa có dữ liệu biểu phí.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = list.map(item => `
+          <tr>
+            <td><code>#${item.course_id}</code></td>
+            <td><strong>${item.course_name}</strong></td>
+            <td><strong style="color: var(--color-primary);">${formatCurrency(item.amount)}</strong></td>
+            <td>${item.discount_pct || 0}%</td>
+            <td>${item.note || item.description || '-'}</td>
+            <td><span class="badge ${item.is_active ? 'badge-success' : 'badge-danger'}">${item.is_active ? 'Đang áp dụng' : 'Ngừng'}</span></td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger);">Không tải được biểu phí từ Finance API.</td></tr>`;
+      }
+    }
+
+    async function loadVouchers() {
+      const tbody = document.getElementById('vouchers-tbody');
+      try {
+        const res = await apiGet('/api/finance/vouchers');
+        const list = (res && res.data) ? res.data : [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Chưa có chiến dịch voucher nào.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = list.map(v => {
+          const discLabel = v.discount_percent > 0
+            ? `Giảm ${v.discount_percent}%` + (v.max_discount_amount ? ` (tối đa ${formatCurrency(v.max_discount_amount)})` : '')
+            : `Giảm ${formatCurrency(v.discount_amount)}`;
+          return `
+            <tr>
+              <td><code>${v.code}</code></td>
+              <td><strong>${v.campaign_name}</strong></td>
+              <td style="color: var(--color-primary); font-weight: 600;">${discLabel}</td>
+              <td>${formatCurrency(v.min_order_value)}</td>
+              <td>${v.current_uses} / ${v.max_uses}</td>
+              <td>${formatDate(v.expires_at)}</td>
+              <td><span class="badge ${v.is_active ? 'badge-success' : 'badge-danger'}">${v.is_active ? 'Hoạt động' : 'Đã khóa'}</span></td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-danger);">Không tải được danh sách voucher.</td></tr>`;
+      }
+    }
+
+    document.getElementById('tuitionForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await apiPost('/api/finance/tuition-fees', {
+          course_id: parseInt(document.getElementById('tfCourseId').value, 10),
+          course_name: document.getElementById('tfCourseName').value.trim(),
+          amount: parseFloat(document.getElementById('tfAmount').value),
+          discount_pct: parseFloat(document.getElementById('tfDiscount').value || '0'),
+          note: document.getElementById('tfNote').value.trim() || null
+        });
+        showToast('success', 'Đã lưu cấu hình biểu phí!');
+        closeModal('tuitionModal');
+        loadTuitionFees();
+      } catch (err) {}
+    });
+
+    document.getElementById('voucherForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await apiPost('/api/finance/vouchers', {
+          code: document.getElementById('vCode').value.trim(),
+          campaign_name: document.getElementById('vCampaign').value.trim(),
+          discount_percent: parseInt(document.getElementById('vPercent').value || '0', 10),
+          discount_amount: parseFloat(document.getElementById('vAmount').value || '0'),
+          min_order_value: parseFloat(document.getElementById('vMinOrder').value || '0'),
+          max_uses: parseInt(document.getElementById('vMaxUses').value, 10),
+          expires_at: document.getElementById('vExpires').value
+        });
+        showToast('success', 'Tạo chiến dịch Voucher thành công!');
+        closeModal('voucherModal');
+        loadVouchers();
+      } catch (err) {}
+    });
+
+    document.getElementById('validateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const box = document.getElementById('validateResult');
+      try {
+        const res = await apiPost('/api/finance/vouchers/validate', {
+          code: document.getElementById('valCode').value.trim(),
+          order_amount: parseFloat(document.getElementById('valOrderAmount').value)
+        });
+        if (res && res.data) {
+          box.style.display = 'block';
+          box.innerHTML = `
+            <div><strong>Chiến dịch:</strong> ${res.data.campaign_name}</div>
+            <div><strong>Số tiền được giảm:</strong> <span style="color: var(--color-success, #16a34a); font-weight: 700;">-${formatCurrency(res.data.discount_applied)}</span></div>
+            <div><strong>Học phí còn phải đóng:</strong> <span style="color: var(--color-primary); font-weight: 700;">${formatCurrency(res.data.final_amount)}</span></div>
+          `;
+        }
+      } catch (err) {
+        box.style.display = 'none';
+      }
+    });
+
+    loadTuitionFees();
+    loadVouchers();
+  </script>
 </body>
 </html>
