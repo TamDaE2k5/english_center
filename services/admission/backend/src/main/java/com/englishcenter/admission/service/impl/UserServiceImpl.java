@@ -32,10 +32,37 @@ import java.util.Optional;
  */
 @Service
 public class UserServiceImpl implements UserService {
+    /** Giáo viên đang hoạt động, chỉ trả ID và họ tên cho màn hình mở lớp. */
+    @Override @Transactional(readOnly = true)
+    public java.util.List<UserService.TeacherOption> listTeacherOptions() {
+        return userRepository.findByRole("TEACHER", org.springframework.data.domain.Pageable.unpaged()).stream()
+                .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
+                .map(u -> new UserService.TeacherOption(u.getId(), u.getFullName())).toList();
+    }
 
     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
     private static final SecureRandom RANDOM = new SecureRandom();
+
+    /** Tạo riêng khách khảo thí, không cho email tự khai nhận danh tính tài khoản hiện hữu. */
+    @Override
+    @Transactional
+    public User createGuestStudentUser(String email, String fullName, String phone) {
+        String normalized = email.trim().toLowerCase(java.util.Locale.ROOT);
+        if (userRepository.existsByEmail(normalized)) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, "Vui lòng đăng nhập để tiếp tục với email này");
+        }
+        User guest = new User();
+        guest.setEmail(normalized); guest.setFullName(fullName == null ? "Thí sinh" : fullName.trim());
+        guest.setPhone(phone); guest.setRole("STUDENT"); guest.setIsActive(true); guest.setMustChangePassword(true);
+        guest.setPasswordHash(passwordEncoder.encode(generateRandomPassword(20)));
+        try {
+            // INSERT + UNIQUE(email) là hàng rào cuối cùng khi hai yêu cầu khách chạy đồng thời.
+            return userRepository.saveAndFlush(guest);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, "Không thể tạo tài khoản khách với email này");
+        }
+    }
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;

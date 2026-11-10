@@ -30,6 +30,11 @@ public class EnrollmentResponse {
     private Boolean isSyncedToStudent;
     private LocalDateTime createdAt;
     private LocalDateTime approvedAt;
+    private CashConfirmationResponse cashConfirmation;
+
+    /** Trạng thái yêu cầu đối soát tiền mặt, độc lập với trạng thái đăng ký và thanh toán Finance. */
+    public CashConfirmationResponse getCashConfirmation() { return cashConfirmation; }
+    public void setCashConfirmation(CashConfirmationResponse value) { this.cashConfirmation = value; }
 
     public EnrollmentResponse() {
     }

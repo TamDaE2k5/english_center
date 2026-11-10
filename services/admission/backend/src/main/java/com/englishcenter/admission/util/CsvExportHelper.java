@@ -71,6 +71,10 @@ public final class CsvExportHelper {
         if (field == null) {
             return "";
         }
+        // Excel có thể thực thi công thức từ tên/email do người dùng nhập, kể cả có whitespace đầu.
+        if (field.matches("(?s)^\\s*[=+@-].*") || field.startsWith("\t") || field.startsWith("\r")) {
+            field = "'" + field;
+        }
         boolean containsSpecialChar = field.contains(",") || field.contains("\"") || field.contains("\n") || field.contains("\r");
         if (containsSpecialChar) {
             // Thay thế một dấu nháy kép thành hai dấu nháy kép

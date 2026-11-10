@@ -19,6 +19,8 @@ public enum ErrorCode {
     AUTH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Yêu cầu đăng nhập để truy cập tài nguyên này"),
     AUTH_ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị khóa, vui lòng liên hệ quản trị viên"),
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện chức năng này"),
+    AUTH_EMAIL_UNVERIFIED(HttpStatus.FORBIDDEN, "Vui lòng xác minh email và thiết lập mật khẩu trước khi tiếp tục"),
+    AUTH_EMAIL_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Chưa thể gửi email. Vui lòng thử lại sau"),
 
     // ==========================================
     // 2. Nhóm Người Dùng & Tài Khoản (ADM_USER_*)
@@ -54,6 +56,7 @@ public enum ErrorCode {
     // ==========================================
     ADM_ENROLLMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh"),
     ADM_ENROLLMENT_EXISTS(HttpStatus.CONFLICT, "Học viên đã có đơn đăng ký cho lớp học này"),
+    ADM_CASH_CONFLICT(HttpStatus.CONFLICT, "Chứng từ hoặc yêu cầu tiền mặt đã tồn tại với dữ liệu khác; cần đối soát"),
     ADM_HOLD_EXPIRED(HttpStatus.BAD_REQUEST, "Thời hạn giữ chỗ 48h của đơn đăng ký đã hết hạn"),
     ADM_INVALID_STATE_TRANSITION(HttpStatus.BAD_REQUEST, "Chuyển trạng thái đơn không hợp lệ theo quy trình nghiệp vụ"),
 

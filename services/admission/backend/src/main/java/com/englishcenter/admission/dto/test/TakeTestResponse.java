@@ -11,6 +11,11 @@ import java.util.List;
 public class TakeTestResponse {
 
     private Integer attemptId;
+    private String attemptToken;
+
+    /** Token riêng cho thao tác nộp lượt thi, không phải token đăng nhập. */
+    public String getAttemptToken() { return attemptToken; }
+    public void setAttemptToken(String attemptToken) { this.attemptToken = attemptToken; }
     private Integer testSetId;
     private String testTitle;
     private Integer durationMinutes;

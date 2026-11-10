@@ -16,6 +16,19 @@ import java.util.Optional;
 public interface RoomRepository extends JpaRepository<Room, Integer> {
 
     /**
+     * Khóa ghi lịch/sức chứa dùng chung giữa các instance Admission trong cùng database.
+     * Phải gọi đầu transaction trước khi đọc phòng/lịch hoặc khóa lớp; PostgreSQL tự nhả khi commit/rollback.
+     * Hai số là namespace kỹ thuật, không phải ID phòng hay quy tắc nghiệp vụ.
+     */
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(8081, 1)", nativeQuery = true)
+    Integer lockScheduling();
+
+    /** Sĩ số trần lớn nhất của các lớp đang gán phòng; không tự thêm ngoại lệ theo trạng thái lớp. */
+    @Query(value = "SELECT COALESCE(MAX(max_students), 0) FROM admission.classes WHERE room_id = :roomId", nativeQuery = true)
+    int maxAssignedClassSize(@Param("roomId") Integer roomId);
+
+    /**
      * Tìm phòng học theo mã phòng.
      *
      * @param code Mã phòng duy nhất

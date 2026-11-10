@@ -9,6 +9,7 @@ import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
 import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
 import com.englishcenter.admission.dto.auth.ResetPasswordRequest;
 import com.englishcenter.admission.service.AuthService;
+import com.englishcenter.admission.service.AccountLifecycleService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +25,49 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final AccountLifecycleService accounts;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, AccountLifecycleService accounts) {
         this.authService = authService;
+        this.accounts = accounts;
     }
+
+    /** Đăng ký/gửi lại xác minh, không trả token hay mật khẩu trong response. */
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterAccount request) {
+        accounts.register(request.email(), request.fullName(), request.phone());
+        return ResponseEntity.ok(ApiResponse.success(null, "Nếu phù hợp, hướng dẫn tài khoản đã được gửi qua email"));
+    }
+
+    /** Xác minh email một lần và trả setup token chỉ cho client cầm link email. */
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> verifyEmail(@Valid @RequestBody EmailToken request) {
+        return ResponseEntity.ok(ApiResponse.success(java.util.Map.of("setup_token", accounts.verifyEmail(request.token()))));
+    }
+
+    /** Thiết lập mật khẩu đầu tiên sau bước xác minh email. */
+    @PostMapping("/setup-password")
+    public ResponseEntity<ApiResponse<Void>> setupPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        accounts.setupPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã thiết lập mật khẩu. Vui lòng đăng nhập"));
+    }
+
+    /** Đổi mật khẩu chính chủ, bắt buộc xác thực và mật khẩu hiện tại. */
+    @PostMapping("/change-password")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePassword request) {
+        accounts.changePassword(request.currentPassword(), request.newPassword());
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã đổi mật khẩu. Vui lòng đăng nhập lại"));
+    }
+
+    /** DTO không nhận role/is_active từ trình duyệt để tránh nâng quyền khi tự đăng ký. */
+    public record RegisterAccount(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Email
+        @jakarta.validation.constraints.Size(max=255) String email,
+        @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=255) String fullName,
+        @jakarta.validation.constraints.Size(max=50) String phone) {}
+    public record EmailToken(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=128) String token) {}
+    public record ChangePassword(@jakarta.validation.constraints.NotBlank String currentPassword,
+        @jakarta.validation.constraints.NotBlank String newPassword) {}
 
     /**
      * Xác thực đăng nhập người dùng và cấp phát bộ token kép (Access Token & Refresh Token).
@@ -101,7 +141,7 @@ public class AuthController {
         String ipAddress = extractClientIp(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
-        authService.forgotPassword(request, ipAddress, userAgent);
+        accounts.forgotPassword(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success(
                 null, "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đến bạn"
         ));
@@ -122,7 +162,7 @@ public class AuthController {
         String ipAddress = extractClientIp(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
-        authService.resetPassword(request, ipAddress, userAgent);
+        accounts.resetPassword(request.getToken(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success(
                 null, "Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới"
         ));

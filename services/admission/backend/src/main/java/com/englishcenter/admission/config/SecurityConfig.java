@@ -3,6 +3,8 @@ package com.englishcenter.admission.config;
 import com.englishcenter.admission.common.dto.ApiResponse;
 import com.englishcenter.admission.common.exception.ErrorCode;
 import com.englishcenter.admission.security.JwtAuthenticationFilter;
+import com.englishcenter.admission.security.InternalSecretFilter;
+import org.springframework.beans.factory.annotation.Value;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +45,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
 
+    @Value("${internal.secret-key}")
+    private String internalSecretKey;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -76,6 +81,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/admission/auth/login",
                                 "/api/admission/auth/register",
+                                "/api/admission/auth/verify-email",
+                                "/api/admission/auth/setup-password",
                                 "/api/admission/auth/refresh",
                                 "/api/admission/auth/forgot-password",
                                 "/api/admission/auth/reset-password",
@@ -94,6 +101,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
 
                         // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only)
+                        .requestMatchers(HttpMethod.GET, "/api/admission/users/teachers").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/audit-logs/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/bi/security-engagement").hasRole("ADMIN")
@@ -108,7 +116,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 // Đặt bộ lọc JWT Filter đứng trước bộ lọc xác thực mặc định
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new InternalSecretFilter(internalSecretKey, objectMapper), JwtAuthenticationFilter.class);
 
         return http.build();
     }

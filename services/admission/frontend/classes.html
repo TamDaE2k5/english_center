@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/shared/css/components.css">
   <link rel="stylesheet" href="/shared/css/layout.css">
+  <link rel="stylesheet" href="/admission/css/access.css">
 </head>
 <body>
   <div id="app">
@@ -27,7 +28,7 @@
               <p class="text-secondary text-sm">Thời khóa biểu, phòng học, giáo viên phụ trách và kiểm soát sĩ số trần (FR-ACA-02, INV-ADM-01)</p>
             </div>
             <div style="display: flex; gap: var(--space-sm);">
-              <button class="btn btn-primary" onclick="openCreateClassModal()">
+              <button class="btn btn-primary admission-write" onclick="openCreateClassModal()">
                 + Mở lớp học mới
               </button>
             </div>
@@ -190,12 +191,14 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
   <script>
     let roomsCache = [];
     let coursesCache = [];
     let teachersCache = [];
 
     async function initSelects() {
+      if (!admissionCanManage()) return;
       try {
         // Tải danh sách khóa học
         const courseRes = await apiGet('/api/admission/courses');
@@ -204,8 +207,8 @@
           const filterSel = document.getElementById('filterCourse');
           const modalSel = document.getElementById('classCourseId');
           coursesCache.forEach(c => {
-            filterSel.innerHTML += `<option value="${c.id}">${c.code} - ${c.name}</option>`;
-            modalSel.innerHTML += `<option value="${c.id}">${c.code} - ${c.name}</option>`;
+            filterSel.innerHTML += `<option value="${c.id}">${escapeHtml(c.code)} - ${escapeHtml(c.name)}</option>`;
+            modalSel.innerHTML += `<option value="${c.id}">${escapeHtml(c.code)} - ${escapeHtml(c.name)}</option>`;
           });
         }
 
@@ -215,17 +218,17 @@
           roomsCache = roomRes.data;
           const roomSel = document.getElementById('classRoomId');
           roomsCache.forEach(r => {
-            roomSel.innerHTML += `<option value="${r.id}" data-capacity="${r.capacity}">${r.code} - ${r.name} (Sức chứa: ${r.capacity})</option>`;
+            roomSel.innerHTML += `<option value="${r.id}" data-capacity="${r.capacity}">${escapeHtml(r.code)} - ${escapeHtml(r.name)} (Sức chứa: ${r.capacity})</option>`;
           });
         }
 
         // Tải danh sách giáo viên
-        const teacherRes = await apiGet('/api/admission/users?role=TEACHER');
-        if (teacherRes && teacherRes.data && teacherRes.data.content) {
-          teachersCache = teacherRes.data.content;
+        const teacherRes = await apiGet('/api/admission/users/teachers');
+        if (teacherRes && teacherRes.data && teacherRes.data) {
+          teachersCache = teacherRes.data;
           const teacherSel = document.getElementById('classTeacherId');
           teachersCache.forEach(t => {
-            teacherSel.innerHTML += `<option value="${t.id}">${t.full_name} (${t.email})</option>`;
+            teacherSel.innerHTML += `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`;
           });
         }
       } catch (e) {
@@ -278,7 +281,7 @@
             statusText = 'Đã hủy';
           }
 
-          const approved = cls.approved_count || 0;
+          const approved = cls.enrolled_students || 0;
           const maxStu = cls.max_students || 20;
           const avail = cls.available_slots !== undefined ? cls.available_slots : (maxStu - approved);
 
@@ -286,15 +289,15 @@
 
           return `
             <tr>
-              <td><code>${cls.code}</code></td>
-              <td><strong>${cls.name}</strong></td>
-              <td><span class="text-sm">${cls.course_name || 'Khóa học'}</span></td>
+              <td><code>${escapeHtml(cls.code)}</code></td>
+              <td><strong>${escapeHtml(cls.name)}</strong></td>
+              <td><span class="text-sm">${escapeHtml(cls.course_name || 'Khóa học')}</span></td>
               <td>
-                <div style="font-weight: 500;">${cls.schedule || (cls.day_pattern + ' ' + cls.start_time)}</div>
-                <div class="text-secondary text-sm">${cls.start_date} ➔ ${cls.end_date}</div>
+                <div style="font-weight: 500;">${escapeHtml(cls.schedule || (cls.day_pattern + ' ' + cls.start_time))}</div>
+                <div class="text-secondary text-sm">${escapeHtml(cls.start_date)} ➔ ${escapeHtml(cls.end_date)}</div>
               </td>
-              <td>${cls.room || (cls.room_code || 'Chưa xếp')}</td>
-              <td>${cls.teacher_name || 'Chưa phân công'}</td>
+              <td>${escapeHtml(cls.room_name || cls.room_code || 'Chưa xếp')}</td>
+              <td>${escapeHtml(cls.teacher_name || 'Chưa phân công')}</td>
               <td>
                 <strong>${approved} / ${maxStu}</strong>
                 <span class="badge" style="background-color: ${availColor}; color: white; margin-left: 6px;">
@@ -384,7 +387,7 @@
     async function exportRoster(classId) {
       try {
         const token = getToken();
-        window.open(`/api/admission/exports/classes/${classId}/roster?format=csv`, '_blank');
+        await admissionDownload(`/api/admission/exports/classes/${classId}/roster?format=csv`, `class-${classId}.csv`);
         showToast('info', 'Đang tải xuống danh sách học viên...');
       } catch (err) {
         showToast('error', 'Lỗi khi xuất danh sách lớp.');

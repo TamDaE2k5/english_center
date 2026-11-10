@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/shared/css/components.css">
   <link rel="stylesheet" href="/shared/css/layout.css">
+  <link rel="stylesheet" href="/admission/css/access.css">
 </head>
 <body>
   <div id="app">
@@ -26,7 +27,7 @@
               <h1 class="heading-1">Danh Sách Khóa Học Đào Tạo</h1>
               <p class="text-secondary text-sm">Chương trình đào tạo tiếng Anh và biểu phí chuẩn tại trung tâm (FR-ACA-01)</p>
             </div>
-            <button class="btn btn-primary" onclick="openCreateModal()">
+            <button class="btn btn-primary admission-write" onclick="openCreateModal()">
               + Thêm khóa học mới
             </button>
           </div>
@@ -130,6 +131,7 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
   <script>
     let coursesCache = [];
 
@@ -147,7 +149,7 @@
         // Đồng bộ dropdown khóa tiên quyết
         const prereqSelect = document.getElementById('coursePrerequisite');
         prereqSelect.innerHTML = '<option value="">-- Không yêu cầu tiên quyết --</option>' +
-          coursesCache.map(c => `<option value="${c.id}">${c.code} - ${c.name}</option>`).join('');
+          coursesCache.map(c => `<option value="${c.id}">${escapeHtml(c.code)} - ${escapeHtml(c.name)}</option>`).join('');
 
         if (coursesCache.length === 0) {
           tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px;">Chưa có khóa học nào trong hệ thống.</td></tr>`;
@@ -160,12 +162,12 @@
           
           return `
             <tr>
-              <td><code>${c.code}</code></td>
-              <td><strong>${c.name}</strong></td>
-              <td><span class="badge badge-info">${c.level}</span></td>
+              <td><code>${escapeHtml(c.code)}</code></td>
+              <td><strong>${escapeHtml(c.name)}</strong></td>
+              <td><span class="badge badge-info">${escapeHtml(c.level)}</span></td>
               <td>${c.duration_weeks} tuần</td>
               <td><strong style="color: var(--color-primary);">${formatVND(c.tuition_amount)}</strong></td>
-              <td><span class="text-sm text-secondary">${prereqName}</span></td>
+              <td><span class="text-sm text-secondary">${escapeHtml(prereqName)}</span></td>
               <td>
                 <span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">
                   ${c.is_active ? 'Đang mở' : 'Ngưng mở'}
@@ -173,10 +175,10 @@
               </td>
               <td>
                 <div style="display: flex; gap: 4px;">
-                  <button class="btn btn-ghost btn-sm" onclick="toggleCourseActive(${c.id}, ${!c.is_active})">
+                  <button class="btn btn-ghost btn-sm admission-write" onclick="toggleCourseActive(${c.id}, ${!c.is_active})">
                     ${c.is_active ? '⏸️ Tạm ngưng' : '▶️ Mở lại'}
                   </button>
-                  <button class="btn btn-ghost btn-sm" style="color: var(--color-danger);" onclick="deleteCourse(${c.id})">
+                  <button class="btn btn-ghost btn-sm admission-admin-only" style="color: var(--color-danger);" onclick="deleteCourse(${c.id})">
                     🗑️ Xóa
                   </button>
                 </div>

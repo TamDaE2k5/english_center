@@ -17,6 +17,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admission/classes")
 public class ClassController {
+    /** API hủy lớp theo BA; trả trạng thái lớp, không khẳng định đã hoàn tiền. */
+    @PutMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<ApiResponse<ClassResponse>> cancel(@PathVariable Integer id,
+            @Valid @RequestBody CancelRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(classService.cancelClass(id, request.reason()), "Đã hủy lớp; các đơn đã duyệt chờ đối soát hoàn phí"));
+    }
+    public record CancelRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=2000) String reason) {}
 
     private final ClassService classService;
 

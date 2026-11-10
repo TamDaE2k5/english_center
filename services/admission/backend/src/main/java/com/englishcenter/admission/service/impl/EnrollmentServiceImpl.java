@@ -22,6 +22,7 @@ import com.englishcenter.admission.security.SecurityUtils;
 import com.englishcenter.admission.service.ClassService;
 import com.englishcenter.admission.service.EnrollmentService;
 import com.englishcenter.admission.service.UserService;
+import com.englishcenter.admission.service.CashConfirmationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -55,6 +56,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final UserService userService;
     private final FinanceServiceClient financeServiceClient;
     private final StudentServiceSyncHelper studentServiceSyncHelper;
+    private final CashConfirmationService cashConfirmationService;
 
     public EnrollmentServiceImpl(EnrollmentRepository enrollmentRepository,
                                  ClassRepository classRepository,
@@ -62,7 +64,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                                  ClassService classService,
                                  UserService userService,
                                  FinanceServiceClient financeServiceClient,
-                                 StudentServiceSyncHelper studentServiceSyncHelper) {
+                                 StudentServiceSyncHelper studentServiceSyncHelper,
+                                 CashConfirmationService cashConfirmationService) {
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.processedFinanceEventRepository = processedFinanceEventRepository;
@@ -70,6 +73,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         this.userService = userService;
         this.financeServiceClient = financeServiceClient;
         this.studentServiceSyncHelper = studentServiceSyncHelper;
+        this.cashConfirmationService = cashConfirmationService;
     }
 
     /**
@@ -78,12 +82,16 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     @Transactional
     public EnrollmentResponse createEnrollment(CreateEnrollmentRequest request) {
+        if (SecurityUtils.hasRole("STUDENT") && !request.getEmail().equalsIgnoreCase(SecurityUtils.getCurrentUserEmail())) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, "Chỉ được đăng ký cho tài khoản của chính mình");
+        }
         if (request.getClassId() == null) {
             throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Mã lớp học không được để trống");
         }
 
         // 1. Kiểm tra lớp học tồn tại và ở trạng thái OPEN
-        ClassEntity clazz = classRepository.findById(request.getClassId())
+        // Khóa lớp trước khi đếm slot; transaction cạnh tranh phải chờ lần đăng ký trước commit.
+        ClassEntity clazz = classRepository.findByIdWithLock(request.getClassId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND, "Không tìm thấy lớp học ID: " + request.getClassId()));
 
         if (!"OPEN".equalsIgnoreCase(clazz.getStatus())) {
@@ -176,15 +184,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND, "Không tìm thấy đơn đăng ký ID: " + enrollmentId));
 
-        // 2. Nếu đơn đã APPROVED thì bỏ qua (Idempotency)
-        if ("APPROVED".equalsIgnoreCase(enrollment.getStatus())) {
-            return enrollment;
-        }
+        // Idempotency cũng phải chờ khóa lớp để không ghi đè cascade đang chạy.
 
-        // 3. Ràng buộc bất biến State Machine INV-ADM-03: CANCELLED hoặc REJECTED không được chuyển trực tiếp sang APPROVED
-        if ("CANCELLED".equalsIgnoreCase(enrollment.getStatus()) ||
-                "REJECTED".equalsIgnoreCase(enrollment.getStatus()) ||
-                "CANCELLED_REFUND_PENDING".equalsIgnoreCase(enrollment.getStatus())) {
+        // 3. INV-ADM-03: Chỉ đơn PENDING được duyệt; mọi trạng thái kết thúc, kể cả EXPIRED, đều bị từ chối.
+        if (!"PENDING".equalsIgnoreCase(enrollment.getStatus()) && !"APPROVED".equalsIgnoreCase(enrollment.getStatus())) {
             throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION,
                     "Không thể chuyển đơn từ trạng thái " + enrollment.getStatus() + " sang APPROVED (INV-ADM-03)");
         }
@@ -192,6 +195,18 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         // 4. Khóa dòng lớp học bằng PESSIMISTIC_WRITE để chống xung đột race condition
         ClassEntity clazz = classRepository.findByIdWithLock(enrollment.getClassId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND, "Không tìm thấy lớp học của đơn đăng ký"));
+
+        enrollmentRepository.refreshForMutation(enrollment);
+        if ("CANCELLED".equals(clazz.getStatus())) throw new BusinessException(ErrorCode.ADM_CLASS_NOT_OPEN);
+        if ("APPROVED".equalsIgnoreCase(enrollment.getStatus())) return enrollment;
+        if (!"PENDING".equalsIgnoreCase(enrollment.getStatus())) {
+            throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION);
+        }
+
+        // Deadline là nguồn quyết định, không phụ thuộc scheduler đã quét hay chưa.
+        if (isHoldOverdue(enrollment, LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION, "Đơn đăng ký đã quá thời hạn giữ chỗ");
+        }
 
         // 5. Ràng buộc bất biến Sĩ số trần INV-ADM-01
         long currentApprovedCount = enrollmentRepository.countByClassIdAndStatus(clazz.getId(), "APPROVED");
@@ -215,32 +230,11 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     }
 
     /**
-     * Duyệt đơn thu tiền mặt tại quầy bởi Học vụ (TASK-ADM-46).
+     * Gửi yêu cầu đối soát tiền mặt. Service riêng quản lý transaction và audit từ chối.
      */
     @Override
-    @Transactional
     public EnrollmentResponse approveManual(Integer enrollmentId, ManualApproveRequest request) {
-        // Thực hiện duyệt qua lõi approveEnrollment có Invariant Guard bảo vệ
-        Enrollment enrollment = approveEnrollment(enrollmentId);
-
-        Integer staffUserId = SecurityUtils.getCurrentUserId();
-        String staffName = SecurityUtils.getCurrentUserFullName() != null ? SecurityUtils.getCurrentUserFullName() : "Học vụ";
-
-        enrollment.setApprovedByUserId(staffUserId);
-        enrollment.setApprovalMethod("MANUAL_CASH");
-
-        String receipt = request.getReceiptNumber() != null ? request.getReceiptNumber() : "N/A";
-        String method = request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH";
-        String noteStr = String.format("[Thu tại quầy bởi %s]: Phiếu thu=%s, Phương thức=%s, Thực thu=%s. %s",
-                staffName, receipt, method, request.getAmountReceived(), request.getNotes() != null ? request.getNotes() : "");
-
-        String existing = enrollment.getNotes() != null ? enrollment.getNotes() : "";
-        String updated = existing.isEmpty() ? noteStr : existing + " | " + noteStr;
-        enrollment.setNotes(updated);
-        enrollment.setNote(updated);
-
-        enrollment = enrollmentRepository.save(enrollment);
-        return EnrollmentResponse.fromEntity(enrollment);
+        return cashConfirmationService.request(enrollmentId, request);
     }
 
     /**
@@ -260,6 +254,17 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         Integer enrollmentId = request.parseNumericEnrollmentId();
         Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND, "Không tìm thấy đơn đăng ký ID: " + enrollmentId));
+
+        // Serialize callback với đăng ký/gia hạn của cùng lớp, rồi đối chiếu deadline server.
+        classRepository.findByIdWithLock(enrollment.getClassId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND));
+        enrollmentRepository.refreshForMutation(enrollment);
+        if (processedFinanceEventRepository.existsByFinanceEventId(request.getEventId())) {
+            return EnrollmentResponse.fromEntity(enrollment);
+        }
+        if (isHoldOverdue(enrollment, LocalDateTime.now())) {
+            enrollment.setStatus("EXPIRED");
+        }
 
         // 3. Xử lý thanh toán đến muộn (INV-ENR-03): Đơn đã EXPIRED hoặc CANCELLED
         if ("EXPIRED".equalsIgnoreCase(enrollment.getStatus()) || "CANCELLED".equalsIgnoreCase(enrollment.getStatus())) {
@@ -313,15 +318,21 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                     "Chỉ có thể gia hạn cho đơn đăng ký đang ở trạng thái PENDING (hiện tại: " + enrollment.getStatus() + ")");
         }
 
-        ClassEntity clazz = classRepository.findById(enrollment.getClassId())
+        ClassEntity clazz = classRepository.findByIdWithLock(enrollment.getClassId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND, "Không tìm thấy lớp học"));
-
-        long approvedCount = enrollmentRepository.countByClassIdAndStatus(clazz.getId(), "APPROVED");
-        if (approvedCount >= clazz.getMaxStudents()) {
-            throw new BusinessException(ErrorCode.ADM_CLASS_FULL, "Lớp học đã đủ sĩ số học viên chính thức, không thể gia hạn giữ chỗ");
+        enrollmentRepository.refreshForMutation(enrollment);
+        if (!"PENDING".equalsIgnoreCase(enrollment.getStatus())) {
+            throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION);
         }
 
         LocalDateTime now = LocalDateTime.now();
+        // Đơn còn hạn đã chiếm một slot; đơn quá hạn phải xin lại slot như đăng ký mới.
+        long occupied = enrollmentRepository.countOccupiedSlots(clazz.getId(), now);
+        long ownSlot = isHoldOverdue(enrollment, now) ? 0 : 1;
+        if (occupied - ownSlot >= clazz.getMaxStudents()) {
+            throw new BusinessException(ErrorCode.ADM_CLASS_FULL, "Không còn chỗ để gia hạn giữ chỗ");
+        }
+
         LocalDateTime base = (enrollment.getHoldExpiresAt() != null && enrollment.getHoldExpiresAt().isAfter(now))
                 ? enrollment.getHoldExpiresAt()
                 : now;
@@ -360,7 +371,11 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             }
         }
 
-        if ("CANCELLED".equalsIgnoreCase(enrollment.getStatus())) {
+        // Cùng thứ tự khóa lớp -> đơn như duyệt/gia hạn, tránh hủy bị ghi đè bởi trạng thái cũ.
+        classRepository.findByIdWithLock(enrollment.getClassId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND));
+        enrollmentRepository.refreshForMutation(enrollment);
+        if ("CANCELLED".equalsIgnoreCase(enrollment.getStatus()) || "CANCELLED_REFUND_PENDING".equalsIgnoreCase(enrollment.getStatus())) {
             return EnrollmentResponse.fromEntity(enrollment);
         }
 
@@ -385,6 +400,12 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         return enrollmentRepository.expireOverdueEnrollments(LocalDateTime.now());
     }
 
+    /** Trả true khi đơn PENDING có deadline không còn ở tương lai; null giữ quy ước legacy. */
+    private boolean isHoldOverdue(Enrollment enrollment, LocalDateTime now) {
+        return "PENDING".equalsIgnoreCase(enrollment.getStatus())
+                && enrollment.getHoldExpiresAt() != null && !enrollment.getHoldExpiresAt().isAfter(now);
+    }
+
     /**
      * Tra cứu chi tiết một đơn đăng ký kèm kiểm tra phân quyền cách ly dữ liệu INV-SEC-01.
      */
@@ -402,7 +423,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             }
         }
 
-        return EnrollmentResponse.fromEntity(enrollment);
+        return cashConfirmationService.response(enrollment);
     }
 
     /**
@@ -419,7 +440,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         }
 
         Page<Enrollment> page = enrollmentRepository.searchEnrollments(classId, status, pageable);
-        return page.map(EnrollmentResponse::fromEntity);
+        return page.map(cashConfirmationService::response);
     }
 
     /**

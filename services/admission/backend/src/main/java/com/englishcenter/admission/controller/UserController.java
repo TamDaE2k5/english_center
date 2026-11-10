@@ -28,6 +28,13 @@ public class UserController {
         this.userService = userService;
     }
 
+    /** Lookup giáo viên cho ADMIN/STAFF, không mở quyền danh sách người dùng đầy đủ. */
+    @GetMapping("/teachers")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<ApiResponse<java.util.List<UserService.TeacherOption>>> teachers() {
+        return ResponseEntity.ok(ApiResponse.success(userService.listTeacherOptions()));
+    }
+
     /**
      * Tạo mới tài khoản nhân sự (STAFF hoặc TEACHER) bởi Quản trị viên.
      *

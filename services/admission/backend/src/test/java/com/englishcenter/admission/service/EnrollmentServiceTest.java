@@ -67,6 +67,9 @@ class EnrollmentServiceTest {
     @Mock
     private StudentServiceSyncHelper studentServiceSyncHelper;
 
+    @Mock
+    private CashConfirmationService cashConfirmationService;
+
     @InjectMocks
     private EnrollmentServiceImpl enrollmentService;
 
@@ -108,7 +111,7 @@ class EnrollmentServiceTest {
 
         ClassCapacityResponse cap = new ClassCapacityResponse(10, "CLS-TEST-01", 20, 5L, 2L, 13L, false);
 
-        when(classRepository.findById(10)).thenReturn(Optional.of(mockClass));
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
         when(classService.getClassCapacity(10)).thenReturn(cap);
         when(userService.getOrCreateStudentUser(req.getEmail(), req.getFullName(), req.getPhone())).thenReturn(mockStudent);
         when(enrollmentRepository.findByStudentIdAndClassId(101, 10)).thenReturn(Optional.empty());
@@ -136,7 +139,7 @@ class EnrollmentServiceTest {
 
         ClassCapacityResponse cap = new ClassCapacityResponse(10, "CLS-TEST-01", 20, 20L, 0L, 0L, true);
 
-        when(classRepository.findById(10)).thenReturn(Optional.of(mockClass));
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
         when(classService.getClassCapacity(10)).thenReturn(cap);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> enrollmentService.createEnrollment(req));
@@ -150,7 +153,7 @@ class EnrollmentServiceTest {
         mockClass.setStatus("IN_PROGRESS");
         CreateEnrollmentRequest req = new CreateEnrollmentRequest(10, "Nguyen Van A", "student@test.com", "0987654321", "Đăng ký");
 
-        when(classRepository.findById(10)).thenReturn(Optional.of(mockClass));
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
 
         BusinessException ex = assertThrows(BusinessException.class, () -> enrollmentService.createEnrollment(req));
         assertEquals(ErrorCode.ADM_CLASS_NOT_OPEN, ex.getErrorCode());
@@ -200,29 +203,27 @@ class EnrollmentServiceTest {
     @DisplayName("Duyệt đơn Idempotent khi đơn đã APPROVED từ trước")
     void testApproveEnrollment_Idempotency() {
         mockEnrollment.setStatus("APPROVED");
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
 
         Enrollment result = enrollmentService.approveEnrollment(50);
 
         assertEquals("APPROVED", result.getStatus());
-        verify(classRepository, never()).findByIdWithLock(any());
+        verify(classRepository).findByIdWithLock(10);
     }
 
     @Test
-    @DisplayName("Học vụ duyệt nộp tiền mặt tại quầy (TASK-ADM-46)")
+    @DisplayName("FR-ENR-07 mới: ủy quyền ghi yêu cầu, không duyệt trước xác nhận Finance")
     void testManualApprove_Success() {
         ManualApproveRequest req = new ManualApproveRequest("PT-2026-0001", "CASH", new BigDecimal("5000000"), "Nộp tại quầy Cầu Giấy");
 
-        when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
-        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
-        when(enrollmentRepository.countByClassIdAndStatus(10, "APPROVED")).thenReturn(5L);
-        when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        EnrollmentResponse res = enrollmentService.approveManual(50, req);
-
-        assertNotNull(res);
-        assertEquals("APPROVED", res.getStatus());
-        assertTrue(res.getNotes().contains("PT-2026-0001"));
+        var expected=EnrollmentResponse.fromEntity(mockEnrollment);
+        when(cashConfirmationService.request(50,req)).thenReturn(expected);
+        EnrollmentResponse res=enrollmentService.approveManual(50,req);
+        assertSame(expected,res);
+        assertEquals("PENDING",res.getStatus());
+        verify(cashConfirmationService).request(50,req);
+        verifyNoInteractions(enrollmentRepository,studentServiceSyncHelper);
     }
 
     @Test
@@ -264,6 +265,7 @@ class EnrollmentServiceTest {
     @DisplayName("Thanh toán muộn (INV-ENR-03): Đơn EXPIRED không được tự duyệt mà ghi sổ đối soát")
     void testProcessPaymentSuccess_LatePayment_InvEnr03() {
         mockEnrollment.setStatus("EXPIRED");
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
         PaymentSuccessWebhookRequest req = new PaymentSuccessWebhookRequest(
                 "EVT-FIN-LATE", 50, "INV-2026-0001", new BigDecimal("5000000"), LocalDateTime.now(), "TXN-001");
 
@@ -285,8 +287,8 @@ class EnrollmentServiceTest {
     void testExtendHold_Success() {
         ExtendHoldRequest req = new ExtendHoldRequest(24, "Chờ người nhà chuyển tiền");
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
-        when(classRepository.findById(10)).thenReturn(Optional.of(mockClass));
-        when(enrollmentRepository.countByClassIdAndStatus(10, "APPROVED")).thenReturn(5L);
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
+        when(enrollmentRepository.countOccupiedSlots(eq(10), any())).thenReturn(6L);
         when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         EnrollmentResponse res = enrollmentService.extendHold(50, req);

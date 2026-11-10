@@ -170,7 +170,7 @@ class ClassServiceTest {
         classEntity.setStatus("OPEN");
         classEntity.setMaxStudents(25);
 
-        when(classRepository.findById(20)).thenReturn(Optional.of(classEntity));
+        when(classRepository.findByIdWithLock(20)).thenReturn(Optional.of(classEntity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         // 1. OPEN -> IN_PROGRESS
@@ -189,7 +189,7 @@ class ClassServiceTest {
         completedClass.setId(21);
         completedClass.setStatus("COMPLETED");
 
-        when(classRepository.findById(21)).thenReturn(Optional.of(completedClass));
+        when(classRepository.findByIdWithLock(21)).thenReturn(Optional.of(completedClass));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> classService.updateClassStatus(21, "OPEN"));

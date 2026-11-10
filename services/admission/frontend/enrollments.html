@@ -45,6 +45,7 @@
       border-bottom-color: var(--color-primary);
     }
   </style>
+  <link rel="stylesheet" href="/admission/css/access.css">
 </head>
 <body>
   <div id="app">
@@ -64,7 +65,7 @@
               <p class="text-secondary text-sm">Tiếp nhận hồ sơ, đồng hồ đếm ngược giữ chỗ và xét duyệt nhập học (FR-ENR-01..07, INV-ADM-01)</p>
             </div>
             <div style="display: flex; gap: var(--space-sm);">
-              <button class="btn btn-primary" onclick="openCreateEnrollmentModal()">
+              <button class="btn btn-primary admission-write" onclick="openCreateEnrollmentModal()">
                 + Tiếp nhận đơn mới tại quầy
               </button>
             </div>
@@ -160,20 +161,20 @@
   <div class="modal-overlay" id="manualApproveModal">
     <div class="modal" style="max-width: 500px;">
       <div class="modal-header">
-        <h3 class="heading-3">Xác Nhận Nộp Tiền Mặt Tại Quầy</h3>
+        <h3 class="heading-3">Yêu cầu xác nhận tiền mặt</h3>
         <button class="modal-close" onclick="closeModal('manualApproveModal')">&times;</button>
       </div>
       <form id="manualApproveForm">
         <input type="hidden" id="approveEnrollmentId">
         <div class="modal-body">
           <p class="text-secondary text-sm" style="margin-bottom: 16px;">
-            Đơn tuyển sinh <strong id="approveEnrollmentCode"></strong> sẽ được chuyển sang trạng thái 
-            <span class="badge badge-success">APPROVED</span> và xếp học viên chính thức vào lớp.
+            Đơn tuyển sinh <strong id="approveEnrollmentCode"></strong> vẫn giữ trạng thái PENDING.
+            Yêu cầu được lưu tại Admission, chưa gửi Finance tự động. Chỉ xác nhận thanh toán hợp lệ từ Finance mới cho phép duyệt nhập học; thời hạn giữ chỗ vẫn tiếp tục chạy.
           </p>
 
           <div class="form-group">
             <label class="label" for="approveReceiptNumber">Số phiếu thu / Mã giao dịch <span class="required">*</span></label>
-            <input type="text" id="approveReceiptNumber" class="form-input" placeholder="Ví dụ: PT-2026-0089" required>
+            <input type="text" id="approveReceiptNumber" class="form-input" placeholder="Ví dụ: PT-2026-0089" maxlength="80" required>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
@@ -181,24 +182,22 @@
               <label class="label" for="approvePaymentMethod">Phương thức thu</label>
               <select id="approvePaymentMethod" class="form-select">
                 <option value="CASH" selected>Tiền mặt tại quầy</option>
-                <option value="POS_CARD">Quẹt thẻ máy POS</option>
-                <option value="DIRECT_TRANSFER">Chuyển khoản trực tiếp</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="label" for="approveAmount">Số tiền thực thu (VND) <span class="required">*</span></label>
-              <input type="number" id="approveAmount" class="form-input" placeholder="5000000" min="1000" required>
+              <label class="label" for="approveAmount">Số tiền đề nghị đối soát (VND) <span class="required">*</span></label>
+              <input type="number" id="approveAmount" class="form-input" placeholder="5000000" min="0.01" max="999999999999.99" step="0.01" required>
             </div>
           </div>
 
           <div class="form-group">
             <label class="label" for="approveNotes">Ghi chú đối soát</label>
-            <textarea id="approveNotes" class="form-textarea" rows="2" placeholder="Thu trực tiếp tại quầy tuyển sinh..."></textarea>
+            <textarea id="approveNotes" class="form-textarea" rows="2" maxlength="2000" placeholder="Thông tin để Finance đối soát..."></textarea>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('manualApproveModal')">Hủy</button>
-          <button type="submit" class="btn btn-primary" id="btnConfirmApprove">Xác nhận duyệt học viên</button>
+          <button type="submit" class="btn btn-primary" id="btnConfirmApprove">Ghi yêu cầu chờ Finance</button>
         </div>
       </form>
     </div>
@@ -243,7 +242,9 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
   <script>
+    admissionRequireStaff();
     let currentFilterStatus = '';
     let enrollmentsData = [];
     let countdownInterval = null;
@@ -265,7 +266,7 @@
         if (res && res.data) {
           const sel = document.getElementById('enrClassId');
           sel.innerHTML = '<option value="">-- Chọn lớp học đang mở --</option>' +
-            res.data.map(cls => `<option value="${cls.id}">${cls.code} - ${cls.name} (Còn ${cls.available_slots || 0} chỗ)</option>`).join('');
+            res.data.map(cls => `<option value="${cls.id}">${escapeHtml(cls.code)} - ${escapeHtml(cls.name)} (Còn ${cls.available_slots || 0} chỗ)</option>`).join('');
         }
       } catch (err) {
         console.warn('Không thể nạp danh mục lớp:', err);
@@ -324,6 +325,9 @@
           if (e.status === 'APPROVED') statusBadge = '<span class="badge badge-success">Đã nhập học</span>';
           if (e.status === 'EXPIRED') statusBadge = '<span class="badge badge-secondary">Quá hạn</span>';
           if (e.status === 'CANCELLED') statusBadge = '<span class="badge badge-danger">Đã hủy</span>';
+          if (e.status === 'CANCELLED_REFUND_PENDING') statusBadge = '<span class="badge badge-warning">Chờ hoàn phí</span>';
+          if (e.cash_confirmation && e.status === 'PENDING') statusBadge += '<div class="text-sm">Chờ Finance — yêu cầu đã lưu, chưa gửi tự động</div>';
+          if (e.cash_confirmation && e.status !== 'PENDING') statusBadge += '<div class="text-sm">Có yêu cầu tiền mặt, cần đối soát chứng từ</div>';
 
           let countdownHtml = '';
           if (e.status === 'PENDING') {
@@ -336,8 +340,8 @@
           if (e.status === 'PENDING') {
             actions = `
               <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                <button class="btn btn-primary btn-sm" onclick="openApproveModal(${e.enrollment_id}, '${e.enrollment_code}')">💵 Thu tiền</button>
-                <button class="btn btn-secondary btn-sm" onclick="openExtendModal(${e.enrollment_id}, '${e.enrollment_code}')">⏱️ Gia hạn</button>
+                ${!e.cash_confirmation && e.remaining_seconds > 0 && e.invoice_code && admissionCanManage() ? `<button class="btn btn-primary btn-sm" onclick="openApproveModal(${e.enrollment_id})">Yêu cầu xác nhận tiền mặt</button>` : '<span class="text-sm text-secondary">Chưa thể gửi yêu cầu tiền mặt mới</span>'}
+                <button class="btn btn-secondary btn-sm" onclick="openExtendModal(${e.enrollment_id})">⏱️ Gia hạn</button>
                 <button class="btn btn-ghost btn-sm" style="color: var(--color-danger);" onclick="cancelEnrollment(${e.enrollment_id})">❌ Hủy</button>
               </div>
             `;
@@ -347,16 +351,16 @@
 
           return `
             <tr>
-              <td><code>${e.enrollment_code || ('ENR-' + e.enrollment_id)}</code></td>
+              <td><code>${escapeHtml(e.enrollment_code || ('ENR-' + e.enrollment_id))}</code></td>
               <td>
-                <div style="font-weight: 600;">${e.student_name || 'Học viên'}</div>
-                <div class="text-secondary text-sm">${e.student_email || ''} | ${e.student_phone || ''}</div>
+                <div style="font-weight: 600;">${escapeHtml(e.student_name || 'Học viên')}</div>
+                <div class="text-secondary text-sm">${escapeHtml(e.student_email || '')} | ${escapeHtml(e.student_phone || '')}</div>
               </td>
               <td>
-                <strong>${e.class_name || ('Lớp #' + e.class_id)}</strong>
-                <div class="text-secondary text-sm">${e.class_code || ''}</div>
+                <strong>${escapeHtml(e.class_name || ('Lớp #' + e.class_id))}</strong>
+                <div class="text-secondary text-sm">${escapeHtml(e.class_code || '')}</div>
               </td>
-              <td><span class="badge badge-ghost">${e.source || 'ONLINE'}</span></td>
+              <td><span class="badge badge-ghost">${escapeHtml(e.source || 'ONLINE')}</span></td>
               <td>
                 ${statusBadge}
                 ${countdownHtml}
@@ -413,9 +417,10 @@
     });
 
     function openApproveModal(id, code) {
+      if (!admissionCanManage()) return;
       document.getElementById('manualApproveForm').reset();
       document.getElementById('approveEnrollmentId').value = id;
-      document.getElementById('approveEnrollmentCode').textContent = code;
+      document.getElementById('approveEnrollmentCode').textContent = code || enrollmentsData.find(e => e.enrollment_id === id)?.enrollment_code || '';
       document.getElementById('manualApproveModal').classList.add('active');
     }
 
@@ -424,32 +429,33 @@
       const id = document.getElementById('approveEnrollmentId').value;
       const btn = document.getElementById('btnConfirmApprove');
       btn.disabled = true;
-      btn.textContent = 'Đang kiểm tra sĩ số & duyệt...';
+      btn.textContent = 'Đang ghi yêu cầu...';
 
       const payload = {
         receipt_number: document.getElementById('approveReceiptNumber').value.trim(),
         payment_method: document.getElementById('approvePaymentMethod').value,
-        amount_received: parseFloat(document.getElementById('approveAmount').value),
+        amount_received: document.getElementById('approveAmount').value,
         notes: document.getElementById('approveNotes').value.trim()
       };
 
       try {
-        await apiPost(`/api/admission/enrollments/${id}/approve-manual`, payload);
-        showToast('success', 'Duyệt đơn và thu học phí thành công!');
+        const result = await apiPost(`/api/admission/enrollments/${id}/approve-manual`, payload);
+        if (!result || result.success === false) throw new Error('Chưa ghi được yêu cầu.');
+        showToast('success', 'Đã ghi yêu cầu, chờ Finance xác nhận. Chưa duyệt nhập học.');
         closeModal('manualApproveModal');
         loadEnrollments();
       } catch (err) {
-        // Handled
+        showToast('error', err.message || 'Chưa ghi được yêu cầu tiền mặt.');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Xác nhận duyệt học viên';
+        btn.textContent = 'Ghi yêu cầu chờ Finance';
       }
     });
 
     function openExtendModal(id, code) {
       document.getElementById('extendHoldForm').reset();
       document.getElementById('extendEnrollmentId').value = id;
-      document.getElementById('extendEnrollmentCode').textContent = code;
+      document.getElementById('extendEnrollmentCode').textContent = code || enrollmentsData.find(e => e.enrollment_id === id)?.enrollment_code || '';
       document.getElementById('extendHoldModal').classList.add('active');
     }
 

@@ -76,11 +76,11 @@ public class StudentServiceClient {
                 throw new BusinessException(ErrorCode.ADM_SERVICE_UNAVAILABLE, "Lỗi từ Student Service: " + errorMsg);
             }
         } catch (RestClientResponseException ex) {
-            log.error("Lỗi HTTP khi gọi Student Service: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
-            throw new BusinessException(ErrorCode.ADM_SERVICE_UNAVAILABLE, "Không thể tạo hồ sơ học viên từ Student Service: HTTP " + ex.getStatusCode());
+            throw ex;
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            throw ex;
         } catch (Exception ex) {
-            log.error("Không thể kết nối đến Student Service tại {}: {}", endpoint, ex.getMessage());
-            throw new BusinessException(ErrorCode.ADM_SERVICE_UNAVAILABLE, "Hệ thống quản lý học viên tạm thời không khả dụng, vui lòng thử lại sau");
+            throw new BusinessException(ErrorCode.ADM_SERVICE_UNAVAILABLE, "Phản hồi Student chưa đủ cơ sở xác nhận");
         }
     }
 

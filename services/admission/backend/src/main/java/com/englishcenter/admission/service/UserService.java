@@ -10,6 +10,12 @@ import com.englishcenter.admission.entity.User;
  * Giao diện định nghĩa các nghiệp vụ quản lý tài khoản người dùng và định danh.
  */
 public interface UserService {
+    /** Lookup tối thiểu cho học vụ xếp giáo viên, không lộ hồ sơ quản trị người dùng. */
+    java.util.List<TeacherOption> listTeacherOptions();
+    record TeacherOption(Integer id, String fullName) {}
+
+    /** Tạo mới tài khoản khách thi; email tồn tại bắt buộc đăng nhập, tuyệt đối không tái sử dụng. */
+    User createGuestStudentUser(String email, String fullName, String phone);
 
     /**
      * Tự động tìm kiếm hoặc khởi tạo tài khoản học viên từ thông tin nộp đơn hoặc làm bài khảo thí.

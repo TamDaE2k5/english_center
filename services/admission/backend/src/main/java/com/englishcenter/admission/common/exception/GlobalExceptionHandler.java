@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleMalformedJsonException(HttpMessageNotReadableException ex) {
-        log.warn("Định dạng dữ liệu JSON không hợp lệ: {}", ex.getMessage());
+        log.warn("Định dạng dữ liệu JSON không hợp lệ");
         ErrorDetail errorDetail = new ErrorDetail(ErrorCode.ADM_VALIDATION_ERROR.name(), "Định dạng JSON gửi lên không hợp lệ");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(errorDetail));
     }

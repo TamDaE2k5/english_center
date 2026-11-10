@@ -115,15 +115,15 @@ public class JwtTokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (SignatureException ex) {
-            log.warn("Chữ ký JWT không hợp lệ: {}", ex.getMessage());
+            log.warn("Chữ ký JWT không hợp lệ");
         } catch (MalformedJwtException ex) {
-            log.warn("Cấu trúc JWT không đúng định dạng: {}", ex.getMessage());
+            log.warn("Cấu trúc JWT không đúng định dạng");
         } catch (ExpiredJwtException ex) {
-            log.warn("JWT đã hết hạn sử dụng: {}", ex.getMessage());
+            log.warn("JWT đã hết hạn sử dụng");
         } catch (UnsupportedJwtException ex) {
-            log.warn("JWT không được hỗ trợ: {}", ex.getMessage());
+            log.warn("JWT không được hỗ trợ");
         } catch (IllegalArgumentException ex) {
-            log.warn("Chuỗi JWT rỗng hoặc không có giá trị: {}", ex.getMessage());
+            log.warn("Chuỗi JWT rỗng hoặc không có giá trị");
         }
         return false;
     }

@@ -13,7 +13,7 @@ import java.util.Optional;
  * Repository thao tác bảng admission.password_reset_tokens hỗ trợ quy trình quên mật khẩu 15 phút.
  */
 @Repository
-public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Integer> {
+public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Integer>, AccountTokenStateRepository {
 
     /**
      * Tìm kiếm token đặt lại mật khẩu theo chuỗi token.
@@ -22,6 +22,14 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
      * @return Optional chứa PasswordResetToken
      */
     Optional<PasswordResetToken> findByToken(String token);
+
+    /** Khóa token sau khi khóa user để bảo đảm chỉ dùng một lần. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PasswordResetToken p WHERE p.token = :token")
+    Optional<PasswordResetToken> findByTokenForUpdate(@Param("token") String token);
+
+    /** Giới hạn tần suất cấp link theo tài khoản. */
+    boolean existsByUserIdAndCreatedAtAfter(Integer userId, java.time.LocalDateTime after);
 
     /**
      * Vô hiệu hóa toàn bộ các token đặt lại mật khẩu cũ của người dùng.

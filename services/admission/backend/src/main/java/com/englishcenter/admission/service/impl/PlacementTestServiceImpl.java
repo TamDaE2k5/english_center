@@ -110,6 +110,10 @@ public class PlacementTestServiceImpl implements PlacementTestService {
     @Override
     @Transactional
     public TestResultResponse submitAndGrade(SubmitTestRequest request) {
+        // Bắt buộc có lượt thi do server cấp để không thể bỏ qua thời hạn countdown.
+        if (request.getAttemptId() == null) {
+            throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Bắt buộc cung cấp attempt_id để nộp bài thi");
+        }
         TestAttempt attempt = null;
         TestSet testSet = null;
         User studentUser = null;
@@ -148,19 +152,6 @@ public class PlacementTestServiceImpl implements PlacementTestService {
             testSet = testSetRepository.findById(attemptTestSetId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.ADM_TEST_NOT_FOUND,
                             "Không tìm thấy bộ đề thi với ID: " + attemptTestSetId));
-        } else {
-            // Trường hợp thí sinh nộp bài trực tiếp không qua countdown
-            if (request.getTestSetId() == null) {
-                throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR,
-                        "Yêu cầu phải có attempt_id hoặc test_set_id");
-            }
-            final Integer reqTestSetId = request.getTestSetId();
-            testSet = testSetRepository.findById(reqTestSetId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ADM_TEST_NOT_FOUND,
-                            "Không tìm thấy bộ đề thi với ID: " + reqTestSetId));
-
-            StartTestRequest startReq = new StartTestRequest(null, request.getEmail(), request.getFullName(), request.getPhone());
-            studentUser = resolveCandidateUser(startReq);
         }
 
         // 2. Tải danh sách câu hỏi gốc và đáp án chuẩn từ DB
@@ -175,9 +166,15 @@ public class PlacementTestServiceImpl implements PlacementTestService {
         BigDecimal totalScore = BigDecimal.ZERO;
 
         List<Map<String, Object>> answerDetails = new ArrayList<>();
+        Set<Integer> answeredQuestionIds = new HashSet<>();
 
         if (request.getAnswers() != null) {
             for (SubmitAnswerItem item : request.getAnswers()) {
+                // Từ chối toàn bộ payload nếu một câu xuất hiện hai lần; không ghi điểm sai.
+                if (!answeredQuestionIds.add(item.getQuestionId())) {
+                    throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR,
+                            "Mỗi câu hỏi chỉ được trả lời một lần");
+                }
                 TestQuestion question = questionMap.get(item.getQuestionId());
                 if (question == null) {
                     continue;

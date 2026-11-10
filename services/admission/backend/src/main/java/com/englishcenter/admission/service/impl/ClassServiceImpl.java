@@ -9,6 +9,8 @@ import com.englishcenter.admission.entity.ClassEntity;
 import com.englishcenter.admission.entity.Course;
 import com.englishcenter.admission.entity.Room;
 import com.englishcenter.admission.entity.User;
+import com.englishcenter.admission.entity.Enrollment;
+import com.englishcenter.admission.security.SecurityUtils;
 import com.englishcenter.admission.repository.*;
 import com.englishcenter.admission.service.ClassService;
 import org.slf4j.Logger;
@@ -54,6 +56,8 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional
     public ClassResponse createClass(CreateClassRequest request) {
+        // Serialize toàn bộ check -> save, kể cả khi hai request chưa có chung bản ghi lớp để khóa.
+        roomRepository.lockScheduling();
         // 1. Kiểm tra tính hợp lệ của ngày học và giờ học
         validateDatesAndTimes(request.getStartDate(), request.getEndDate(),
                 request.getStartTime(), request.getEndTime());
@@ -152,7 +156,9 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional
     public ClassResponse updateClass(Integer id, UpdateClassRequest request) {
-        ClassEntity classEntity = classRepository.findById(id)
+        // Luôn lấy khóa lịch trước khóa lớp, tránh đảo thứ tự giữa các thao tác sửa lịch.
+        roomRepository.lockScheduling();
+        ClassEntity classEntity = classRepository.findByIdWithLock(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND,
                         "Không tìm thấy lớp học với ID: " + id));
 
@@ -244,7 +250,8 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional
     public ClassResponse updateClassStatus(Integer id, String newStatus) {
-        ClassEntity classEntity = classRepository.findById(id)
+        if (newStatus != null && "CANCELLED".equalsIgnoreCase(newStatus.trim())) return cancelClass(id, "Hủy lớp thiếu sĩ số");
+        ClassEntity classEntity = classRepository.findByIdWithLock(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND,
                         "Không tìm thấy lớp học với ID: " + id));
 
@@ -274,6 +281,33 @@ public class ClassServiceImpl implements ClassService {
         log.info("Đã chuyển trạng thái lớp ID={} từ {} sang {}", id, currentStatus, targetStatus);
 
         return toClassResponse(saved);
+    }
+
+    /** Khóa lớp trước đơn như luồng giữ chỗ; rollback toàn bộ nếu ghi yêu cầu Finance thất bại. */
+    @Override @Transactional
+    public ClassResponse cancelClass(Integer id, String reason) {
+        if (reason == null || reason.isBlank() || reason.length() > 2000)
+            throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Cần lý do hủy lớp tối đa 2000 ký tự");
+        ClassEntity clazz = classRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND));
+        if ("CANCELLED".equals(clazz.getStatus())) return toClassResponse(clazz);
+        long approved = enrollmentRepository.countByClassIdAndStatus(id, "APPROVED");
+        if (!"OPEN".equals(clazz.getStatus()) || clazz.getStartDate() == null
+                || !clazz.getStartDate().isAfter(LocalDate.now()) || approved >= clazz.getMinStudents())
+            throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION, "Chỉ hủy lớp OPEN chưa khai giảng và thiếu sĩ số tối thiểu");
+        for (Enrollment e : enrollmentRepository.findByClassIdOrderByCreatedAtAsc(id)) {
+            enrollmentRepository.refreshForMutation(e);
+            if ("PENDING".equals(e.getStatus())) {
+                e.setStatus("CANCELLED"); e.setHoldExpiresAt(LocalDateTime.now());
+            } else if ("APPROVED".equals(e.getStatus())) {
+                enrollmentRepository.enqueueClassRefund(e.getId(), id, e.getInvoiceCode(), reason.trim(), SecurityUtils.getCurrentUserId());
+                e.setStatus("CANCELLED_REFUND_PENDING");
+            } else continue;
+            String notes = (e.getNotes() == null ? "" : e.getNotes() + " | ") + "[Hủy lớp]: " + reason.trim();
+            e.setNotes(notes); e.setNote(notes); enrollmentRepository.save(e);
+        }
+        clazz.setStatus("CANCELLED"); classRepository.save(clazz);
+        return toClassResponse(clazz);
     }
 
     @Override

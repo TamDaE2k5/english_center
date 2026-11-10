@@ -59,6 +59,9 @@ public class UserPrincipal implements UserDetails {
         );
 
         boolean active = user.getIsActive() != null && user.getIsActive();
+        if ("STUDENT".equals(roleName)) {
+            active = active && user.getEmailVerifiedAt() != null && !Boolean.TRUE.equals(user.getMustChangePassword());
+        }
 
         return new UserPrincipal(
                 user.getId(),

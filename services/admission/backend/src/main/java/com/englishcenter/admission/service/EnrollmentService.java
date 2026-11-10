@@ -39,11 +39,11 @@ public interface EnrollmentService {
     Enrollment approveEnrollment(Integer enrollmentId);
 
     /**
-     * Duyệt đơn trực tiếp khi học viên nộp tiền mặt hoặc quẹt thẻ tại quầy bởi Học vụ (TASK-ADM-46).
+     * STAFF/ADMIN gửi yêu cầu đối soát tiền mặt, chưa tự công nhận PAID/APPROVED (FR-ENR-07 mới).
      *
      * @param enrollmentId ID đơn đăng ký
      * @param request      DTO chứa thông tin phiếu thu và phương thức thanh toán
-     * @return DTO thông tin đơn đăng ký sau khi duyệt
+     * @return DTO đơn vẫn PENDING kèm yêu cầu chờ Finance xác nhận
      */
     EnrollmentResponse approveManual(Integer enrollmentId, ManualApproveRequest request);
 

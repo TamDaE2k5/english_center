@@ -1,6 +1,8 @@
 package com.englishcenter.admission.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -69,6 +71,7 @@ public class TestSubmission extends BaseEntity {
     private Course recommendedCourse;
 
     @Column(name = "answers_detail", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String answersDetail;
 
     @Column(name = "started_at")

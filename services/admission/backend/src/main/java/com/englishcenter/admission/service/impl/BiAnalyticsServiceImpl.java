@@ -1,242 +1,32 @@
 package com.englishcenter.admission.service.impl;
-
-import com.englishcenter.admission.dto.bi.FunnelReportResponse;
-import com.englishcenter.admission.dto.bi.RevenueOccupancyReportResponse;
-import com.englishcenter.admission.dto.bi.SecurityEngagementReportResponse;
-import com.englishcenter.admission.entity.ClassEntity;
-import com.englishcenter.admission.entity.Course;
-import com.englishcenter.admission.repository.*;
+import com.englishcenter.admission.dto.bi.BiWindow;
+import com.englishcenter.admission.repository.AdmissionBiRepository;
 import com.englishcenter.admission.service.BiAnalyticsService;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import org.springframework.transaction.annotation.*;
 import java.util.*;
-
-/**
- * Triển khai dịch vụ phân tích dữ liệu kinh doanh và báo cáo BI thông minh (Phase 5: TASK-ADM-51, TASK-ADM-52, TASK-ADM-53).
- */
+import java.math.*;
+/** Mỗi báo cáo đọc cùng snapshot PostgreSQL, tách rõ attempt/user/enrollment và tiền Finance. */
 @Service
+@Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class BiAnalyticsServiceImpl implements BiAnalyticsService {
-
-    private final TestAttemptRepository testAttemptRepository;
-    private final TestSubmissionRepository testSubmissionRepository;
-    private final EnrollmentRepository enrollmentRepository;
-    private final ClassRepository classRepository;
-    private final CourseRepository courseRepository;
-    private final AuthAuditLogRepository authAuditLogRepository;
-
-    public BiAnalyticsServiceImpl(TestAttemptRepository testAttemptRepository,
-                                  TestSubmissionRepository testSubmissionRepository,
-                                  EnrollmentRepository enrollmentRepository,
-                                  ClassRepository classRepository,
-                                  CourseRepository courseRepository,
-                                  AuthAuditLogRepository authAuditLogRepository) {
-        this.testAttemptRepository = testAttemptRepository;
-        this.testSubmissionRepository = testSubmissionRepository;
-        this.enrollmentRepository = enrollmentRepository;
-        this.classRepository = classRepository;
-        this.courseRepository = courseRepository;
-        this.authAuditLogRepository = authAuditLogRepository;
-    }
-
-    /**
-     * Báo cáo Phễu Chuyển đổi Tuyển sinh 4 giai đoạn (TASK-ADM-51, BI-01).
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public FunnelReportResponse getFunnelReport(LocalDate fromDate, LocalDate toDate, Integer courseId) {
-        LocalDate startD = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
-        LocalDate endD = toDate != null ? toDate : LocalDate.now();
-
-        LocalDateTime start = startD.atStartOfDay();
-        LocalDateTime end = endD.atTime(LocalTime.MAX);
-
-        long s1Count = testAttemptRepository.countByStartedAtBetween(start, end);
-        long s2Count = testSubmissionRepository.countBySubmittedAtBetween(start, end);
-        long s3Count;
-        long s4Count;
-        long expiredCount;
-
-        if (courseId != null) {
-            List<Integer> classIds = classRepository.findByCourseId(courseId).stream()
-                    .map(ClassEntity::getId).toList();
-            if (classIds.isEmpty()) {
-                s3Count = 0;
-                s4Count = 0;
-                expiredCount = 0;
-            } else {
-                s3Count = enrollmentRepository.countByClassIdInAndEnrolledAtBetween(classIds, start, end);
-                s4Count = enrollmentRepository.countByClassIdInAndStatusAndEnrolledAtBetween(classIds, "APPROVED", start, end);
-                expiredCount = enrollmentRepository.countByClassIdInAndStatusAndEnrolledAtBetween(classIds, "EXPIRED", start, end);
-            }
-        } else {
-            s3Count = enrollmentRepository.countByEnrolledAtBetween(start, end);
-            s4Count = enrollmentRepository.countByStatusAndEnrolledAtBetween("APPROVED", start, end);
-            expiredCount = enrollmentRepository.countByStatusAndEnrolledAtBetween("EXPIRED", start, end);
-        }
-
-        double s1Rate = 100.0;
-        double s2Rate = s1Count > 0 ? roundTwoDecimals((double) s2Count / s1Count * 100.0) : 0.0;
-        double s3Rate = s2Count > 0 ? roundTwoDecimals((double) s3Count / s2Count * 100.0) : 0.0;
-        double s4Rate = s3Count > 0 ? roundTwoDecimals((double) s4Count / s3Count * 100.0) : 0.0;
-        double expiredRate = s3Count > 0 ? roundTwoDecimals((double) expiredCount / s3Count * 100.0) : 0.0;
-
-        List<FunnelReportResponse.FunnelStageItem> stages = List.of(
-                new FunnelReportResponse.FunnelStageItem(1, "Bắt đầu làm Test", s1Count, s1Rate),
-                new FunnelReportResponse.FunnelStageItem(2, "Hoàn thành Test", s2Count, s2Rate),
-                new FunnelReportResponse.FunnelStageItem(3, "Đăng ký Giữ chỗ 48h", s3Count, s3Rate),
-                new FunnelReportResponse.FunnelStageItem(4, "Nhập học Chính thức (PAID)", s4Count, s4Rate)
-        );
-
-        FunnelReportResponse.FunnelKpis kpis = new FunnelReportResponse.FunnelKpis(
-                s2Rate,
-                s3Rate,
-                s4Rate,
-                expiredRate
-        );
-
-        boolean isHealthy = expiredRate <= 25.0;
-        String warning = isHealthy ? null : String.format("Tỷ lệ giữ chỗ quá hạn cao (%.1f%% > 25%%), cần tăng cường chăm sóc học vụ", expiredRate);
-        FunnelReportResponse.FunnelSummary summary = new FunnelReportResponse.FunnelSummary(isHealthy, warning);
-
-        return new FunnelReportResponse(stages, kpis, summary);
-    }
-
-    /**
-     * Báo cáo Xếp hạng Khóa học, Doanh thu Tiềm năng & Tỷ lệ Lấp đầy Lớp học (TASK-ADM-52, BI-02).
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public RevenueOccupancyReportResponse getRevenueOccupancyReport(LocalDate fromDate, LocalDate toDate) {
-        LocalDate startD = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
-        LocalDate endD = toDate != null ? toDate : LocalDate.now();
-
-        LocalDateTime start = startD.atStartOfDay();
-        LocalDateTime end = endD.atTime(LocalTime.MAX);
-
-        List<Course> courses = courseRepository.findAll();
-        List<RevenueOccupancyReportResponse.TopCourseRevenueItem> topCourses = new ArrayList<>();
-
-        BigDecimal totalPipelineRevenue = BigDecimal.ZERO;
-        BigDecimal totalRealizedRevenue = BigDecimal.ZERO;
-
-        for (Course course : courses) {
-            List<ClassEntity> classes = classRepository.findByCourseId(course.getId());
-            if (classes.isEmpty()) {
-                continue;
-            }
-
-            List<Integer> classIds = classes.stream().map(ClassEntity::getId).toList();
-            long approvedCount = enrollmentRepository.countByClassIdInAndStatusAndEnrolledAtBetween(classIds, "APPROVED", start, end);
-            long pendingCount = enrollmentRepository.countByClassIdInAndStatusAndEnrolledAtBetween(classIds, "PENDING", start, end);
-
-            BigDecimal tuition = course.getTuitionAmount() != null ? course.getTuitionAmount() : BigDecimal.ZERO;
-            BigDecimal realizedRev = tuition.multiply(BigDecimal.valueOf(approvedCount));
-            BigDecimal pipelineRev = tuition.multiply(BigDecimal.valueOf(pendingCount));
-
-            totalRealizedRevenue = totalRealizedRevenue.add(realizedRev);
-            totalPipelineRevenue = totalPipelineRevenue.add(pipelineRev);
-
-            topCourses.add(new RevenueOccupancyReportResponse.TopCourseRevenueItem(
-                    course.getId(),
-                    course.getCode(),
-                    course.getName(),
-                    approvedCount,
-                    pendingCount,
-                    realizedRev,
-                    pipelineRev
-            ));
-        }
-
-        // Sắp xếp khóa học có doanh thu thực tế cao nhất lên đầu
-        topCourses.sort((a, b) -> b.getRealizedRevenue().compareTo(a.getRealizedRevenue()));
-
-        // Tính tỷ lệ lấp đầy sĩ số trung bình của các lớp OPEN hoặc IN_PROGRESS (BI-OCC-01)
-        List<ClassEntity> activeClasses = classRepository.findByStatusIn(List.of("OPEN", "IN_PROGRESS"));
-        long totalApprovedSlots = 0;
-        long totalMaxCapacity = 0;
-
-        for (ClassEntity c : activeClasses) {
-            totalApprovedSlots += enrollmentRepository.countByClassIdAndStatus(c.getId(), "APPROVED");
-            totalMaxCapacity += (c.getMaxStudents() != null ? c.getMaxStudents() : 0);
-        }
-
-        double averageOccupancyRate = totalMaxCapacity > 0
-                ? roundTwoDecimals((double) totalApprovedSlots / totalMaxCapacity * 100.0)
-                : 0.0;
-
-        return new RevenueOccupancyReportResponse(
-                totalPipelineRevenue,
-                totalRealizedRevenue,
-                averageOccupancyRate,
-                topCourses
-        );
-    }
-
-    /**
-     * Báo cáo Giám sát Gắn kết (DAU/MAU) và An toàn Tấn công Đăng nhập (TASK-ADM-53, BI-03).
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public SecurityEngagementReportResponse getSecurityEngagementReport() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime past24h = now.minusHours(24);
-        LocalDateTime past30d = now.minusDays(30);
-
-        long dau = authAuditLogRepository.countDistinctActiveUsersSince(past24h);
-        long mau = authAuditLogRepository.countDistinctActiveUsersSince(past30d);
-
-        long studentActive = authAuditLogRepository.countDistinctActiveUsersByRoleSince("STUDENT", past24h);
-        long teacherActive = authAuditLogRepository.countDistinctActiveUsersByRoleSince("TEACHER", past24h);
-        long staffActive = authAuditLogRepository.countDistinctActiveUsersByRoleSince("STAFF", past24h);
-
-        Map<String, Long> activeByRole = Map.of(
-                "student", studentActive,
-                "teacher", teacherActive,
-                "staff", staffActive
-        );
-
-        SecurityEngagementReportResponse.EngagementData engagementData =
-                new SecurityEngagementReportResponse.EngagementData(dau, mau, activeByRole);
-
-        long totalAttempts24h = authAuditLogRepository.countLoginAttemptsSince(past24h);
-        long failedAttempts24h = authAuditLogRepository.countFailedLoginAttemptsSince(past24h);
-
-        double failedLoginRate = totalAttempts24h > 0
-                ? roundTwoDecimals((double) failedAttempts24h / totalAttempts24h * 100.0)
-                : 0.0;
-
-        String status = failedLoginRate > 5.0 ? "WARNING" : "NORMAL";
-
-        List<Object[]> rawIps = authAuditLogRepository.findTopSuspiciousIps(past24h, PageRequest.of(0, 5));
-        List<SecurityEngagementReportResponse.SuspiciousIpItem> suspiciousIps = new ArrayList<>();
-
-        for (Object[] row : rawIps) {
-            String ip = (String) row[0];
-            Long count = ((Number) row[1]).longValue();
-            LocalDateTime lastAttempt = (LocalDateTime) row[2];
-            suspiciousIps.add(new SecurityEngagementReportResponse.SuspiciousIpItem(ip, count, lastAttempt));
-        }
-
-        SecurityEngagementReportResponse.SecurityData securityData =
-                new SecurityEngagementReportResponse.SecurityData(
-                        failedLoginRate,
-                        totalAttempts24h,
-                        failedAttempts24h,
-                        status,
-                        suspiciousIps
-                );
-
-        return new SecurityEngagementReportResponse(engagementData, securityData);
-    }
-
-    private double roundTwoDecimals(double value) {
-        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
-    }
+ private final AdmissionBiRepository repo;
+ public BiAnalyticsServiceImpl(AdmissionBiRepository repo){this.repo=repo;}
+ /** Mẫu số 0 trả null = N/A, không tạo 0%/100% giả. */
+ public static Double rate(long n,long d){return d==0?null:BigDecimal.valueOf(n*100.0/d).setScale(2,RoundingMode.HALF_UP).doubleValue();}
+ private static long n(Map<String,Object> m,String k){return ((Number)m.get(k)).longValue();}
+ private static Map<String,Object> map(Object... kv){var m=new LinkedHashMap<String,Object>();for(int i=0;i<kv.length;i+=2)m.put((String)kv[i],kv[i+1]);return m;}
+ /** KPI FUN-01/02 khác đơn vị và mẫu số với các tầng funnel user, metadata công khai điều đó. */
+ public Map<String,Object> funnel(BiWindow w){var c=repo.funnel(w);long total=n(c,"total_enrollments");
+ var k=map("test_completion_rate",rate(n(c,"submitted_attempts"),n(c,"started_attempts")),"test_to_enrollment_rate",rate(n(c,"converted_users"),n(c,"submitted_users")),"paid_conversion_rate",rate(n(c,"approved_enrollments"),total),"expired_hold_rate",rate(n(c,"expired_enrollments"),total));
+ var stages=new ArrayList<Map<String,Object>>();String[] keys={"started_users","submitted_users","converted_users","approved_test_users"};String[] names={"Bắt đầu test (user)","Hoàn thành test (user)","Đăng ký trong 14 ngày (user)","Đơn còn APPROVED (user)"};
+ for(int i=0;i<4;i++)stages.add(map("stage_id",i+1,"name",names[i],"count",c.get(keys[i]),"conversion_rate",i==0?rate(n(c,keys[0]),n(c,keys[0])):rate(n(c,keys[i]),n(c,keys[i-1]))));
+ return map("metadata",w.metadata(),"counts",c,"stages",stages,"kpis",k,"summary",map("bottleneck_warning",total>0&&n(c,"expired_enrollments")*100.0/total>25?"Quá hạn trên mục tiêu đề xuất 25%":null,"benchmark_status","PROPOSED_NOT_INDUSTRY_STANDARD"));}
+ /** Xếp hạng volume, occupancy có trọng số, không lấy tuition làm khoản thu hoặc dư nợ. */
+ public Map<String,Object> courses(BiWindow w){var rows=repo.courses(w);long capacity=0,approved=0;var groups=new TreeMap<String,long[]>();
+ for(var r:rows){capacity+=n(r,"capacity");approved+=n(r,"approved_slots");r.put("occupancy_rate",rate(n(r,"approved_slots"),n(r,"capacity")));r.put("pipeline_revenue",null);r.put("realized_revenue",null);var g=groups.computeIfAbsent(String.valueOf(r.get("level")),x->new long[2]);g[0]+=n(r,"approved_slots");g[1]+=n(r,"capacity");}
+ var categories=new ArrayList<Map<String,Object>>();groups.forEach((key,g)->categories.add(map("level",key,"approved_slots",g[0],"capacity",g[1],"occupancy_rate",rate(g[0],g[1]))));
+ return map("metadata",w.metadata(),"pipeline_potential_revenue",null,"realized_admission_revenue",null,"finance_status","UNAVAILABLE","finance_reason","Finance chưa cung cấp hợp đồng dữ liệu dư nợ/thu tiền/hoàn phí theo tuyển sinh","average_occupancy_rate",rate(approved,capacity),"approved_slots",approved,"capacity",capacity,"occupancy_by_level",categories,"top_courses",rows.stream().limit(w.limit()).toList());}
+ /** Chỉ số đăng nhập, không gắn nhãn mọi hoạt động là active; controller giới hạn ADMIN. */
+ public Map<String,Object> security(BiWindow w){var stats=repo.security(w);stats.put("failed_login_rate",rate(n(stats,"failed_logins_count"),n(stats,"login_attempts")));return map("metadata",w.metadata(),"engagement",stats,"daily_by_role",repo.activity(w,false),"monthly_by_role",repo.activity(w,true),"suspicious_ips",repo.suspiciousIps(w),"consecutive_failed_accounts",repo.consecutiveFailures(w));}
 }

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Tài khoản Admission</title>
+  <link rel="stylesheet" href="/shared/css/variables.css"><link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+</head>
+<body>
+  <main class="container" style="max-width:560px;margin:40px auto;padding:24px">
+    <h1>Tài khoản học viên</h1>
+    <p>Xác minh email và thiết lập mật khẩu để làm bài thi chính thức.</p>
+    <nav style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">
+      <button type="button" class="btn btn-secondary" data-view="login">Đăng nhập</button>
+      <button type="button" class="btn btn-secondary" data-view="register">Đăng ký / Gửi lại xác minh</button>
+      <button type="button" class="btn btn-secondary" data-view="forgot">Quên mật khẩu</button>
+      <button type="button" class="btn btn-secondary" data-view="change">Đổi mật khẩu</button>
+    </nav>
+    <p id="accountMessage" role="status" aria-live="polite"></p>
+    <form id="login" class="account-form">
+      <label>Email<input class="form-input" name="email" type="email" autocomplete="username" maxlength="255" required></label>
+      <label>Mật khẩu<input class="form-input" name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn btn-primary" type="submit">Đăng nhập</button>
+    </form>
+    <form id="register" class="account-form" hidden>
+      <label>Họ tên<input class="form-input" name="full_name" maxlength="255" autocomplete="name" required></label>
+      <label>Email<input class="form-input" name="email" type="email" maxlength="255" autocomplete="email" required></label>
+      <label>Điện thoại<input class="form-input" name="phone" type="tel" maxlength="50" autocomplete="tel"></label>
+      <p>Liên kết xác minh chỉ gửi qua email, hiệu lực 15 phút. Có thể yêu cầu gửi lại sau 60 giây.</p>
+      <button class="btn btn-primary" type="submit">Gửi hướng dẫn xác minh</button>
+    </form>
+    <form id="forgot" class="account-form" hidden>
+      <label>Email<input class="form-input" name="email" type="email" maxlength="255" autocomplete="email" required></label>
+      <button class="btn btn-primary" type="submit">Gửi hướng dẫn mật khẩu</button>
+    </form>
+    <form id="password" class="account-form" hidden>
+      <label>Mật khẩu mới<input class="form-input" name="new_password" type="password" minlength="10" autocomplete="new-password" required></label>
+      <label>Nhập lại mật khẩu<input class="form-input" name="confirm" type="password" minlength="10" autocomplete="new-password" required></label>
+      <p>Tối thiểu 10 ký tự, tối đa 72 byte UTF-8.</p>
+      <button class="btn btn-primary" type="submit">Lưu mật khẩu</button>
+    </form>
+    <form id="change" class="account-form" hidden>
+      <label>Mật khẩu hiện tại<input class="form-input" name="current_password" type="password" autocomplete="current-password" required></label>
+      <label>Mật khẩu mới<input class="form-input" name="new_password" type="password" minlength="10" autocomplete="new-password" required></label>
+      <button class="btn btn-primary" type="submit">Đổi mật khẩu</button>
+    </form>
+    <p><a href="/admission/test.html">Bài thi đầu vào</a> · <a href="/admission/courses.html">Khóa học</a></p>
+  </main>
+  <script src="/shared/js/auth.js"></script><script src="/shared/js/api.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
+  <script src="/admission/js/account.js"></script>
+</body>
+</html>

@@ -91,6 +91,7 @@
       line-height: 1.6;
     }
   </style>
+  <link rel="stylesheet" href="/admission/css/access.css">
 </head>
 <body>
   <div id="app">
@@ -280,8 +281,15 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
   <script>
+    if (!getToken() || !isAuthenticated()) {
+      const note = document.createElement('p');
+      note.innerHTML = 'Để lưu kết quả thi, hãy <a href="/admission/account.html">xác minh email và đăng nhập</a>.';
+      document.getElementById('introForm').prepend(note);
+    }
     let currentAttemptId = null;
+    let currentAttemptToken = null;
     let questionsList = [];
     let currentIndex = 0;
     let studentAnswers = {}; // { questionId: 'A' | 'B' | 'C' | 'D' }
@@ -303,6 +311,7 @@
 
     document.getElementById('introForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!getToken() || !isAuthenticated()) { window.location.href = '/admission/account.html'; return; }
       const btn = document.getElementById('btnStartExam');
       btn.disabled = true;
       btn.textContent = 'Đang khởi tạo phòng thi...';
@@ -310,7 +319,7 @@
       candidateData = {
         test_set_id: parseInt(document.getElementById('candidateTestSet').value, 10),
         full_name: document.getElementById('candidateName').value.trim(),
-        email: document.getElementById('candidateEmail').value.trim(),
+        email: getCurrentUser()?.email || document.getElementById('candidateEmail').value.trim(),
         phone: document.getElementById('candidatePhone').value.trim()
       };
 
@@ -318,8 +327,9 @@
         const res = await apiPost(`/api/admission/tests/public/${candidateData.test_set_id}/start`, candidateData);
         if (res && res.data) {
           currentAttemptId = res.data.attempt_id;
+          currentAttemptToken = res.data.attempt_token;
           questionsList = res.data.questions || [];
-          remainingSeconds = (res.data.duration_minutes || 45) * 60;
+          remainingSeconds = Math.max(0, Math.floor((new Date(res.data.expires_at) - new Date(res.data.started_at)) / 1000));
 
           document.getElementById('view-intro').style.display = 'none';
           document.getElementById('view-exam').style.display = 'block';
@@ -379,7 +389,7 @@
       const q = questionsList[index];
       document.getElementById('currentSkillBadge').textContent = q.skill_type || 'TEST';
       document.getElementById('currentQuestionNum').textContent = `Câu hỏi ${index + 1} / ${questionsList.length}`;
-      document.getElementById('questionContent').textContent = q.content || '';
+      document.getElementById('questionContent').textContent = q.question_text || '';
 
       // Section Listening
       const audioSec = document.getElementById('audioSection');
@@ -460,6 +470,7 @@
 
       const payload = {
         attempt_id: currentAttemptId,
+        attempt_token: currentAttemptToken,
         answers: answersArray
       };
 
@@ -486,25 +497,29 @@
         const course = data.recommended_course;
         document.getElementById('resCourseName').textContent = course.name || course.title || 'Khóa học đề xuất';
         document.getElementById('resCourseTarget').textContent = course.target_output || 'Lộ trình phát triển toàn diện';
-        document.getElementById('resCourseTuition').textContent = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.tuition_amount || 0);
+        document.getElementById('resCourseTuition').textContent = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.tuition_fee || 0);
+      } else {
+        document.getElementById('resCourseName').textContent = 'Chưa có khóa học phù hợp';
+        document.getElementById('resCourseTarget').textContent = 'Vui lòng liên hệ tư vấn';
+        document.getElementById('resCourseTuition').textContent = '—';
       }
 
-      document.getElementById('resFeedback').textContent = data.consulting_notes || 'Khóa học này sẽ giúp bạn tối ưu hóa điểm số và phát triển đồng đều các kỹ năng.';
+      document.getElementById('resFeedback').textContent = data.recommended_course?.advice_note || data.assessed_level || 'Chưa có tư vấn phù hợp cho kết quả này.';
 
       // Lớp học gợi ý
       const classesContainer = document.getElementById('suggestedClassesContainer');
-      const openClasses = data.open_classes || [];
+      const openClasses = data.upcoming_classes || [];
       if (openClasses.length === 0) {
         classesContainer.innerHTML = `<div class="text-secondary text-sm">Hiện tại các lớp của khóa này đang kín chỗ hoặc chuẩn bị mở đợt mới. Nhân viên học vụ sẽ liên hệ bạn sớm nhất.</div>`;
       } else {
         classesContainer.innerHTML = openClasses.map(cls => `
           <div class="card" style="padding: 16px; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-weight: 700;">${cls.name} (<code>${cls.code}</code>)</div>
-              <div class="text-secondary text-sm">${cls.schedule || (cls.day_pattern + ' ' + cls.start_time)} | Phòng: ${cls.room || 'Chính'}</div>
+              <div style="font-weight: 700;">${escapeHtml(cls.class_name)} (<code>${escapeHtml(cls.class_code)}</code>)</div>
+              <div class="text-secondary text-sm">Khai giảng: ${escapeHtml(cls.start_date)}</div>
               <div class="text-sm" style="color: var(--color-success); margin-top: 4px;">Còn ${cls.available_slots} chỗ trống</div>
             </div>
-            <button class="btn btn-primary" onclick="quickEnroll(${cls.id}, '${cls.name}')">
+            <button class="btn btn-primary" onclick="quickEnroll(${cls.class_id})">
               ✍️ Đăng ký giữ chỗ 48h
             </button>
           </div>
@@ -512,7 +527,7 @@
       }
     }
 
-    async function quickEnroll(classId, className) {
+    async function quickEnroll(classId, className = 'đã chọn') {
       if (!confirm(`Bạn có muốn đăng ký giữ chỗ 48 giờ vào lớp ${className}?`)) return;
 
       const payload = {
@@ -539,6 +554,7 @@
     function restartTest() {
       studentAnswers = {};
       currentAttemptId = null;
+      currentAttemptToken = null;
       document.getElementById('view-result').style.display = 'none';
       document.getElementById('view-intro').style.display = 'block';
     }

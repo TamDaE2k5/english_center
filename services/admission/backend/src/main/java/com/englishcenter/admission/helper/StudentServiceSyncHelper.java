@@ -1,75 +1,22 @@
 package com.englishcenter.admission.helper;
-
-import com.englishcenter.admission.client.StudentServiceClient;
-import com.englishcenter.admission.client.dto.StudentProfileData;
 import com.englishcenter.admission.entity.Enrollment;
-import com.englishcenter.admission.entity.User;
-import com.englishcenter.admission.repository.EnrollmentRepository;
-import com.englishcenter.admission.repository.UserRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
+import com.englishcenter.admission.repository.*;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
-/**
- * Helper hỗ trợ đồng bộ hồ sơ học viên sang Student Service bất đồng bộ hoặc retry (TASK-ADM-47, FR-ENR-06).
- * Đảm bảo tính nhất quán cuối cùng (Eventual Consistency): Nếu Student Service tạm thời bận,
- * không làm rollback giao dịch duyệt đơn mà lưu cờ để thử lại sau.
- */
+/** Giữ cổng helper hiện có, thay HTTP trong transaction bằng outbox nguyên tử. */
 @Component
 public class StudentServiceSyncHelper {
-
-    private static final Logger log = LoggerFactory.getLogger(StudentServiceSyncHelper.class);
-
-    private final StudentServiceClient studentServiceClient;
-    private final EnrollmentRepository enrollmentRepository;
-    private final UserRepository userRepository;
-
-    public StudentServiceSyncHelper(StudentServiceClient studentServiceClient,
-                                   EnrollmentRepository enrollmentRepository,
-                                   UserRepository userRepository) {
-        this.studentServiceClient = studentServiceClient;
-        this.enrollmentRepository = enrollmentRepository;
-        this.userRepository = userRepository;
-    }
-
-    /**
-     * Đồng bộ hồ sơ học viên khi đơn tuyển sinh được duyệt.
-     *
-     * @param enrollment Đơn đăng ký vừa được duyệt
-     */
-    public void syncStudentProfile(Enrollment enrollment) {
-        if (enrollment == null || enrollment.getStudentId() == null) {
-            return;
-        }
-
-        User user = userRepository.findById(enrollment.getStudentId()).orElse(null);
-        if (user == null) {
-            log.warn("Không tìm thấy thông tin user ID={} để đồng bộ sang Student Service", enrollment.getStudentId());
-            return;
-        }
-
-        try {
-            StudentProfileData data = studentServiceClient.syncStudentProfile(
-                    user.getId(),
-                    user.getFullName(),
-                    user.getEmail(),
-                    user.getPhone(),
-                    user.getDateOfBirth()
-            );
-
-            if (data != null) {
-                enrollment.setIsSyncedToStudent(true);
-                enrollment.setStudentSyncStatus("SYNCED");
-                enrollmentRepository.save(enrollment);
-                log.info("Đã đồng bộ hồ sơ học viên thành công sang Student Service cho đơn ID={}", enrollment.getId());
-            }
-        } catch (Exception e) {
-            log.warn("Đồng bộ hồ sơ sang Student Service thất bại (sẽ được thử lại sau): enrollment_id={}, lý do={}",
-                    enrollment.getId(), e.getMessage());
-            enrollment.setIsSyncedToStudent(false);
-            enrollment.setStudentSyncStatus("FAILED");
-            enrollmentRepository.save(enrollment);
-        }
-    }
+ private final StudentSyncOutbox outbox; private final EnrollmentRepository enrollments; private final UserRepository users;
+ public StudentServiceSyncHelper(StudentSyncOutbox outbox,EnrollmentRepository enrollments,UserRepository users){this.outbox=outbox;this.enrollments=enrollments;this.users=users;}
+ /** Chỉ APPROVED được enqueue và bắt buộc nằm trong transaction duyệt; lỗi ghi outbox phải rollback duyệt. */
+ @Transactional(propagation=Propagation.MANDATORY)
+ public void syncStudentProfile(Enrollment e){
+  if(e==null||!"APPROVED".equals(e.getStatus()))return;
+  var user=users.findById(e.getStudentId()).orElseThrow(()->new IllegalStateException("Missing approved user"));
+  enrollments.flush();outbox.enqueue(e,user);
+  boolean confirmed=outbox.confirmed(user.getId());
+  e.setIsSyncedToStudent(confirmed);e.setStudentSyncStatus(confirmed?"SYNCED":"PENDING");enrollments.save(e);
+ }
 }

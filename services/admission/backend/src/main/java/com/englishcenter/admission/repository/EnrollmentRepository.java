@@ -18,7 +18,12 @@ import java.util.Optional;
  * Quản lý cơ chế giữ chỗ 48h, bảo vệ sĩ số trần INV-ADM-01 và kiểm soát luồng trạng thái đơn.
  */
 @Repository
-public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer> {
+public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>, EnrollmentStateRepository {
+    /** Ghi yêu cầu đối soát hoàn phí bền vững, một đơn chỉ tạo một yêu cầu khi hủy lớp. */
+    @Modifying
+    @Query(value="INSERT INTO admission.class_cancellation_requests(enrollment_id,class_id,invoice_code,reason,requested_by) VALUES (:enrollment,:clazz,:invoice,:reason,:actor) ON CONFLICT(enrollment_id) DO NOTHING", nativeQuery=true)
+    int enqueueClassRefund(@Param("enrollment") Integer enrollment, @Param("clazz") Integer clazz,
+        @Param("invoice") String invoice, @Param("reason") String reason, @Param("actor") Integer actor);
 
     /**
      * Đếm số lượng đơn theo lớp và trạng thái cụ thể (ví dụ: APPROVED).

@@ -130,11 +130,13 @@
 
 ## 9. Phân Hệ Báo Cáo Thông Minh BI Tuyển Sinh (BI & KPIs)
 
+Cập nhật 10/11/2026: contract BI và matrix KPI thực tế tại [bi-kpi-qa.md](../docs/bi-kpi-qa.md). Snapshot hiện tại; alias BA `/api/admission/analytics/*`; query as_of bị từ chối do chưa có history.
+
 | STT | HTTP Method | Endpoint URI | Phân Quyền (RBAC) | Tóm tắt Chức năng Nghiệp vụ | Query Parameters | Response Key Metrics |
 |:---:|:---:|---|---|---|---|---|
 | 53 | `GET` | `/api/admission/bi/funnel` | STAFF, ADMIN | Dữ liệu phễu chuyển đổi 4 giai đoạn & 4 KPIs | `?from_date=2026-10-01&to_date=2026-10-31` | `stages[]`, `kpis: {test_completion_rate, test_to_enrollment_rate, paid_conversion_rate, expired_hold_rate}` |
-| 54 | `GET` | `/api/admission/bi/courses-revenue` | STAFF, ADMIN | Báo cáo doanh thu tiềm năng 48h, thực thu & lấp đầy | `?from_date=2026-10-01&to_date=2026-10-31` | `pipeline_potential_revenue`, `realized_admission_revenue`, `average_occupancy_rate`, `top_courses[]` |
-| 55 | `GET` | `/api/admission/bi/security-engagement` | ADMIN | Thống kê DAU/MAU và cảnh báo Brute-force | `?days=30` | `engagement: {dau, mau, by_role}`, `security: {failed_login_rate, suspicious_ips[]}` |
+| 54 | `GET` | `/api/admission/bi/courses-revenue` | STAFF, ADMIN | Xếp hạng số đơn & lấp đầy; dư nợ/thực thu Finance UNAVAILABLE | `?from_date=2026-10-01&to_date=2026-10-31` | `pipeline_potential_revenue=null`, `realized_admission_revenue=null`, `finance_status`, `average_occupancy_rate`, `top_courses[]` |
+| 55 | `GET` | `/api/admission/bi/security-engagement` | ADMIN | Thống kê DAU/MAU và cảnh báo Brute-force | `?days=30` | `engagement: {dau,mau,failed_login_rate,login_attempts,failed_logins_count}`, `daily_by_role[]`, `monthly_by_role[]`, `suspicious_ips[]`, `consecutive_failed_accounts[]` |
 
 ---
 

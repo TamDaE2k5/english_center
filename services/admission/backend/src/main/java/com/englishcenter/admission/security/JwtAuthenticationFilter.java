@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ex) {
-            log.error("Không thể thiết lập xác thực người dùng trong Security Context: {}", ex.getMessage());
+            log.warn("Không thể thiết lập xác thực người dùng: {}", ex.getClass().getSimpleName());
         }
 
         filterChain.doFilter(request, response);

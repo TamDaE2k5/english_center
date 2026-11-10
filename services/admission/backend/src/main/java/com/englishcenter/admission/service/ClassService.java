@@ -8,6 +8,8 @@ import java.util.List;
  * Giao diện nghiệp vụ quản lý lớp học đào tạo, sức chứa phòng và vòng đời lớp (FR-ACA-02, FR-ACA-04, FR-FAC-03, FR-ACA-05).
  */
 public interface ClassService {
+    /** Hủy lớp chưa khai giảng thiếu sĩ số; cascade và ghi yêu cầu Finance trong cùng transaction. */
+    ClassResponse cancelClass(Integer id, String reason);
 
     /**
      * Mở một lớp học mới vào hệ thống.

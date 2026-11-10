@@ -79,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
      * @return DTO LoginResponse
      */
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = BusinessException.class)
     public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
         String normalizedEmail = request.getEmail().trim().toLowerCase();
         Optional<User> userOpt = userRepository.findByEmail(normalizedEmail);
@@ -119,6 +119,9 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 3. Cấp phát bộ token kép (Dual JWT)
+        if ("STUDENT".equals(user.getRole()) && (user.getEmailVerifiedAt() == null || Boolean.TRUE.equals(user.getMustChangePassword()))) {
+            throw new BusinessException(ErrorCode.AUTH_EMAIL_UNVERIFIED);
+        }
         String accessToken = jwtTokenProvider.generateAccessToken(
                 user.getId(), user.getEmail(), user.getRole(), user.getFullName()
         );
@@ -170,7 +173,7 @@ public class AuthServiceImpl implements AuthService {
      * @return DTO RefreshTokenResponse
      */
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = BusinessException.class)
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request, String ipAddress, String userAgent) {
         String tokenStr = request.getRefreshToken().trim();
         Optional<RefreshToken> tokenOpt = refreshTokenRepository.findByToken(tokenStr);
@@ -215,6 +218,9 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 5. Thực hiện Refresh Token Rotation (Thu hồi token cũ, cấp token mới)
+        if ("STUDENT".equals(user.getRole()) && (user.getEmailVerifiedAt() == null || Boolean.TRUE.equals(user.getMustChangePassword()))) {
+            throw new BusinessException(ErrorCode.AUTH_EMAIL_UNVERIFIED);
+        }
         tokenEntity.setIsRevoked(true);
         refreshTokenRepository.save(tokenEntity);
 
@@ -301,7 +307,7 @@ public class AuthServiceImpl implements AuthService {
             recordAuditLog(user.getId(), normalizedEmail, "FORGOT_PASSWORD_REQUEST",
                     ipAddress, userAgent, "Đã tạo mã đặt lại mật khẩu có thời hạn 15 phút");
 
-            log.info("Khởi tạo token đặt lại mật khẩu 15 phút cho email {}: token={}", normalizedEmail, token);
+            log.info("Đã khởi tạo yêu cầu đặt lại mật khẩu 15 phút cho user ID={}", user.getId());
         } else {
             recordAuditLog(null, normalizedEmail, "FORGOT_PASSWORD_NONEXISTENT",
                     ipAddress, userAgent, "Yêu cầu đặt lại mật khẩu cho email không tồn tại trong hệ thống");

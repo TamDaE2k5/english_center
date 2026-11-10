@@ -11,6 +11,11 @@ import java.util.List;
 public class SubmitTestRequest {
 
     private Integer attemptId;
+    private String attemptToken;
+
+    /** Bằng chứng sở hữu lượt thi dành cho khách chưa đăng nhập. */
+    public String getAttemptToken() { return attemptToken; }
+    public void setAttemptToken(String attemptToken) { this.attemptToken = attemptToken; }
     private Integer testSetId;
     private String email;
     private String fullName;

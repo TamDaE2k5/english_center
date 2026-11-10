@@ -177,6 +177,7 @@ class AuthServiceTest {
         user.setRole("STUDENT");
         user.setFullName("Student Five");
         user.setIsActive(true);
+        user.setEmailVerifiedAt(java.time.LocalDateTime.now());
 
         when(refreshTokenRepository.findByToken(oldTokenStr)).thenReturn(Optional.of(oldToken));
         when(userRepository.findById(5)).thenReturn(Optional.of(user));
@@ -276,6 +277,19 @@ class AuthServiceTest {
         ArgumentCaptor<AuthAuditLog> logCaptor = ArgumentCaptor.forClass(AuthAuditLog.class);
         verify(authAuditLogRepository).save(logCaptor.capture());
         assertEquals("FORGOT_PASSWORD_REQUEST", logCaptor.getValue().getAction());
+    }
+
+    /** Token đặt lại mật khẩu là thông tin xác thực, không được xuất ra log. */
+    @Test
+    @ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
+    void forgotPasswordDoesNotLogResetToken(org.springframework.boot.test.system.CapturedOutput output) {
+        User user = new User(); user.setId(7); user.setEmail("qa@example.test");
+        when(userRepository.findByEmail("qa@example.test")).thenReturn(Optional.of(user));
+        authService.forgotPassword(new com.englishcenter.admission.dto.auth.ForgotPasswordRequest("qa@example.test"),
+                "127.0.0.1", "QA");
+        ArgumentCaptor<PasswordResetToken> token = ArgumentCaptor.forClass(PasswordResetToken.class);
+        verify(passwordResetTokenRepository).save(token.capture());
+        assertFalse(output.getAll().contains(token.getValue().getToken()));
     }
 
     @Test

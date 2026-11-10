@@ -40,6 +40,7 @@ public class EnrollmentController {
      * @return DTO thông tin đơn đăng ký vừa được khởi tạo
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF','STUDENT')")
     public ResponseEntity<ApiResponse<EnrollmentResponse>> createEnrollment(@Valid @RequestBody CreateEnrollmentRequest request) {
         EnrollmentResponse response = enrollmentService.createEnrollment(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -109,19 +110,20 @@ public class EnrollmentController {
     }
 
     /**
-     * Duyệt đơn nhập học nộp tiền mặt hoặc quẹt thẻ tại quầy bởi Học vụ (TASK-ADM-46, INV-ADM-01, INV-ADM-03).
+     * STAFF/ADMIN gửi yêu cầu Finance đối soát tiền mặt; chỉ callback hợp lệ mới được duyệt.
      *
      * @param id      ID đơn đăng ký
      * @param request DTO chứa mã phiếu thu và số tiền thực nhận
-     * @return Đơn đăng ký sau khi chuyển sang trạng thái APPROVED
+     * @return HTTP 202, đơn vẫn PENDING và yêu cầu NEEDS_FINANCE_CONFIRMATION
      */
-    @PostMapping("/{id}/approve-manual")
+    @RequestMapping(value = "/{id}/approve-manual", method = {RequestMethod.POST, RequestMethod.PUT})
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiResponse<EnrollmentResponse>> approveManual(
             @PathVariable("id") Integer id,
             @Valid @RequestBody ManualApproveRequest request) {
         EnrollmentResponse response = enrollmentService.approveManual(id, request);
-        return ResponseEntity.ok(ApiResponse.success(response, "Duyệt đơn nhập học tiền mặt tại quầy thành công"));
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(response,
+                "Đã ghi nhận yêu cầu, chờ Finance xác nhận; chưa duyệt nhập học"));
     }
 
     /**

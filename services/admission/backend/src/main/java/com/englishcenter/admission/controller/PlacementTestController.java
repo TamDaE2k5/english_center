@@ -3,6 +3,7 @@ package com.englishcenter.admission.controller;
 import com.englishcenter.admission.common.dto.ApiResponse;
 import com.englishcenter.admission.dto.test.*;
 import com.englishcenter.admission.service.PlacementTestService;
+import com.englishcenter.admission.service.PublicPlacementTestService;
 import com.englishcenter.admission.service.TestManagementService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +21,14 @@ public class PlacementTestController {
 
     private final PlacementTestService placementTestService;
     private final TestManagementService testManagementService;
+    private final PublicPlacementTestService publicPlacementTestService;
 
     public PlacementTestController(PlacementTestService placementTestService,
-                                   TestManagementService testManagementService) {
+                                   TestManagementService testManagementService,
+                                   PublicPlacementTestService publicPlacementTestService) {
         this.placementTestService = placementTestService;
         this.testManagementService = testManagementService;
+        this.publicPlacementTestService = publicPlacementTestService;
     }
 
     /**
@@ -50,7 +54,7 @@ public class PlacementTestController {
     public ResponseEntity<ApiResponse<TakeTestResponse>> startTest(
             @PathVariable("id") Integer id,
             @RequestBody(required = false) StartTestRequest request) {
-        TakeTestResponse response = placementTestService.startTest(id, request);
+        TakeTestResponse response = publicPlacementTestService.startTest(id, request);
         return ResponseEntity.ok(ApiResponse.success(response, "Bắt đầu lượt thi thành công"));
     }
 
@@ -64,7 +68,7 @@ public class PlacementTestController {
             @RequestParam(name = "full_name", required = false) String fullName,
             @RequestParam(name = "phone", required = false) String phone) {
         StartTestRequest request = new StartTestRequest(null, email, fullName, phone);
-        TakeTestResponse response = placementTestService.startTest(id, request);
+        TakeTestResponse response = publicPlacementTestService.startTest(id, request);
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy đề thi bắt đầu làm bài thành công"));
     }
 
@@ -79,7 +83,7 @@ public class PlacementTestController {
     @PostMapping("/public/submit")
     public ResponseEntity<ApiResponse<TestResultResponse>> submitTest(
             @Valid @RequestBody SubmitTestRequest request) {
-        TestResultResponse response = placementTestService.submitAndGrade(request);
+        TestResultResponse response = publicPlacementTestService.submitAndGrade(request);
         return ResponseEntity.ok(ApiResponse.success(response, "Nộp bài và chấm điểm thành công"));
     }
 

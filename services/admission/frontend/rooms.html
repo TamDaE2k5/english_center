@@ -43,6 +43,7 @@
       padding: 12px 0;
     }
   </style>
+  <link rel="stylesheet" href="/admission/css/access.css">
 </head>
 <body>
   <div id="app">
@@ -62,7 +63,7 @@
               <h1 class="heading-1">Danh Mục Phòng Học & Sức Chứa</h1>
               <p class="text-secondary text-sm">Quản lý cơ sở vật chất, phòng chức năng và trần sức chứa phòng (FR-FAC-01, FR-FAC-02)</p>
             </div>
-            <button class="btn btn-primary" onclick="openCreateRoomModal()">
+            <button class="btn btn-primary admission-write" onclick="openCreateRoomModal()">
               + Thêm phòng học mới
             </button>
           </div>
@@ -174,7 +175,9 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
   <script>
+    admissionRequireStaff();
     let roomsCache = [];
     let classesCache = [];
 
@@ -203,13 +206,13 @@
           return;
         }
 
-        select.innerHTML = roomsCache.map(r => `<option value="${r.id}">${r.code} - ${r.name}</option>`).join('');
+        select.innerHTML = roomsCache.map(r => `<option value="${r.id}">${escapeHtml(r.code)} - ${escapeHtml(r.name)}</option>`).join('');
 
         tbody.innerHTML = roomsCache.map(r => `
           <tr>
-            <td><code>${r.code}</code></td>
-            <td><strong>${r.name}</strong></td>
-            <td>${r.branch_name || 'Cơ sở chính'}</td>
+            <td><code>${escapeHtml(r.code)}</code></td>
+            <td><strong>${escapeHtml(r.name)}</strong></td>
+            <td>${escapeHtml(r.branch_name || 'Cơ sở chính')}</td>
             <td>
               <span class="badge badge-info" style="font-size: var(--font-sm);">
                 🪑 ${r.capacity} học viên
@@ -270,10 +273,10 @@
               rowHtml += `
                 <td class="slot-cell">
                   <div class="slot-busy">
-                    <div style="font-weight: 700;">${matchClass.code}</div>
-                    <div style="font-size: 11px;">${matchClass.name}</div>
-                    <div style="font-size: 11px; color: #475569; margin-top: 2px;">GV: ${matchClass.teacher_name || 'N/A'}</div>
-                    <div style="font-size: 10px; font-weight: 600; margin-top: 2px;">SL: ${matchClass.approved_count || 0}/${matchClass.max_students}</div>
+                    <div style="font-weight: 700;">${escapeHtml(matchClass.code)}</div>
+                    <div style="font-size: 11px;">${escapeHtml(matchClass.name)}</div>
+                    <div style="font-size: 11px; color: #475569; margin-top: 2px;">GV: ${escapeHtml(matchClass.teacher_name || 'N/A')}</div>
+                    <div style="font-size: 10px; font-weight: 600; margin-top: 2px;">SL: ${matchClass.enrolled_students || 0}/${matchClass.max_students}</div>
                   </div>
                 </td>
               `;

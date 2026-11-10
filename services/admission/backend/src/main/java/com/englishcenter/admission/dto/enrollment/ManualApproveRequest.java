@@ -2,22 +2,34 @@ package com.englishcenter.admission.dto.enrollment;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Digits;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 import java.math.BigDecimal;
 
 /**
- * DTO yêu cầu duyệt đơn nộp tiền mặt hoặc thẻ POS tại quầy (FR-ENR-07, TASK-ADM-46).
+ * Yêu cầu đối soát tiền mặt theo FR-ENR-07 mới; không phải bằng chứng Finance đã thu tiền.
  */
 public class ManualApproveRequest {
 
+    @NotBlank(message = "Cần mã chứng từ để chống ghi nhận trùng")
+    @Size(max = 80)
     private String receiptNumber;
 
-    private String paymentMethod = "CASH"; // CASH, POS_CARD, DIRECT_TRANSFER
+    @NotNull @Pattern(regexp = "CASH", message = "Luồng này chỉ tiếp nhận tiền mặt CASH")
+    private String paymentMethod = "CASH";
 
     @NotNull(message = "Số tiền thực thu không được để trống")
     @Positive(message = "Số tiền thực thu phải lớn hơn 0")
+    @Digits(integer = 12, fraction = 2)
+    @JsonAlias("cash_amount")
     private BigDecimal amountReceived;
 
+    @Size(max = 2000)
+    @JsonAlias("note")
     private String notes;
 
     public ManualApproveRequest() {

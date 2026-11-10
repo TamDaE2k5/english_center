@@ -58,9 +58,17 @@ public class RoomServiceImpl implements RoomService {
     @Override
     @Transactional
     public RoomResponse updateRoom(Integer id, UpdateRoomRequest request) {
+        // Cùng khóa với create/update lớp: không cho capacity đổi giữa lúc lớp kiểm tra và commit.
+        roomRepository.lockScheduling();
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ROOM_NOT_FOUND,
                         "Không tìm thấy phòng học với ID: " + id));
+
+        int assignedMax = roomRepository.maxAssignedClassSize(id);
+        if (request.getCapacity() < assignedMax) {
+            throw new BusinessException(ErrorCode.ADM_ROOM_CAPACITY_EXCEEDED,
+                    "Không thể giảm sức chứa phòng dưới sĩ số trần của lớp đang gán (" + assignedMax + ")");
+        }
 
         room.setName(request.getName().trim());
         room.setCapacity(request.getCapacity());
@@ -80,6 +88,8 @@ public class RoomServiceImpl implements RoomService {
     @Override
     @Transactional
     public RoomResponse updateRoomStatus(Integer id, Boolean isActive) {
+        // Hibernate có thể ghi cả capacity: phải đọc entity sau cùng khóa để không phục hồi capacity cũ.
+        roomRepository.lockScheduling();
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ROOM_NOT_FOUND,
                         "Không tìm thấy phòng học với ID: " + id));
