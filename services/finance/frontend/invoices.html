@@ -286,6 +286,7 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/finance/js/finance-ui.js"></script>
   <script>
     let currentVietQrData = null;
 
@@ -322,8 +323,8 @@
           const canPay = ['PENDING', 'UNPAID', 'PARTIAL', 'OVERDUE'].includes(inv.status);
           return `
             <tr>
-              <td><code>#${inv.id} - ${inv.invoice_code}</code></td>
-              <td>Học viên #${inv.student_id}</td>
+              <td><code>#${escapeHtml(inv.id)} - ${escapeHtml(inv.invoice_code)}</code></td>
+              <td>Học viên #${escapeHtml(inv.student_id)}</td>
               <td>
                 <div>${formatCurrency(inv.amount)}</div>
                 ${inv.discount_applied > 0 ? `<small style="color: #16a34a;">-${formatCurrency(inv.discount_applied)}</small>` : ''}
@@ -333,13 +334,13 @@
                 <div>Đã thu: ${formatCurrency(inv.paid_amount)}</div>
                 <small style="color: var(--color-danger);">Còn: ${formatCurrency(inv.remaining_amount)}</small>
               </td>
-              <td>${formatDate(inv.due_date)}</td>
-              <td><span class="badge ${badgeClass}">${inv.status}</span></td>
+              <td>${escapeHtml(formatDate(inv.due_date))}</td>
+              <td><span class="badge ${badgeClass}">${escapeHtml(inv.status)}</span></td>
               <td>
                 ${canPay ? `
                   <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                    <button class="btn btn-primary btn-sm" onclick="payCash(${inv.id}, ${inv.remaining_amount})">Thu TM</button>
-                    <button class="btn btn-secondary btn-sm" onclick="showVietQR(${inv.id})">VietQR</button>
+                    <button class="btn btn-primary btn-sm" onclick="payCash(${Number(inv.id)}, ${Number(inv.remaining_amount)})">Thu TM</button>
+                    <button class="btn btn-secondary btn-sm" onclick="showVietQR(${Number(inv.id)})">VietQR</button>
                   </div>
                 ` : `<span class="text-xs text-secondary">Đã tất toán</span>`}
               </td>
@@ -354,6 +355,7 @@
         `;
       }
     }
+
 
     document.getElementById('invoiceForm').addEventListener('submit', async (e) => {
       e.preventDefault();

@@ -2,8 +2,9 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional, Tuple
 import requests
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -29,10 +30,11 @@ def _notify_admission_payment_success(inv_row: dict, payment_row: dict):
     payload = {
         "event_id": f"evt_pay_{payment_row['id']}_{uuid.uuid4().hex[:8]}",
         "enrollment_id": enrollment_id,
-        "invoice_id": inv_row["id"],
+        "invoice_id": str(inv_row["invoice_code"]),
         "invoice_code": inv_row["invoice_code"],
         "amount_paid": float(inv_row["paid_amount"]),
         "payment_method": payment_row["payment_method"],
+        "transaction_ref": payment_row.get("transaction_ref") or payment_row.get("payment_code"),
         "paid_at": paid_at_iso,
     }
     try:
@@ -46,6 +48,7 @@ def _notify_admission_payment_success(inv_row: dict, payment_row: dict):
         pass
 
 
+
 def _record_payment_transaction(
     db: Session,
     invoice_id: int,
@@ -56,7 +59,8 @@ def _record_payment_transaction(
     qr_reference_code: Optional[str] = None,
     received_by_staff_id: Optional[int] = None,
     webhook_payload: Optional[dict] = None,
-) -> tuple[dict, dict, bool]:
+) -> Tuple[Dict, Dict, bool]:
+
     if bank_transaction_id:
         existing_pay = db.execute(
             text("""
@@ -241,28 +245,58 @@ def make_payment(
 def record_cash_payment(
     payload: CashPaymentRequest,
     db: Session = Depends(get_db),
-    user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    target_invoice_id = payload.invoice_id
+    if not target_invoice_id and payload.invoice_code:
+        inv_lookup = db.execute(
+            text("SELECT id FROM finance.invoices WHERE invoice_code = :code"),
+            {"code": payload.invoice_code.strip()},
+        ).mappings().first()
+        if inv_lookup:
+            target_invoice_id = inv_lookup["id"]
+    if not target_invoice_id and payload.enrollment_id is not None:
+        inv_lookup = db.execute(
+            text("SELECT id FROM finance.invoices WHERE enrollment_id = :enrollment_id ORDER BY id DESC LIMIT 1"),
+            {"enrollment_id": payload.enrollment_id},
+        ).mappings().first()
+        if inv_lookup:
+            target_invoice_id = inv_lookup["id"]
+
+    if not target_invoice_id:
+        raise FinanceException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="FIN_INVOICE_NOT_FOUND",
+            message="Không tìm thấy hóa đơn từ invoice_id / invoice_code / enrollment_id",
+        )
+
     staff_id = payload.received_by_staff_id or user.get("user_id") or 2
-    pay_row, inv_row, _ = _record_payment_transaction(
+    tx_ref = payload.receipt_number or payload.transaction_ref
+    pay_row, inv_row, is_dup = _record_payment_transaction(
         db=db,
-        invoice_id=payload.invoice_id,
+        invoice_id=target_invoice_id,
         amount=payload.amount,
         payment_method="CASH",
         installment_id=payload.installment_id,
+        bank_transaction_id=tx_ref,
         received_by_staff_id=staff_id,
     )
     return {
         "success": True,
-        "message": "Ghi nhận phiếu thu tiền mặt tại quầy thành công",
+        "message": "Chứng từ thu tiền mặt đã được đối soát trước đó (Idempotent)" if is_dup else "Ghi nhận phiếu thu tiền mặt tại quầy thành công",
         "data": {
             **pay_row,
+            "invoice_id": inv_row["id"],
             "invoice_code": inv_row["invoice_code"],
+            "enrollment_id": inv_row.get("enrollment_id"),
+            "receipt_number": tx_ref or pay_row.get("payment_code"),
             "invoice_status": inv_row["status"],
             "invoice_paid_amount": float(inv_row["paid_amount"]),
             "invoice_remaining_amount": float(inv_row["remaining_amount"]),
+            "is_idempotent": is_dup,
         },
     }
+
 
 
 @router.get("/invoices/{invoice_id}/vietqr")

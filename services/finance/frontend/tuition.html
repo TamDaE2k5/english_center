@@ -220,6 +220,7 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/finance/js/finance-ui.js"></script>
   <script>
     function closeModal(id) {
       document.getElementById(id).classList.remove('active');
@@ -249,11 +250,11 @@
         }
         tbody.innerHTML = list.map(item => `
           <tr>
-            <td><code>#${item.course_id}</code></td>
-            <td><strong>${item.course_name}</strong></td>
+            <td><code>#${escapeHtml(item.course_id)}</code></td>
+            <td><strong>${escapeHtml(item.course_name)}</strong></td>
             <td><strong style="color: var(--color-primary);">${formatCurrency(item.amount)}</strong></td>
-            <td>${item.discount_pct || 0}%</td>
-            <td>${item.note || item.description || '-'}</td>
+            <td>${escapeHtml(item.discount_pct || 0)}%</td>
+            <td>${escapeHtml(item.note || item.description || '-')}</td>
             <td><span class="badge ${item.is_active ? 'badge-success' : 'badge-danger'}">${item.is_active ? 'Đang áp dụng' : 'Ngừng'}</span></td>
           </tr>
         `).join('');
@@ -273,16 +274,16 @@
         }
         tbody.innerHTML = list.map(v => {
           const discLabel = v.discount_percent > 0
-            ? `Giảm ${v.discount_percent}%` + (v.max_discount_amount ? ` (tối đa ${formatCurrency(v.max_discount_amount)})` : '')
+            ? `Giảm ${escapeHtml(v.discount_percent)}%` + (v.max_discount_amount ? ` (tối đa ${formatCurrency(v.max_discount_amount)})` : '')
             : `Giảm ${formatCurrency(v.discount_amount)}`;
           return `
             <tr>
-              <td><code>${v.code}</code></td>
-              <td><strong>${v.campaign_name}</strong></td>
+              <td><code>${escapeHtml(v.code)}</code></td>
+              <td><strong>${escapeHtml(v.campaign_name)}</strong></td>
               <td style="color: var(--color-primary); font-weight: 600;">${discLabel}</td>
               <td>${formatCurrency(v.min_order_value)}</td>
-              <td>${v.current_uses} / ${v.max_uses}</td>
-              <td>${formatDate(v.expires_at)}</td>
+              <td>${escapeHtml(v.current_uses)} / ${escapeHtml(v.max_uses)}</td>
+              <td>${escapeHtml(formatDate(v.expires_at))}</td>
               <td><span class="badge ${v.is_active ? 'badge-success' : 'badge-danger'}">${v.is_active ? 'Hoạt động' : 'Đã khóa'}</span></td>
             </tr>
           `;
@@ -291,6 +292,7 @@
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-danger);">Không tải được danh sách voucher.</td></tr>`;
       }
     }
+
 
     document.getElementById('tuitionForm').addEventListener('submit', async (e) => {
       e.preventDefault();

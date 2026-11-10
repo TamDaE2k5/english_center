@@ -1,6 +1,6 @@
 import os
 from datetime import date, timedelta
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 import requests
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/finance", tags=["Invoices"])
 ADMISSION_SERVICE_URL = os.getenv("ADMISSION_SERVICE_URL", "http://admission-service:8081")
 
 
-def _fetch_course_tuition(db: Session, course_id: int) -> tuple[float, str]:
+def _fetch_course_tuition(db: Session, course_id: int) -> Tuple[float, str]:
     tf_row = db.execute(
         text("SELECT amount, course_name FROM finance.tuition_fees WHERE course_id = :course_id AND is_active = TRUE"),
         {"course_id": course_id},
@@ -41,7 +41,7 @@ def _fetch_course_tuition(db: Session, course_id: int) -> tuple[float, str]:
     return 6500000.0, f"Khóa học #{course_id}"
 
 
-def _apply_voucher_with_lock(db: Session, voucher_code: Optional[str], amount: float) -> tuple[Optional[int], float]:
+def _apply_voucher_with_lock(db: Session, voucher_code: Optional[str], amount: float) -> Tuple[Optional[int], float]:
     if not voucher_code:
         return None, 0.0
     code_upper = voucher_code.strip().upper()
@@ -74,7 +74,8 @@ def _create_items_and_installments(
     due_date: date,
     items: Optional[list] = None,
     installments_count: int = 1,
-) -> list[dict]:
+) -> List[Dict]:
+
     if items:
         for item in items:
             line_total = round(float(item.quantity) * float(item.unit_price), 2)
@@ -323,6 +324,8 @@ def create_invoice(
 @router.get("/invoices")
 def get_invoices(
     student_id: Optional[int] = None,
+    enrollment_id: Optional[int] = None,
+    invoice_code: Optional[str] = None,
     status_filter: Optional[str] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -339,6 +342,14 @@ def get_invoices(
         conditions.append("student_id = :student_id")
         params["student_id"] = student_id
 
+    if enrollment_id is not None:
+        conditions.append("enrollment_id = :enrollment_id")
+        params["enrollment_id"] = enrollment_id
+
+    if invoice_code:
+        conditions.append("invoice_code = :invoice_code")
+        params["invoice_code"] = invoice_code.strip()
+
     if effective_status:
         conditions.append("status = :status")
         params["status"] = effective_status.upper()
@@ -352,6 +363,48 @@ def get_invoices(
         "success": True,
         "data": [dict(r) for r in rows],
     }
+
+
+@router.get("/internal/invoices/lookup")
+def lookup_internal_invoice(
+    invoice_code: Optional[str] = None,
+    enrollment_id: Optional[int] = None,
+    invoice_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
+):
+    inv = None
+    if invoice_id is not None:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE id = :id"),
+            {"id": invoice_id},
+        ).mappings().first()
+    elif invoice_code:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE invoice_code = :code"),
+            {"code": invoice_code.strip()},
+        ).mappings().first()
+    elif enrollment_id is not None:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE enrollment_id = :enrollment_id ORDER BY id DESC LIMIT 1"),
+            {"enrollment_id": enrollment_id},
+        ).mappings().first()
+
+    if not inv:
+        raise FinanceException(
+            status_code=404,
+            code="FIN_INVOICE_NOT_FOUND",
+            message="Không tìm thấy hóa đơn tương ứng với invoice_code/enrollment_id",
+        )
+
+    return {
+        "success": True,
+        "data": {
+            **dict(inv),
+            "invoice_id": inv["id"],
+        },
+    }
+
 
 
 @router.get("/invoices/{invoice_id}")

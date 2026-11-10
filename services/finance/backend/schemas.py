@@ -75,11 +75,16 @@ class PaymentCreate(BaseModel):
 
 
 class CashPaymentRequest(BaseModel):
-    invoice_id: int
+    invoice_id: Optional[int] = None
+    invoice_code: Optional[str] = None
+    enrollment_id: Optional[int] = None
     installment_id: Optional[int] = None
     amount: float = Field(..., gt=0)
+    receipt_number: Optional[str] = None
+    transaction_ref: Optional[str] = None
     received_by_staff_id: Optional[int] = None
     notes: Optional[str] = None
+
 
 
 class VietQRWebhookRequest(BaseModel):
@@ -107,7 +112,9 @@ class WalletReserveRequest(BaseModel):
 
 
 class RefundCreateRequest(BaseModel):
-    invoice_id: int
+    invoice_id: Optional[int] = None
+    invoice_code: Optional[str] = None
+    enrollment_id: Optional[int] = None
     student_id: Optional[int] = None
     class_id: Optional[int] = None
     total_sessions: Optional[int] = None
@@ -119,6 +126,16 @@ class RefundCreateRequest(BaseModel):
     bank_name: Optional[str] = None
     bank_account_no: Optional[str] = None
     bank_account_holder: Optional[str] = None
+
+
+class ClassCancellationRequest(BaseModel):
+    enrollment_id: int
+    invoice_code: Optional[str] = None
+    invoice_id: Optional[int] = None
+    class_id: Optional[int] = None
+    reason: str = "Hủy lớp do không đủ sĩ số tối thiểu"
+    requested_by_staff_id: Optional[int] = None
+
 
 
 class RefundVerifyRequest(BaseModel):

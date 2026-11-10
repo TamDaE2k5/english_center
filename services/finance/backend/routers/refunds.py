@@ -1,8 +1,9 @@
 import os
 import random
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
 import requests
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -10,18 +11,21 @@ from sqlalchemy.orm import Session
 from auth import FinanceException, INTERNAL_SECRET_KEY, get_current_user, require_roles
 from database import get_db
 from schemas import (
+    ClassCancellationRequest,
     RefundApproveRequest,
     RefundCompleteRequest,
     RefundCreateRequest,
     RefundVerifyRequest,
 )
 
+
 router = APIRouter(prefix="/api/finance", tags=["Refunds"])
 
 STUDENT_SERVICE_URL = os.getenv("STUDENT_SERVICE_URL", "http://student-service:8082")
 
 
-def _fetch_attendance_snapshot(student_id: int, class_id: Optional[int]) -> tuple[int, int]:
+def _fetch_attendance_snapshot(student_id: int, class_id: Optional[int]) -> Tuple[int, int]:
+
     if not class_id:
         return 24, 0
     try:
@@ -78,19 +82,33 @@ def list_refund_requests(
 def create_refund_request(
     payload: RefundCreateRequest,
     db: Session = Depends(get_db),
-    user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
-    inv = db.execute(
-        text("SELECT * FROM finance.invoices WHERE id = :id"),
-        {"id": payload.invoice_id},
-    ).mappings().first()
+    inv = None
+    if payload.invoice_id is not None:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE id = :id"),
+            {"id": payload.invoice_id},
+        ).mappings().first()
+    elif payload.invoice_code:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE invoice_code = :code"),
+            {"code": payload.invoice_code.strip()},
+        ).mappings().first()
+    elif payload.enrollment_id is not None:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE enrollment_id = :enrollment_id ORDER BY id DESC LIMIT 1"),
+            {"enrollment_id": payload.enrollment_id},
+        ).mappings().first()
+
     if not inv:
         raise FinanceException(
             status_code=status.HTTP_404_NOT_FOUND,
             code="FIN_INVOICE_NOT_FOUND",
-            message=f"Không tìm thấy hóa đơn #{payload.invoice_id}",
+            message="Không tìm thấy hóa đơn từ invoice_id / invoice_code / enrollment_id",
         )
 
+    invoice_id = int(inv["id"])
     paid_snapshot = float(inv["paid_amount"])
     if paid_snapshot <= 0:
         raise FinanceException(
@@ -141,7 +159,7 @@ def create_refund_request(
         """),
         {
             "refund_code": refund_code,
-            "invoice_id": payload.invoice_id,
+            "invoice_id": invoice_id,
             "student_id": student_id,
             "class_id": payload.class_id,
             "total_sessions": total_sessions,
@@ -165,6 +183,127 @@ def create_refund_request(
         "message": "Khởi tạo yêu cầu hoàn tiền cấp 1 (chờ Kế toán xác minh) thành công",
         "data": dict(row),
     }
+
+
+@router.post("/internal/class-cancellations")
+def handle_class_cancellation_reconciliation(
+    payload: ClassCancellationRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
+):
+    inv = None
+    if payload.invoice_id is not None:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE id = :id FOR UPDATE"),
+            {"id": payload.invoice_id},
+        ).mappings().first()
+    elif payload.invoice_code:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE invoice_code = :code FOR UPDATE"),
+            {"code": payload.invoice_code.strip()},
+        ).mappings().first()
+    else:
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE enrollment_id = :enrollment_id ORDER BY id DESC LIMIT 1 FOR UPDATE"),
+            {"enrollment_id": payload.enrollment_id},
+        ).mappings().first()
+
+    if not inv:
+        raise FinanceException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="FIN_INVOICE_NOT_FOUND",
+            message=f"Không tìm thấy hóa đơn cho enrollment_id={payload.enrollment_id}",
+        )
+
+    invoice_id = int(inv["id"])
+    paid_amount = float(inv["paid_amount"] or 0)
+
+    if paid_amount <= 0:
+        if inv["status"] not in ("CANCELLED", "REFUNDED"):
+            db.execute(
+                text("UPDATE finance.invoices SET status = 'CANCELLED', notes = COALESCE(notes, '') || :note WHERE id = :id"),
+                {"note": f" | Hủy lớp: {payload.reason}", "id": invoice_id},
+            )
+            db.execute(
+                text("UPDATE finance.installments SET status = 'CANCELLED' WHERE invoice_id = :id AND status != 'PAID'"),
+                {"id": invoice_id},
+            )
+            db.commit()
+        return {
+            "success": True,
+            "message": "Đã hủy hóa đơn chưa phát sinh thực thu do hủy lớp",
+            "data": {
+                "enrollment_id": payload.enrollment_id,
+                "invoice_id": invoice_id,
+                "invoice_code": inv["invoice_code"],
+                "reconciliation_action": "INVOICE_CANCELLED",
+                "refund_request_id": None,
+            },
+        }
+
+    existing_ref = db.execute(
+        text("SELECT * FROM finance.refund_requests WHERE invoice_id = :invoice_id ORDER BY id DESC LIMIT 1"),
+        {"invoice_id": invoice_id},
+    ).mappings().first()
+    if existing_ref:
+        return {
+            "success": True,
+            "message": "Yêu cầu hoàn tiền do hủy lớp đã tồn tại (Idempotent)",
+            "data": {
+                "enrollment_id": payload.enrollment_id,
+                "invoice_id": invoice_id,
+                "invoice_code": inv["invoice_code"],
+                "reconciliation_action": "REFUND_REQUEST_CREATED",
+                "refund_request_id": existing_ref["id"],
+                "refund_code": existing_ref["refund_code"],
+                "status": existing_ref["status"],
+                "is_idempotent": True,
+            },
+        }
+
+    refund_code = f"REF-CANCEL-{invoice_id}-{payload.enrollment_id}"
+    staff_id = payload.requested_by_staff_id or user.get("user_id") or 2
+    ref_row = db.execute(
+        text("""
+            INSERT INTO finance.refund_requests
+                (refund_code, invoice_id, student_id, class_id,
+                 total_sessions, attended_sessions, max_allowed_sessions,
+                 paid_amount_snapshot, refundable_percent, deduction_amount,
+                 requested_refund_amount, reason, status, requested_by_staff_id)
+            VALUES
+                (:refund_code, :invoice_id, :student_id, :class_id,
+                 24, 0, 3,
+                 :paid_amount, 100, 0,
+                 :paid_amount, :reason, 'PENDING_ACCOUNTANT', :staff_id)
+            RETURNING *
+        """),
+        {
+            "refund_code": refund_code,
+            "invoice_id": invoice_id,
+            "student_id": inv["student_id"],
+            "class_id": payload.class_id,
+            "paid_amount": paid_amount,
+            "reason": payload.reason,
+            "staff_id": staff_id,
+        },
+    ).mappings().first()
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Đã tạo yêu cầu hoàn tiền 100% do hủy lớp (Idempotent)",
+        "data": {
+            "enrollment_id": payload.enrollment_id,
+            "invoice_id": invoice_id,
+            "invoice_code": inv["invoice_code"],
+            "reconciliation_action": "REFUND_REQUEST_CREATED",
+            "refund_request_id": ref_row["id"],
+            "refund_code": ref_row["refund_code"],
+            "status": ref_row["status"],
+            "is_idempotent": False,
+        },
+    }
+
 
 
 @router.put("/refunds/{refund_id}/verify")
