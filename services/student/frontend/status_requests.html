@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yêu cầu Học vụ - Student Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Học viên</span> / <span>Yêu cầu học vụ</span>
+        </nav>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Danh Sách Yêu Cầu Học Vụ</h1>
+              <p class="text-secondary text-sm">Quản lý các yêu cầu bảo lưu, chuyển lớp và rút hồ sơ</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">
+              + Tạo yêu cầu mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Học viên</th>
+                    <th>Loại yêu cầu</th>
+                    <th>Lý do</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="request-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align: center; color: var(--color-text-secondary);">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tạo Yêu Cầu Mới -->
+  <div class="modal-overlay" id="requestModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Tạo Yêu Cầu Học Vụ</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="requestForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="label" for="studentId">Mã Học viên (ID) <span class="required">*</span></label>
+            <input type="number" id="studentId" class="form-input" placeholder="Nhập ID học viên (VD: 6)" required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="requestType">Loại yêu cầu <span class="required">*</span></label>
+            <select id="requestType" class="form-input" required>
+              <option value="RESERVE">Bảo lưu (RESERVE)</option>
+              <option value="TRANSFER">Chuyển lớp (TRANSFER)</option>
+              <option value="DROP">Rút hồ sơ (DROP)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label" for="reason">Lý do <span class="required">*</span></label>
+            <textarea id="reason" class="form-input" rows="3" placeholder="Nhập lý do chi tiết..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary">Gửi Yêu Cầu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script>
+    // 1. Hàm tải danh sách yêu cầu
+    async function loadRequests() {
+      const tbody = document.getElementById('request-table-body');
+      try {
+        const res = await apiGet('/api/student/status-requests');
+        const list = (res && res.data) ? res.data : [];
+
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Chưa có dữ liệu yêu cầu.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(req => {
+          // Đổi tên loại yêu cầu cho thân thiện
+          let typeText = req.request_type;
+          if (req.request_type === 'RESERVE') typeText = 'Bảo lưu';
+          if (req.request_type === 'TRANSFER') typeText = 'Chuyển lớp';
+          if (req.request_type === 'DROP') typeText = 'Rút hồ sơ';
+
+          // Màu sắc theo trạng thái
+          let badgeClass = 'badge-warning';
+          if (req.status === 'APPROVED') badgeClass = 'badge-success';
+          if (req.status === 'REJECTED') badgeClass = 'badge-danger';
+
+          // Nút duyệt (chỉ hiện khi PENDING)
+          const actionBtn = req.status === 'PENDING' 
+            ? `<button class="btn btn-success btn-sm" onclick="approveRequest(${req.id})">Duyệt</button>` 
+            : `<span class="text-secondary">Đã xử lý</span>`;
+
+          return `
+            <tr>
+              <td>#${req.id}</td>
+              <td><strong>${req.student_name || 'HV #' + req.student_id}</strong></td>
+              <td>${typeText}</td>
+              <td>${req.reason}</td>
+              <td><span class="badge ${badgeClass}">${req.status}</span></td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr><td colspan="6" style="text-align: center; color: var(--color-danger);">
+            Không thể tải dữ liệu từ API.
+          </td></tr>
+        `;
+      }
+    }
+
+    // 2. Mở/Đóng Modal
+    function openCreateModal() {
+      document.getElementById('requestForm').reset();
+      document.getElementById('requestModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('requestModal').classList.remove('active');
+    }
+
+    // 3. Hàm gửi yêu cầu mới
+    document.getElementById('requestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        student_id: parseInt(document.getElementById('studentId').value),
+        request_type: document.getElementById('requestType').value,
+        reason: document.getElementById('reason').value.trim()
+      };
+
+      try {
+        await apiPost('/api/student/status-requests', payload);
+        showToast('success', 'Đã gửi yêu cầu thành công!');
+        closeModal();
+        loadRequests();
+      } catch (err) {}
+    });
+
+    // 4. Hàm Duyệt yêu cầu
+    async function approveRequest(id) {
+      if (!confirm('Bạn có chắc chắn muốn duyệt yêu cầu này?')) return;
+      
+      try {
+        await apiPut(`/api/student/status-requests/${id}/approve`, {});
+        showToast('success', 'Đã duyệt yêu cầu và cập nhật trạng thái học viên!');
+        loadRequests();
+      } catch (err) {}
+    }
+
+    // Khởi chạy
+    loadRequests();
+  </script>
+</body>
+</html>
