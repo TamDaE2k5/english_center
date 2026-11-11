@@ -1,102 +1,145 @@
-let currentUser = null;
-
-document.addEventListener('DOMContentLoaded', () => {
-    requireAuth();
-    currentUser = getCurrentUser();
-    
-    // Phân quyền UI
-    if (['ADMIN', 'STAFF', 'TEACHER'].includes(currentUser.role)) {
-        document.getElementById('adminActions').style.display = 'block';
-        document.getElementById('filterSection').style.display = 'block';
+async function requestGradeApi(path, options = {}) {
+    if (window.api && typeof window.api.request === 'function') {
+        return window.api.request(path, options);
     }
-
-    loadGrades();
-});
-
-async function loadGrades() {
-    let url = '/api/learning/grades';
-    
-    // Nếu là giáo viên/admin có thể lấy class_id từ bộ lọc
-    if (['ADMIN', 'STAFF', 'TEACHER'].includes(currentUser.role)) {
-        const classId = document.getElementById('filterClassId').value;
-        if (classId) {
-        url += `?class_id=${classId}`;
-        }
-    }
-    // Nếu là STUDENT, backend tự động filter theo Token (INV-LRN-02), frontend ko cần truyền student_id
-
-    try {
-        const res = await apiGet(url);
-        if (res && res.success) {
-        renderTable(res.data);
-        }
-    } catch (err) {}
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const headers = Object.assign(
+        { 'Content-Type': 'application/json' },
+        token ? { Authorization: `Bearer ${token}` } : {},
+        options.headers || {}
+    );
+    const response = await fetch(path, Object.assign({}, options, { headers }));
+    return response.json();
 }
 
-function renderTable(grades) {
-    const tbody = document.getElementById('gradeTableBody');
-    tbody.innerHTML = '';
-    
-    if (grades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Chưa có dữ liệu điểm.</td></tr>';
+async function loadGradesList() {
+    const classId = document.getElementById('gradeFilterClassId').value;
+    const studentId = document.getElementById('gradeFilterStudentId').value;
+
+    const params = new URLSearchParams();
+    if (classId) params.set('class_id', classId);
+    if (studentId) params.set('student_id', studentId);
+
+    const tbody = document.getElementById('gradesTableBody');
+    const res = await requestGradeApi(`/api/learning/grades?${params.toString()}`);
+
+    if (!res.success) {
+        tbody.innerHTML = `<tr><td colspan="8" style="color:var(--color-danger); text-align:center;">${res.error?.message || 'Không thể tải bảng điểm'}</td></tr>`;
         return;
     }
 
-    grades.forEach(g => {
-        // Đánh giá màu sắc dựa trên điểm
-        let scoreColor = 'badge-success';
-        if (g.score < g.max_score * 0.5) scoreColor = 'badge-danger';
-        else if (g.score < g.max_score * 0.8) scoreColor = 'badge-warning';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-        <td>${g.id}</td>
-        <td>${g.class_id}</td>
-        <td>${g.student_id}</td>
-        <td>${g.assessment_name}</td>
-        <td><span class="badge ${scoreColor}">${g.score} / ${g.max_score}</span></td>
-        <td>${g.feedback || '-'}</td>
-        <td>${formatDate(g.graded_at)}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+    const items = res.data || [];
+    if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Chưa có đầu điểm nào được ghi nhận.</td></tr>`;
+        return;
     }
 
+    tbody.innerHTML = items
+        .map((g) => {
+        const pct = g.max_score > 0 ? ((g.score / g.max_score) * 100).toFixed(1) : '0.0';
+        return `
+            <tr>
+            <td>#${g.id}</td>
+            <td>Lớp ${g.class_id}</td>
+            <td>HV #${g.student_id}</td>
+            <td><strong>${g.assessment_name}</strong></td>
+            <td><strong>${g.score}</strong> / ${g.max_score}</td>
+            <td>${g.weight ?? 1.0}</td>
+            <td>${pct}%</td>
+            <td>${g.feedback || '<span style="color:var(--color-text-muted);">Chưa có nhận xét</span>'}</td>
+            </tr>
+        `;
+        })
+        .join('');
+}
+
+async function loadClassSummaryReport() {
+    const classId = document.getElementById('gradeFilterClassId').value || 1;
+    const summaryBody = document.getElementById('summaryTableBody');
+
+    const res = await requestGradeApi(`/api/learning/reports/class-summary?class_id=${classId}`);
+    if (!res.success || !res.data) {
+        summaryBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${res.error?.message || 'Chỉ Giảng viên/Giáo vụ/Admin mới xem được thống kê toàn lớp.'}</td></tr>`;
+        return;
+    }
+
+    const report = res.data;
+    document.getElementById('statTotalStudents').textContent = report.total_students;
+    document.getElementById('statPassCount').textContent = report.pass_count;
+    document.getElementById('statFailCount').textContent = report.fail_count;
+    document.getElementById('statPassRate').textContent = `${report.pass_rate_percentage}%`;
+
+    const list = report.student_summaries || [];
+    if (list.length === 0) {
+        summaryBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu tổng kết cho lớp ${classId}.</td></tr>`;
+        return;
+    }
+
+    summaryBody.innerHTML = list
+        .map(
+        (s) => `
+        <tr>
+            <td>Lớp ${s.class_id}</td>
+            <td>HV #${s.student_id}</td>
+            <td>${s.total_assessments} bài</td>
+            <td>${s.weighted_avg_score}</td>
+            <td><strong>${s.average_percentage}%</strong></td>
+            <td>
+            <span class="badge ${s.result === 'Pass' ? 'badge-success' : 'badge-danger'}">
+                ${s.result === 'Pass' ? 'ĐẠT (Pass)' : 'CHƯA ĐẠT (Fail)'}
+            </span>
+            </td>
+        </tr>
+        `
+        )
+        .join('');
+}
+
 function openGradeModal() {
-    document.getElementById('modalAddGrade').style.display = 'flex';
+    document.getElementById('gradeModal').style.display = 'flex';
 }
 
 function closeGradeModal() {
-    document.getElementById('modalAddGrade').style.display = 'none';
-    document.getElementById('formAddGrade').reset();
+    document.getElementById('gradeModal').style.display = 'none';
 }
 
-async function submitGrade() {
-    const payload = {
-        class_id: parseInt(document.getElementById('gradeClassId').value),
-        student_id: parseInt(document.getElementById('gradeStudentId').value),
-        assessment_name: document.getElementById('gradeAssessment').value,
-        score: parseFloat(document.getElementById('gradeScore').value),
-        max_score: parseFloat(document.getElementById('gradeMaxScore').value),
-        feedback: document.getElementById('gradeFeedback').value
-    };
+async function submitCreateGrade() {
+    const score = Number(document.getElementById('inpScore').value);
+    const maxScore = Number(document.getElementById('inpMaxScore').value);
+    const weight = Number(document.getElementById('inpWeight').value);
 
-    // Validate phía client (INV-LRN-01)
-    if (payload.score < 0 || payload.score > payload.max_score) {
-        showToast('error', 'LRN_GRADE_INVALID: Điểm số phải nằm trong khoảng 0 đến Điểm tối đa');
+    if (score < 0 || score > maxScore || maxScore <= 0) {
+        alert('Vi phạm INV-LRN-01: Điểm số phải nằm trong khoảng 0 <= score <= max_score!');
         return;
     }
 
-    try {
-        const res = await apiPost('/api/learning/grades', payload);
-        if (res && res.success) {
-        showToast('success', 'Nhập điểm thành công');
-        closeGradeModal();
-        loadGrades();
-        }
-    } catch (err) {
-        // API sẽ trả về lỗi nếu có vấn đề (như Teacher không dạy lớp này)
+    const payload = {
+        class_id: Number(document.getElementById('inpGradeClassId').value),
+        student_id: Number(document.getElementById('inpGradeStudentId').value),
+        assessment_name: document.getElementById('inpAssessmentName').value.trim(),
+        score: score,
+        max_score: maxScore,
+        weight: weight,
+        feedback: document.getElementById('inpFeedback').value.trim() || null,
+    };
+
+    const res = await requestGradeApi('/api/learning/grades', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.success) {
+        alert(`[${res.error?.code || 'ERROR'}] ${res.error?.message || 'Lỗi khi lưu điểm'}`);
+        return;
     }
+
+    closeGradeModal();
+    refreshAllGradeData();
 }
 
-document.getElementById('btnAddGrade').addEventListener('click', openGradeModal);
+function refreshAllGradeData() {
+    loadGradesList();
+    loadClassSummaryReport();
+}
+
+document.addEventListener('DOMContentLoaded', refreshAllGradeData);

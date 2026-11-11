@@ -1,94 +1,127 @@
-let currentUser = null;
+async function requestLearningApi(path, options = {}) {
+    if (window.api && typeof window.api.request === 'function') {
+        return window.api.request(path, options);
+    }
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const headers = Object.assign(
+        { 'Content-Type': 'application/json' },
+        token ? { Authorization: `Bearer ${token}` } : {},
+        options.headers || {}
+    );
+    const response = await fetch(path, Object.assign({}, options, { headers }));
+    return response.json();
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-    requireAuth();
-    currentUser = getCurrentUser();
-    
-    // Phân quyền UI
-    if (['ADMIN', 'STAFF', 'TEACHER'].includes(currentUser.role)) {
-        document.getElementById('btnAddMaterial').style.display = 'block';
+function formatBytes(bytes) {
+    if (bytes === null || bytes === undefined) return '—';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     }
 
-    loadMaterials();
-});
+function badgeForType(type) {
+    const map = {
+        DOCUMENT: 'badge-info',
+        SLIDE: 'badge-warning',
+        VIDEO: 'badge-success',
+        EXERCISE: 'badge-danger',
+    };
+    return `<span class="badge ${map[type] || 'badge-info'}">${type}</span>`;
+}
 
 async function loadMaterials() {
+    const classId = document.getElementById('filterClassId').value;
+    const type = document.getElementById('filterType').value;
+    const search = document.getElementById('filterSearch').value.trim();
+
+    const params = new URLSearchParams();
+    if (classId) params.set('class_id', classId);
+    if (type) params.set('material_type', type);
+    if (search) params.set('search', search);
+
+    const tbody = document.getElementById('materialsTableBody');
     try {
-        const res = await apiGet('/api/learning/materials');
-        if (res && res.success) {
-        renderTable(res.data);
-        }
-    } catch (err) {}
-}
-
-function renderTable(materials) {
-    const tbody = document.getElementById('materialTableBody');
-    tbody.innerHTML = '';
-    
-    if (materials.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Chưa có học liệu nào.</td></tr>';
+        const res = await requestLearningApi(`/api/learning/materials?${params.toString()}`);
+        if (!res.success) {
+        tbody.innerHTML = `<tr><td colspan="8" style="color:var(--color-danger); text-align:center;">${res.error?.message || 'Lỗi tải dữ liệu'}</td></tr>`;
         return;
+        }
+        const items = res.data || [];
+        if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Chưa có học liệu nào cho bộ lọc này.</td></tr>`;
+        return;
+        }
+
+        tbody.innerHTML = items
+        .map(
+            (m) => `
+        <tr>
+            <td>#${m.id}</td>
+            <td>Lớp ${m.class_id}</td>
+            <td>
+            <strong>${m.title}</strong>
+            ${m.description ? `<div class="text-xs" style="color:var(--color-text-secondary);">${m.description}</div>` : ''}
+            </td>
+            <td>${badgeForType(m.material_type)}</td>
+            <td><a href="${m.file_url}" target="_blank" rel="noopener noreferrer">${m.original_filename || m.file_url}</a></td>
+            <td>${formatBytes(m.file_size)}</td>
+            <td>${new Date(m.uploaded_at).toLocaleDateString('vi-VN')}</td>
+            <td>
+            <button class="btn btn-danger" style="padding:4px 10px;" onclick="handleDeleteMaterial(${m.id})">🗑️ Xóa</button>
+            </td>
+        </tr>
+        `
+        )
+        .join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" style="color:var(--color-danger); text-align:center;">Không thể kết nối tới Learning Service</td></tr>`;
     }
-
-    materials.forEach(m => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-        <td>${m.id}</td>
-        <td>${m.title}</td>
-        <td>${m.description || '-'}</td>
-        <td><span class="badge badge-info">${m.material_type}</span></td>
-        <td>${formatDate(m.uploaded_at)}</td>
-        <td>
-            ${m.file_url ? `<a href="${m.file_url}" target="_blank" class="btn btn-ghost btn-sm">📥 Tải về</a>` : '-'}
-            ${['ADMIN', 'STAFF', 'TEACHER'].includes(currentUser.role) ? 
-            `<button class="btn-icon text-danger" onclick="deleteMaterial(${m.id})" title="Xóa">🗑️</button>` : ''}
-        </td>
-        `;
-        tbody.appendChild(tr);
-    });
 }
 
-function openModal() {
-    document.getElementById('modalAddMaterial').style.display = 'flex';
+function openMaterialModal() {
+    document.getElementById('materialModal').style.display = 'flex';
 }
 
-function closeModal() {
-    document.getElementById('modalAddMaterial').style.display = 'none';
-    document.getElementById('formAddMaterial').reset();
+function closeMaterialModal() {
+    document.getElementById('materialModal').style.display = 'none';
 }
 
-async function submitMaterial() {
+async function submitCreateMaterial() {
     const payload = {
-        class_id: parseInt(document.getElementById('matClassId').value),
-        title: document.getElementById('matTitle').value,
-        description: document.getElementById('matDesc').value,
+        class_id: Number(document.getElementById('matClassId').value),
+        title: document.getElementById('matTitle').value.trim(),
         material_type: document.getElementById('matType').value,
-        file_url: document.getElementById('matUrl').value
+        file_url: document.getElementById('matFileUrl').value.trim(),
+        original_filename: document.getElementById('matFilename').value.trim() || null,
+        file_size: document.getElementById('matFileSize').value
+        ? Number(document.getElementById('matFileSize').value)
+        : null,
+        description: document.getElementById('matDesc').value.trim() || null,
     };
 
-    if (!payload.class_id || !payload.title) {
-        showToast('warning', 'Vui lòng nhập đủ thông tin bắt buộc');
+    const res = await requestLearningApi('/api/learning/materials', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.success) {
+        alert(res.error?.message || 'Không thể tạo học liệu');
         return;
     }
-
-    try {
-        const res = await apiPost('/api/learning/materials', payload);
-        if (res && res.success) {
-        showToast('success', 'Thêm học liệu thành công');
-        closeModal();
-        loadMaterials();
-        }
-    } catch (err) {}
-    }
-
-    async function deleteMaterial(id) {
-    if (!confirm('Bạn có chắc muốn xóa học liệu này?')) return;
-    try {
-        await apiDelete(`/api/learning/materials/${id}`);
-        showToast('success', 'Đã xóa học liệu');
-        loadMaterials();
-    } catch (err) {}
+    closeMaterialModal();
+    loadMaterials();
 }
 
-// Gắn sự kiện
-document.getElementById('btnAddMaterial').addEventListener('click', openModal);
+async function handleDeleteMaterial(materialId) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa học liệu #${materialId}?`)) return;
+    const res = await requestLearningApi(`/api/learning/materials/${materialId}`, {
+        method: 'DELETE',
+    });
+    if (!res.success) {
+        alert(res.error?.message || 'Không thể xóa học liệu');
+        return;
+    }
+    loadMaterials();
+    }
+
+document.addEventListener('DOMContentLoaded', loadMaterials);

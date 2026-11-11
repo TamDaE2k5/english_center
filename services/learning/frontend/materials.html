@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Học liệu - Trung tâm Anh ngữ</title>
+    <title>Kho Học liệu Số - Trung tâm Anh ngữ</title>
     <link rel="stylesheet" href="/shared/css/variables.css">
     <link rel="stylesheet" href="/shared/css/base.css">
     <link rel="stylesheet" href="/shared/css/components.css">
@@ -16,77 +16,119 @@
         <div id="header"></div>
         <div class="content">
             <nav class="breadcrumb">
-            <a href="/">Trang chủ</a> / <span>Học liệu</span>
+            <a href="/">Trang chủ</a> / <span>Đào tạo &amp; Học tập</span> / <span>Kho học liệu số</span>
             </nav>
 
-            <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h1 class="heading-1">Quản lý Học liệu</h1>
-                <!-- Nút này sẽ được JS ẩn/hiện theo role -->
-                <button class="btn btn-primary" id="btnAddMaterial" style="display: none;">+ Thêm học liệu</button>
-            </div>
-            <div class="card-body">
-                <table class="data-table">
-                <thead>
-                    <tr>
-                    <th>ID</th>
-                    <th>Tên tài liệu</th>
-                    <th>Mô tả</th>
-                    <th>Loại</th>
-                    <th>Ngày tải lên</th>
-                    <th>Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody id="materialTableBody">
-                    <!-- Data rendered here -->
-                </tbody>
-                </table>
-            </div>
+            <div class="card" style="margin-bottom: var(--space-lg);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                <h1 class="heading-1">Kho Học liệu Số</h1>
+                <p class="text-sm" style="color: var(--color-text-secondary);">
+
+                </p>
+                </div>
+                <button id="btnOpenMaterialModal" class="btn btn-primary" onclick="openMaterialModal()">
+                + Đăng tải học liệu
+                </button>
             </div>
 
+            <div class="card-body">
+                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: var(--space-md);">
+                <div class="form-group" style="min-width: 160px;">
+                    <label class="label" for="filterClassId">Mã Lớp</label>
+                    <input type="number" id="filterClassId" class="form-input" value="1" min="1">
+                </div>
+                <div class="form-group" style="min-width: 180px;">
+                    <label class="label" for="filterType">Phân loại</label>
+                    <select id="filterType" class="form-select">
+                    <option value="">Tất cả loại</option>
+                    <option value="DOCUMENT">DOCUMENT (Tài liệu)</option>
+                    <option value="SLIDE">SLIDE (Bài giảng)</option>
+                    <option value="VIDEO">VIDEO (Video)</option>
+                    <option value="EXERCISE">EXERCISE (Bài tập)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1; min-width: 220px;">
+                    <label class="label" for="filterSearch">Tìm tiêu đề</label>
+                    <input type="text" id="filterSearch" class="form-input" placeholder="Nhập từ khóa học liệu...">
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end;">
+                    <button class="btn btn-secondary" onclick="loadMaterials()">Lọc dữ liệu</button>
+                </div>
+                </div>
+
+                <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Lớp</th>
+                        <th>Tiêu đề học liệu</th>
+                        <th>Loại</th>
+                        <th>Tên file / Link</th>
+                        <th>Dung lượng</th>
+                        <th>Ngày đăng</th>
+                        <th>Thao tác</th>
+                    </tr>
+                    </thead>
+                    <tbody id="materialsTableBody">
+                    <tr>
+                        <td colspan="8" style="text-align:center;">Đang tải dữ liệu...</td>
+                    </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            </div>
         </div>
         </div>
     </div>
 
-    <!-- Modal Thêm Học Liệu -->
-    <div class="modal-overlay" id="modalAddMaterial" style="display: none;">
+    <!-- Modal Đăng tải học liệu -->
+    <div class="modal-overlay" id="materialModal" style="display:none;">
         <div class="modal">
         <div class="modal-header">
-            <h3 class="heading-3">Thêm học liệu mới</h3>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <h3 class="heading-3">Đăng tải Học liệu Mới</h3>
+            <button class="modal-close" onclick="closeMaterialModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="formAddMaterial">
             <div class="form-group">
-                <label class="label">Lớp học (Class ID) <span class="required">*</span></label>
-                <input type="number" class="form-input" id="matClassId" required>
+            <label class="label" for="matClassId">ID Lớp học*</label>
+            <input type="number" id="matClassId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
-                <label class="label">Tên tài liệu <span class="required">*</span></label>
-                <input type="text" class="form-input" id="matTitle" required>
+            <label class="label" for="matTitle">Tiêu đề học liệu *</label>
+            <input type="text" id="matTitle" class="form-input" placeholder="VD: IELTS Reading Unit 1 - Skimming & Scanning" required>
             </div>
             <div class="form-group">
-                <label class="label">Mô tả</label>
-                <input type="text" class="form-input" id="matDesc">
+            <label class="label" for="matType">Loại học liệu *</label>
+            <select id="matType" class="form-select">
+                <option value="DOCUMENT">DOCUMENT</option>
+                <option value="SLIDE">SLIDE</option>
+                <option value="VIDEO">VIDEO</option>
+                <option value="EXERCISE">EXERCISE</option>
+            </select>
             </div>
             <div class="form-group">
-                <label class="label">Loại học liệu</label>
-                <select class="form-select" id="matType">
-                <option value="DOCUMENT">Tài liệu (Document)</option>
-                <option value="SLIDE">Slide bài giảng</option>
-                <option value="VIDEO">Video</option>
-                <option value="EXERCISE">Bài tập</option>
-                </select>
+            <label class="label" for="matFileUrl">Đường dẫn File *</label>
+            <input type="text" id="matFileUrl" class="form-input" placeholder="https://cdn.englishcenter.edu.vn/materials/unit1.pdf" required>
             </div>
             <div class="form-group">
-                <label class="label">Đường dẫn File/URL</label>
-                <input type="url" class="form-input" id="matUrl">
+            <label class="label" for="matFilename">Tên file gốc</label>
+            <input type="text" id="matFilename" class="form-input" placeholder="unit1_reading.pdf">
             </div>
-            </form>
+            <div class="form-group">
+            <label class="label" for="matFileSize">Dung lượng (Bytes)</label>
+            <input type="number" id="matFileSize" class="form-input" min="0" placeholder="1048576">
+            </div>
+            <div class="form-group">
+            <label class="label" for="matDesc">Mô tả hướng dẫn học tập</label>
+            <textarea id="matDesc" class="form-input" rows="3" placeholder="Đọc trước trang 1-12 trước buổi học..."></textarea>
+            </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="submitMaterial()">Lưu</button>
+            <button class="btn btn-secondary" onclick="closeMaterialModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="submitCreateMaterial()">Lưu học liệu</button>
         </div>
         </div>
     </div>
