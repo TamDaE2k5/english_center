@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quản lý Lớp học - Admission</title>
+  <title>Quản lý Lớp học - Admission Module</title>
   <link rel="stylesheet" href="/shared/css/variables.css">
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/shared/css/components.css">
   <link rel="stylesheet" href="/shared/css/layout.css">
+  <link rel="stylesheet" href="/admission/css/access.css">
 </head>
 <body>
   <div id="app">
@@ -15,6 +16,7 @@
     <div class="main-content">
       <div id="header"></div>
       <div class="content">
+
         <nav class="breadcrumb">
           <a href="/">Tổng quan</a> / <span>Tuyển sinh</span> / <span>Quản lý lớp học</span>
         </nav>
@@ -23,64 +25,377 @@
           <div class="card-header">
             <div>
               <h1 class="heading-1">Danh Sách Lớp Học Đang Mở</h1>
-              <p class="text-secondary text-sm">Thời khóa biểu, phòng học và giáo viên phụ trách</p>
+              <p class="text-secondary text-sm">Thời khóa biểu, phòng học, giáo viên phụ trách và kiểm soát sĩ số trần (FR-ACA-02, INV-ADM-01)</p>
             </div>
-            <button class="btn btn-primary" onclick="alert('Tính năng thêm lớp học đang phát triển theo Sprint!')">
-              + Mở lớp học mới
-            </button>
+            <div style="display: flex; gap: var(--space-sm);">
+              <button class="btn btn-primary admission-write" onclick="openCreateClassModal()">
+                + Mở lớp học mới
+              </button>
+            </div>
           </div>
+
           <div class="card-body">
+            <!-- Bộ lọc lớp học -->
+            <div style="display: flex; gap: var(--space-md); margin-bottom: var(--space-lg); align-items: center; flex-wrap: wrap;">
+              <div style="width: 260px;">
+                <label class="label" for="filterCourse">Lọc theo khóa học:</label>
+                <select id="filterCourse" class="form-select" onchange="loadClasses()">
+                  <option value="">-- Tất cả khóa học --</option>
+                </select>
+              </div>
+              <div style="width: 200px;">
+                <label class="label" for="filterStatus">Lọc theo trạng thái:</label>
+                <select id="filterStatus" class="form-select" onchange="loadClasses()">
+                  <option value="">-- Tất cả trạng thái --</option>
+                  <option value="OPEN" selected>Đang mở tuyển sinh (OPEN)</option>
+                  <option value="IN_PROGRESS">Đang diễn ra (IN_PROGRESS)</option>
+                  <option value="COMPLETED">Đã kết thúc (COMPLETED)</option>
+                  <option value="CANCELLED">Đã hủy (CANCELLED)</option>
+                </select>
+              </div>
+              <div style="margin-top: 24px;">
+                <button class="btn btn-secondary btn-sm" onclick="loadClasses()">🔄 Làm mới</button>
+              </div>
+            </div>
+
+            <!-- Bảng dữ liệu lớp học -->
             <div class="table-container">
               <table class="data-table">
                 <thead>
                   <tr>
                     <th>Mã lớp</th>
                     <th>Tên lớp học</th>
-                    <th>Lịch học</th>
+                    <th>Khóa học</th>
+                    <th>Lịch học & Khung giờ</th>
                     <th>Phòng học</th>
                     <th>Giáo viên</th>
-                    <th>Sĩ số</th>
+                    <th>Sĩ số (Đã duyệt / Trần)</th>
                     <th>Trạng thái</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="class-table-body">
                   <tr>
-                    <td><code>CLS-IELTS-01</code></td>
-                    <td><strong>IELTS Foundation K28</strong></td>
-                    <td>T2-T4-T6 (18:00 - 19:30)</td>
-                    <td>Phòng 201 - Cơ sở 1</td>
-                    <td>Mr. John Smith</td>
-                    <td>20 / 25</td>
-                    <td><span class="badge badge-success">Đang mở</span></td>
-                  </tr>
-                  <tr>
-                    <td><code>CLS-IELTS-02</code></td>
-                    <td><strong>IELTS Intensive K15</strong></td>
-                    <td>T3-T5-T7 (19:30 - 21:00)</td>
-                    <td>Phòng 302 - Cơ sở 1</td>
-                    <td>Ms. Sarah Connor</td>
-                    <td>18 / 20</td>
-                    <td><span class="badge badge-success">Đang mở</span></td>
-                  </tr>
-                  <tr>
-                    <td><code>CLS-TOEIC-01</code></td>
-                    <td><strong>TOEIC 600+ Tối</strong></td>
-                    <td>T2-T4-T6 (19:30 - 21:00)</td>
-                    <td>Phòng 102 - Cơ sở 2</td>
-                    <td>Thầy Lê Hoàng</td>
-                    <td>25 / 30</td>
-                    <td><span class="badge badge-success">Đang mở</span></td>
+                    <td colspan="9" style="text-align: center; color: var(--color-text-secondary); padding: 30px;">
+                      Đang tải danh sách lớp học...
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   </div>
+
+  <!-- Modal Mở Lớp Học Mới -->
+  <div class="modal-overlay" id="classModal">
+    <div class="modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 class="heading-3" id="classModalTitle">Mở Lớp Học Mới</h3>
+        <button class="modal-close" onclick="closeClassModal()">&times;</button>
+      </div>
+      <form id="classForm">
+        <div class="modal-body">
+          <div id="classModalAlert" style="display: none; padding: 12px; margin-bottom: 16px; border-radius: var(--radius-md); background-color: #fee2e2; color: #b91c1c; border: 1px solid #f87171;"></div>
+
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="classCode">Mã lớp học <span class="required">*</span></label>
+              <input type="text" id="classCode" class="form-input" placeholder="Ví dụ: CLS-2026-IEL01" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="className">Tên lớp học <span class="required">*</span></label>
+              <input type="text" id="className" class="form-input" placeholder="Ví dụ: IELTS Chuyên Sâu Tối 2-4-6" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="label" for="classCourseId">Khóa học đào tạo <span class="required">*</span></label>
+            <select id="classCourseId" class="form-select" required>
+              <option value="">-- Chọn khóa học --</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="classRoomId">Phòng học <span class="required">*</span></label>
+              <select id="classRoomId" class="form-select" required>
+                <option value="">-- Chọn phòng học --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label" for="classTeacherId">Giáo viên phụ trách <span class="required">*</span></label>
+              <select id="classTeacherId" class="form-select" required>
+                <option value="">-- Chọn giáo viên --</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="classDayPattern">Mẫu ngày học <span class="required">*</span></label>
+              <select id="classDayPattern" class="form-select" required>
+                <option value="MON_WED_FRI" selected>Thứ 2 - 4 - 6 (MON_WED_FRI)</option>
+                <option value="TUE_THU_SAT">Thứ 3 - 5 - 7 (TUE_THU_SAT)</option>
+                <option value="SAT_SUN">Thứ 7 - Chủ Nhật (SAT_SUN)</option>
+                <option value="DAILY">Hàng ngày (DAILY)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label" for="classShift">Ca học chuẩn <span class="required">*</span></label>
+              <select id="classShift" class="form-select" required onchange="handleShiftChange()">
+                <option value="08:00-09:30">Ca 1: 08:00 - 09:30</option>
+                <option value="09:45-11:15">Ca 2: 09:45 - 11:15</option>
+                <option value="14:00-15:30">Ca 3: 14:00 - 15:30</option>
+                <option value="15:45-17:15">Ca 4: 15:45 - 17:15</option>
+                <option value="18:00-19:30" selected>Ca 5: 18:00 - 19:30 (Ca tối 1)</option>
+                <option value="19:45-21:15">Ca 6: 19:45 - 21:15 (Ca tối 2)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="classStartDate">Ngày khai giảng <span class="required">*</span></label>
+              <input type="date" id="classStartDate" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="classEndDate">Ngày kết thúc dự kiến <span class="required">*</span></label>
+              <input type="date" id="classEndDate" class="form-input" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="classMinStudents">Sĩ số tối thiểu</label>
+              <input type="number" id="classMinStudents" class="form-input" value="10" min="1" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="classMaxStudents">Sĩ số tối đa (Trần) <span class="required">*</span></label>
+              <input type="number" id="classMaxStudents" class="form-input" value="25" min="1" required>
+              <small class="text-secondary" id="roomCapacityHint">Sức chứa phòng: Chưa chọn</small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeClassModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary" id="saveClassBtn">Mở lớp học</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
+  <script>
+    let roomsCache = [];
+    let coursesCache = [];
+    let teachersCache = [];
+
+    async function initSelects() {
+      if (!admissionCanManage()) return;
+      try {
+        // Tải danh sách khóa học
+        const courseRes = await apiGet('/api/admission/courses');
+        if (courseRes && courseRes.data) {
+          coursesCache = courseRes.data;
+          const filterSel = document.getElementById('filterCourse');
+          const modalSel = document.getElementById('classCourseId');
+          coursesCache.forEach(c => {
+            filterSel.innerHTML += `<option value="${c.id}">${escapeHtml(c.code)} - ${escapeHtml(c.name)}</option>`;
+            modalSel.innerHTML += `<option value="${c.id}">${escapeHtml(c.code)} - ${escapeHtml(c.name)}</option>`;
+          });
+        }
+
+        // Tải danh sách phòng học
+        const roomRes = await apiGet('/api/admission/rooms');
+        if (roomRes && roomRes.data) {
+          roomsCache = roomRes.data;
+          const roomSel = document.getElementById('classRoomId');
+          roomsCache.forEach(r => {
+            roomSel.innerHTML += `<option value="${r.id}" data-capacity="${r.capacity}">${escapeHtml(r.code)} - ${escapeHtml(r.name)} (Sức chứa: ${r.capacity})</option>`;
+          });
+        }
+
+        // Tải danh sách giáo viên
+        const teacherRes = await apiGet('/api/admission/users/teachers');
+        if (teacherRes && teacherRes.data && teacherRes.data) {
+          teachersCache = teacherRes.data;
+          const teacherSel = document.getElementById('classTeacherId');
+          teachersCache.forEach(t => {
+            teacherSel.innerHTML += `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`;
+          });
+        }
+      } catch (e) {
+        console.warn('Lỗi khi nạp danh mục hỗ trợ mở lớp:', e);
+      }
+    }
+
+    document.getElementById('classRoomId').addEventListener('change', function() {
+      const selectedOpt = this.options[this.selectedIndex];
+      const cap = selectedOpt.getAttribute('data-capacity');
+      const hint = document.getElementById('roomCapacityHint');
+      if (cap) {
+        hint.textContent = `Sức chứa phòng tối đa: ${cap} chỗ`;
+        document.getElementById('classMaxStudents').max = cap;
+      } else {
+        hint.textContent = 'Sức chứa phòng: Chưa chọn';
+      }
+    });
+
+    async function loadClasses() {
+      const tbody = document.getElementById('class-table-body');
+      const courseId = document.getElementById('filterCourse').value;
+      const status = document.getElementById('filterStatus').value;
+
+      let url = '/api/admission/classes?';
+      if (courseId) url += `course_id=${courseId}&`;
+      if (status) url += `status=${status}&`;
+
+      try {
+        const res = await apiGet(url);
+        const classes = (res && res.data) ? res.data : [];
+
+        if (classes.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px;">Không tìm thấy lớp học nào khớp điều kiện lọc.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = classes.map(cls => {
+          let statusBadgeClass = 'badge-success';
+          let statusText = 'Đang mở';
+
+          if (cls.status === 'IN_PROGRESS') {
+            statusBadgeClass = 'badge-info';
+            statusText = 'Đang học';
+          } else if (cls.status === 'COMPLETED') {
+            statusBadgeClass = 'badge-secondary';
+            statusText = 'Đã kết thúc';
+          } else if (cls.status === 'CANCELLED') {
+            statusBadgeClass = 'badge-danger';
+            statusText = 'Đã hủy';
+          }
+
+          const approved = cls.enrolled_students || 0;
+          const maxStu = cls.max_students || 20;
+          const avail = cls.available_slots !== undefined ? cls.available_slots : (maxStu - approved);
+
+          const availColor = avail <= 0 ? 'var(--color-danger)' : (avail <= 3 ? 'var(--color-warning)' : 'var(--color-success)');
+
+          return `
+            <tr>
+              <td><code>${escapeHtml(cls.code)}</code></td>
+              <td><strong>${escapeHtml(cls.name)}</strong></td>
+              <td><span class="text-sm">${escapeHtml(cls.course_name || 'Khóa học')}</span></td>
+              <td>
+                <div style="font-weight: 500;">${escapeHtml(cls.schedule || (cls.day_pattern + ' ' + cls.start_time))}</div>
+                <div class="text-secondary text-sm">${escapeHtml(cls.start_date)} ➔ ${escapeHtml(cls.end_date)}</div>
+              </td>
+              <td>${escapeHtml(cls.room_name || cls.room_code || 'Chưa xếp')}</td>
+              <td>${escapeHtml(cls.teacher_name || 'Chưa phân công')}</td>
+              <td>
+                <strong>${approved} / ${maxStu}</strong>
+                <span class="badge" style="background-color: ${availColor}; color: white; margin-left: 6px;">
+                  ${avail <= 0 ? 'Hết chỗ' : 'Còn ' + avail + ' slot'}
+                </span>
+              </td>
+              <td>
+                <span class="badge ${statusBadgeClass}">${statusText}</span>
+              </td>
+              <td>
+                <button class="btn btn-ghost btn-sm" onclick="exportRoster(${cls.id})" title="Xuất danh sách học viên">
+                  📥 Xuất DS
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr><td colspan="9" style="text-align: center; color: var(--color-danger); padding: 30px;">
+            Không thể tải dữ liệu lớp học từ API Admission (:8081).
+          </td></tr>
+        `;
+      }
+    }
+
+    function openCreateClassModal() {
+      document.getElementById('classForm').reset();
+      document.getElementById('classModalAlert').style.display = 'none';
+
+      // Thiết lập ngày mặc định (Khai giảng sau 7 ngày, kết thúc sau 3 tháng)
+      const now = new Date();
+      now.setDate(now.getDate() + 7);
+      document.getElementById('classStartDate').value = now.toISOString().split('T')[0];
+
+      const end = new Date(now);
+      end.setMonth(end.getMonth() + 3);
+      document.getElementById('classEndDate').value = end.toISOString().split('T')[0];
+
+      document.getElementById('classModal').classList.add('active');
+    }
+
+    function closeClassModal() {
+      document.getElementById('classModal').classList.remove('active');
+    }
+
+    document.getElementById('classForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById('saveClassBtn');
+      const alertBox = document.getElementById('classModalAlert');
+      alertBox.style.display = 'none';
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Đang kiểm tra lịch & lưu...';
+
+      const shiftVal = document.getElementById('classShift').value.split('-');
+      const payload = {
+        code: document.getElementById('classCode').value.trim(),
+        name: document.getElementById('className').value.trim(),
+        course_id: parseInt(document.getElementById('classCourseId').value, 10),
+        room_id: parseInt(document.getElementById('classRoomId').value, 10),
+        teacher_id: parseInt(document.getElementById('classTeacherId').value, 10),
+        day_pattern: document.getElementById('classDayPattern').value,
+        start_time: shiftVal[0] + ':00',
+        end_time: shiftVal[1] + ':00',
+        start_date: document.getElementById('classStartDate').value,
+        end_date: document.getElementById('classEndDate').value,
+        min_students: parseInt(document.getElementById('classMinStudents').value, 10),
+        max_students: parseInt(document.getElementById('classMaxStudents').value, 10),
+        status: 'OPEN'
+      };
+
+      try {
+        await apiPost('/api/admission/classes', payload);
+        showToast('success', 'Mở lớp học mới thành công!');
+        closeClassModal();
+        loadClasses();
+      } catch (err) {
+        alertBox.textContent = err.message || 'Không thể tạo lớp học do xung đột lịch hoặc quá sức chứa!';
+        alertBox.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Mở lớp học';
+      }
+    });
+
+    async function exportRoster(classId) {
+      try {
+        const token = getToken();
+        await admissionDownload(`/api/admission/exports/classes/${classId}/roster?format=csv`, `class-${classId}.csv`);
+        showToast('info', 'Đang tải xuống danh sách học viên...');
+      } catch (err) {
+        showToast('error', 'Lỗi khi xuất danh sách lớp.');
+      }
+    }
+
+    initSelects();
+    loadClasses();
+  </script>
 </body>
 </html>

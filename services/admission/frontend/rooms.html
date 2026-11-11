@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Phòng Học & Lịch Phân Ca - Admission Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+  <style>
+    .schedule-grid {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    .schedule-grid th, .schedule-grid td {
+      border: 1px solid var(--color-border);
+      padding: 10px;
+      text-align: center;
+      font-size: var(--font-xs);
+    }
+    .schedule-grid th {
+      background-color: var(--color-bg);
+      font-weight: 600;
+    }
+    .slot-cell {
+      min-height: 60px;
+      vertical-align: top;
+      background: #fafafa;
+    }
+    .slot-busy {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius-sm);
+      padding: 6px;
+      color: #1e40af;
+      text-align: left;
+    }
+    .slot-free {
+      color: #16a34a;
+      font-weight: 500;
+      padding: 12px 0;
+    }
+  </style>
+  <link rel="stylesheet" href="/admission/css/access.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Cơ sở vật chất</span> / <span>Quản lý phòng học</span>
+        </nav>
+
+        <!-- Phần 1: Danh sách phòng học -->
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Danh Mục Phòng Học & Sức Chứa</h1>
+              <p class="text-secondary text-sm">Quản lý cơ sở vật chất, phòng chức năng và trần sức chứa phòng (FR-FAC-01, FR-FAC-02)</p>
+            </div>
+            <button class="btn btn-primary admission-write" onclick="openCreateRoomModal()">
+              + Thêm phòng học mới
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã phòng</th>
+                    <th>Tên phòng</th>
+                    <th>Cơ sở / Chi nhánh</th>
+                    <th>Sức chứa tối đa (Trần)</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="room-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 30px; color: var(--color-text-secondary);">
+                      Đang tải danh sách phòng học...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phần 2: Ma trận thời khóa biểu phòng học -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="heading-2">Ma Trận Thời Khóa Biểu Phòng Học (Weekly Shift Matrix)</h2>
+              <p class="text-secondary text-sm">Phân ca từ Ca 1 đến Ca 6, kiểm tra phòng trống để xếp lịch tránh xung đột (FR-FAC-03)</p>
+            </div>
+            <div style="display: flex; gap: var(--space-md); align-items: center;">
+              <label class="label" for="selectScheduleRoom" style="margin: 0; white-space: nowrap;">Chọn phòng:</label>
+              <select id="selectScheduleRoom" class="form-select" style="width: 220px;" onchange="loadRoomSchedule()">
+                <option value="">-- Đang nạp phòng... --</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="schedule-grid">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">Khung giờ / Ca</th>
+                    <th>Thứ 2 (MON)</th>
+                    <th>Thứ 3 (TUE)</th>
+                    <th>Thứ 4 (WED)</th>
+                    <th>Thứ 5 (THU)</th>
+                    <th>Thứ 6 (FRI)</th>
+                    <th>Thứ 7 (SAT)</th>
+                    <th>Chủ Nhật (SUN)</th>
+                  </tr>
+                </thead>
+                <tbody id="schedule-grid-body">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Phòng Học Mới -->
+  <div class="modal-overlay" id="roomModal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 class="heading-3">Thêm Phòng Học Mới</h3>
+        <button class="modal-close" onclick="closeRoomModal()">&times;</button>
+      </div>
+      <form id="roomForm">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="roomCode">Mã phòng <span class="required">*</span></label>
+              <input type="text" id="roomCode" class="form-input" placeholder="ROOM-P201" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="roomName">Tên phòng học <span class="required">*</span></label>
+              <input type="text" id="roomName" class="form-input" placeholder="Phòng 201 - Lab Listening" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label" for="roomBranch">Cơ sở chi nhánh <span class="required">*</span></label>
+              <input type="text" id="roomBranch" class="form-input" value="Cơ sở Cầu Giấy" required>
+            </div>
+            <div class="form-group">
+              <label class="label" for="roomCapacity">Sức chứa tối đa <span class="required">*</span></label>
+              <input type="number" id="roomCapacity" class="form-input" value="30" min="5" max="100" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeRoomModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary" id="saveRoomBtn">Lưu phòng học</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-ui.js"></script>
+  <script>
+    admissionRequireStaff();
+    let roomsCache = [];
+    let classesCache = [];
+
+    const SHIFTS = [
+      { name: 'Ca 1', time: '08:00 - 09:30', start: '08:00', end: '09:30' },
+      { name: 'Ca 2', time: '09:45 - 11:15', start: '09:45', end: '11:15' },
+      { name: 'Ca 3', time: '14:00 - 15:30', start: '14:00', end: '15:30' },
+      { name: 'Ca 4', time: '15:45 - 17:15', start: '15:45', end: '17:15' },
+      { name: 'Ca 5', time: '18:00 - 19:30', start: '18:00', end: '19:30' },
+      { name: 'Ca 6', time: '19:45 - 21:15', start: '19:45', end: '21:15' }
+    ];
+
+    const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+    async function loadRooms() {
+      const tbody = document.getElementById('room-table-body');
+      const select = document.getElementById('selectScheduleRoom');
+
+      try {
+        const res = await apiGet('/api/admission/rooms');
+        roomsCache = (res && res.data) ? res.data : [];
+
+        if (roomsCache.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px;">Chưa có phòng học nào.</td></tr>`;
+          select.innerHTML = '<option value="">-- Chưa có phòng --</option>';
+          return;
+        }
+
+        select.innerHTML = roomsCache.map(r => `<option value="${r.id}">${escapeHtml(r.code)} - ${escapeHtml(r.name)}</option>`).join('');
+
+        tbody.innerHTML = roomsCache.map(r => `
+          <tr>
+            <td><code>${escapeHtml(r.code)}</code></td>
+            <td><strong>${escapeHtml(r.name)}</strong></td>
+            <td>${escapeHtml(r.branch_name || 'Cơ sở chính')}</td>
+            <td>
+              <span class="badge badge-info" style="font-size: var(--font-sm);">
+                🪑 ${r.capacity} học viên
+              </span>
+            </td>
+            <td>
+              <span class="badge ${r.is_active ? 'badge-success' : 'badge-danger'}">
+                ${r.is_active ? 'Sẵn sàng' : 'Bảo trì / Ngưng'}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="toggleRoomActive(${r.id}, ${!r.is_active})">
+                ${r.is_active ? '⏸️ Tạm ngưng' : '▶️ Mở lại'}
+              </button>
+            </td>
+          </tr>
+        `).join('');
+
+        loadRoomSchedule();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger); padding: 30px;">Lỗi tải dữ liệu phòng học.</td></tr>`;
+      }
+    }
+
+    async function loadRoomSchedule() {
+      const roomId = document.getElementById('selectScheduleRoom').value;
+      const tbody = document.getElementById('schedule-grid-body');
+
+      if (!roomId) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px;">Vui lòng chọn phòng học để xem ma trận lịch.</td></tr>`;
+        return;
+      }
+
+      try {
+        // Lấy tất cả lớp đang OPEN hoặc IN_PROGRESS
+        const res = await apiGet('/api/admission/classes');
+        const allClasses = (res && res.data) ? res.data : [];
+        const roomClasses = allClasses.filter(c => c.room_id == roomId && (c.status === 'OPEN' || c.status === 'IN_PROGRESS'));
+
+        tbody.innerHTML = SHIFTS.map(shift => {
+          let rowHtml = `
+            <tr>
+              <td style="font-weight: 600; background: #f8fafc;">
+                <div>${shift.name}</div>
+                <div class="text-secondary text-xs">${shift.time}</div>
+              </td>
+          `;
+
+          DAYS.forEach(day => {
+            // Kiểm tra xem có lớp nào chiếm khung giờ này trong ngày này không
+            const matchClass = roomClasses.find(c => {
+              const dayMatches = isDayInPattern(day, c.day_pattern);
+              const timeMatches = isTimeOverlap(shift.start, shift.end, c.start_time, c.end_time);
+              return dayMatches && timeMatches;
+            });
+
+            if (matchClass) {
+              rowHtml += `
+                <td class="slot-cell">
+                  <div class="slot-busy">
+                    <div style="font-weight: 700;">${escapeHtml(matchClass.code)}</div>
+                    <div style="font-size: 11px;">${escapeHtml(matchClass.name)}</div>
+                    <div style="font-size: 11px; color: #475569; margin-top: 2px;">GV: ${escapeHtml(matchClass.teacher_name || 'N/A')}</div>
+                    <div style="font-size: 10px; font-weight: 600; margin-top: 2px;">SL: ${matchClass.enrolled_students || 0}/${matchClass.max_students}</div>
+                  </div>
+                </td>
+              `;
+            } else {
+              rowHtml += `
+                <td class="slot-cell">
+                  <div class="slot-free">✓ Trống</div>
+                </td>
+              `;
+            }
+          });
+
+          rowHtml += `</tr>`;
+          return rowHtml;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--color-danger);">Lỗi tải lịch phân ca của phòng học.</td></tr>`;
+      }
+    }
+
+    function isDayInPattern(day, pattern) {
+      if (!pattern) return false;
+      if (pattern === 'DAILY') return true;
+      if (pattern === 'MON_WED_FRI') return day === 'MON' || day === 'WED' || day === 'FRI';
+      if (pattern === 'TUE_THU_SAT') return day === 'TUE' || day === 'THU' || day === 'SAT';
+      if (pattern === 'SAT_SUN') return day === 'SAT' || day === 'SUN';
+      return false;
+    }
+
+    function isTimeOverlap(s1, e1, s2, e2) {
+      if (!s2 || !e2) return false;
+      const start1 = s1.substring(0, 5);
+      const end1 = e1.substring(0, 5);
+      const start2 = s2.substring(0, 5);
+      const end2 = e2.substring(0, 5);
+      return start1 < end2 && end1 > start2;
+    }
+
+    function openCreateRoomModal() {
+      document.getElementById('roomForm').reset();
+      document.getElementById('roomModal').classList.add('active');
+    }
+
+    function closeRoomModal() {
+      document.getElementById('roomModal').classList.remove('active');
+    }
+
+    document.getElementById('roomForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('saveRoomBtn');
+      btn.disabled = true;
+      btn.textContent = 'Đang lưu...';
+
+      const payload = {
+        code: document.getElementById('roomCode').value.trim(),
+        name: document.getElementById('roomName').value.trim(),
+        branch_name: document.getElementById('roomBranch').value.trim(),
+        capacity: parseInt(document.getElementById('roomCapacity').value, 10),
+        is_active: true
+      };
+
+      try {
+        await apiPost('/api/admission/rooms', payload);
+        showToast('success', 'Thêm phòng học mới thành công!');
+        closeRoomModal();
+        loadRooms();
+      } catch (err) {
+        // Handled
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu phòng học';
+      }
+    });
+
+    async function toggleRoomActive(id, newStatus) {
+      const actionText = newStatus ? 'mở lại' : 'tạm ngưng';
+      if (!confirm(`Bạn có chắc muốn ${actionText} phòng này?`)) return;
+
+      try {
+        await apiRequest(`/api/admission/rooms/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ is_active: newStatus })
+        });
+        showToast('success', 'Đã cập nhật trạng thái phòng.');
+        loadRooms();
+      } catch (err) {
+        // Handled
+      }
+    }
+
+    loadRooms();
+  </script>
+</body>
+</html>

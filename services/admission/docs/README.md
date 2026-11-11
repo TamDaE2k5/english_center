@@ -10,3 +10,12 @@
 4. [**`admission-uml-spec.md`**](admission-uml-spec.md) — Đặc tả Sơ đồ UML (Use Case, Activity, Sequence, State, Class, ERD).
 5. [**`tong_hop_admission_tinh_nang_va_schema.md`**](tong_hop_admission_tinh_nang_va_schema.md) — Bản tổng hợp tính năng và thiết kế schema.
 6. [**`../tasks/README.md`**](../tasks/README.md) — Kế hoạch phân kỳ, Checklist và Danh mục 55 API Endpoints (`API_CATALOG.md`).
+7. [**`admission-quality-progress.md`**](admission-quality-progress.md) — Kết quả QA mới nhất và đối chiếu 30 FR của riêng Admission.
+8. [**`account-email-setup.md`**](account-email-setup.md) — Luồng tài khoản khách, SMTP và migration audit bắt buộc.
+9. [**`cash-confirmation.md`**](cash-confirmation.md) — Yêu cầu xác nhận tiền mặt, audit, migration và phụ thuộc Finance (PARTIAL).
+
+10. [**`student-sync-retry.md`**](student-sync-retry.md) — Outbox/retry Student, migration và giới hạn tích hợp thật (PARTIAL).
+
+11. [**`bi-kpi-qa.md`**](bi-kpi-qa.md) — Matrix KPI BA/BI, công thức/nguồn, API/dashboard, QA và phụ thuộc Finance.
+
+12. [**`room-booking-qa.md`**](room-booking-qa.md) — H02/H03 capacity/concurrent booking, khóa transaction và bằng chứng PostgreSQL.

@@ -13,14 +13,20 @@ Xây dựng cơ chế tiếp nhận sự kiện thanh toán bất đồng bộ (
 1. **Tiếp nhận Webhook**:
    - Endpoint: `POST /api/admission/webhooks/payment-success`
    - Nhận thông báo khi hóa đơn học phí tương ứng của đơn đăng ký đã được thanh toán đầy đủ (`invoice_status = 'PAID'`).
-2. **Xử lý Tự động Duyệt Đơn (Auto-Approve)**:
+2. **Xử lý Tự động Duyệt Đơn (Auto-Approve) & Đối Soát Idempotency (INV-ENR-02, INV-ENR-03)**:
+   - Tra cứu bảng `admission.processed_finance_events` theo `finance_event_id`:
+     - Nếu `finance_event_id` đã tồn tại $\rightarrow$ Đã xử lý trước đó, trả về HTTP 200 OK ngay lập tức (Idempotent - INV-ENR-02).
    - Tra cứu đơn đăng ký theo `enrollment_id`.
-   - **Bảo vệ Tính Bất Biến (INV-ADM-01)**: Trước khi chuyển `APPROVED`, bắt buộc đếm sĩ số lớp hiện tại. Nếu lớp đã đủ `max_students` (do có đơn khác chen chân trước đó) $\rightarrow$ Ghi log báo động đỏ và không thể duyệt tự động, gửi cảnh báo hoàn tiền cho Finance Service.
-   - Nếu slot hợp lệ: Chuyển trạng thái đơn sang `APPROVED`.
-   - Ghi nhận `approved_at = NOW()`.
-   - Kích hoạt quy trình đồng bộ hồ sơ sang Student Service (TASK-ADM-47).
-3. **Tính Độc Đẳng (Idempotency)**:
-   - Nếu nhận lại cùng một webhook thanh toán cho một đơn đã `APPROVED` trước đó $\rightarrow$ Trả về HTTP 200 OK ngay lập tức mà không xử lý lặp lại.
+   - **Xử lý Thanh toán Đến Muộn (INV-ENR-03)**:
+     - Nếu đơn đã ở trạng thái `EXPIRED` hoặc `CANCELLED`: **KHÔNG ĐƯỢC TỰ ĐỘNG CHUYỂN SANG APPROVED**.
+     - Lưu sự kiện vào `admission.processed_finance_events` với ghi chú đối soát để nhân viên kế toán chuyển sang ví bảo lưu hoặc hoàn tiền.
+   - **Bảo vệ Tính Bất Biến Sĩ Số (INV-ADM-01)**:
+     - Trước khi chuyển `APPROVED`, bắt buộc khóa dòng lớp học (`SELECT FOR UPDATE`) và kiểm tra sĩ số `approvedCount < maxStudents`.
+     - Nếu lớp đã đủ sĩ số trần: Trả về HTTP 422 Unprocessable Entity kèm mã `ADM_CLASS_FULL`.
+   - Nếu đủ điều kiện duyệt:
+     - Chuyển `enrollments.status = 'APPROVED'`, `approved_at = NOW()`, `approval_method = 'ONLINE_PAYMENT'`.
+     - Chèn bản ghi vào `admission.processed_finance_events` (`enrollment_id`, `finance_event_id`, `paid_at`).
+     - Kích hoạt quy trình đồng bộ hồ sơ sang Student Service (TASK-ADM-47).
 
 ---
 

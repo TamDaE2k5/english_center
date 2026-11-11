@@ -60,23 +60,36 @@ Thiết lập chuẩn kiến trúc 3 tầng (Controller - Service - Repository) 
 ```
 
 ### 3.3. Danh mục Mã lỗi Chuẩn (`ErrorCode`)
-- `ADM_INVALID_CREDENTIALS` (401): Thông tin đăng nhập không chính xác
-- `ADM_TOKEN_EXPIRED` (401): Phiên làm việc đã hết hạn
-- `ADM_TOKEN_INVALID` (401): Token không hợp lệ hoặc đã bị thu hồi
-- `ADM_FORBIDDEN` (403): Không có quyền truy cập chức năng này
-- `ADM_USER_NOT_FOUND` (404): Người dùng không tồn tại
-- `ADM_COURSE_NOT_FOUND` (404): Khóa học không tồn tại
-- `ADM_CLASS_NOT_FOUND` (404): Lớp học không tồn tại
-- `ADM_ENROLLMENT_NOT_FOUND` (404): Đơn đăng ký không tồn tại
-- `ADM_ROOM_NOT_FOUND` (404): Phòng học không tồn tại
-- `ADM_COURSE_CODE_EXISTS` (409): Mã khóa học đã tồn tại
-- `ADM_CLASS_FULL` (400): Lớp học đã đạt sĩ số tối đa
-- `ADM_ROOM_CAPACITY_EXCEEDED` (400): Sĩ số tối đa vượt quá sức chứa của phòng
-- `ADM_ROOM_CONFLICT` (409): Phòng học bị trùng lịch với lớp khác
-- `ADM_TEACHER_CONFLICT` (409): Giảng viên bị trùng lịch dạy với lớp khác
-- `ADM_HOLD_EXPIRED` (400): Đơn đăng ký đã hết thời hạn giữ chỗ 48h
-- `ADM_INVALID_STATE_TRANSITION` (400): Chuyển trạng thái đơn không hợp lệ
-- `ADM_VALIDATION_ERROR` (400): Dữ liệu gửi lên không đúng định dạng
+Theo quy định tại mục 8.4 của `docs/MASTER_DB_AND_API_RULES.md`:
+- **Nhóm Auth (`AUTH_`)**:
+  - `AUTH_INVALID_CREDENTIALS` (401): Thông tin đăng nhập không chính xác
+  - `AUTH_TOKEN_EXPIRED` (401): Phiên làm việc đã hết hạn
+  - `AUTH_TOKEN_INVALID` (401): Token không hợp lệ hoặc đã bị thu hồi
+  - `AUTH_UNAUTHORIZED` (401): Chưa đăng nhập hoặc thiếu token
+  - `AUTH_ACCOUNT_LOCKED` (403): Tài khoản đã bị khóa bởi quản trị viên
+  - `AUTH_FORBIDDEN` (403): Không có quyền truy cập chức năng này
+
+- **Nhóm Admission (`ADM_`)**:
+  - `ADM_USER_NOT_FOUND` (404): Người dùng không tồn tại
+  - `ADM_USER_EMAIL_EXISTS` (409): Email người dùng đã tồn tại trong hệ thống
+  - `ADM_COURSE_NOT_FOUND` (404): Khóa học không tồn tại
+  - `ADM_COURSE_CODE_EXISTS` (409): Mã khóa học đã tồn tại (INV-ADM-02)
+  - `ADM_COURSE_HAS_CLASSES` (409): Không thể xóa khóa học đang có lớp mở
+  - `ADM_CLASS_NOT_FOUND` (404): Lớp học không tồn tại
+  - `ADM_CLASS_FULL` (400 hoặc 422): Lớp học đã đạt sĩ số tối đa (INV-ADM-01)
+  - `ADM_ROOM_NOT_FOUND` (404): Phòng học không tồn tại
+  - `ADM_ROOM_CODE_EXISTS` (409): Mã phòng học đã tồn tại
+  - `ADM_ROOM_CAPACITY_EXCEEDED` (400): Sĩ số tối đa vượt quá sức chứa của phòng
+  - `ADM_ROOM_CONFLICT` (409): Phòng học bị trùng lịch với lớp khác (INV-CON-01)
+  - `ADM_TEACHER_CONFLICT` (409): Giảng viên bị trùng lịch dạy với lớp khác (INV-CON-02)
+  - `ADM_ENROLLMENT_NOT_FOUND` (404): Đơn đăng ký không tồn tại
+  - `ADM_HOLD_EXPIRED` (400): Đơn đăng ký đã hết thời hạn giữ chỗ 48h
+  - `ADM_INVALID_STATE_TRANSITION` (400): Chuyển trạng thái đơn không hợp lệ (INV-ADM-03)
+  - `ADM_TEST_NOT_FOUND` (404): Bộ đề khảo thí không tồn tại
+  - `ADM_TEST_ALREADY_SUBMITTED` (400): Lượt thi đã được nộp bài trước đó (INV-TST-02)
+  - `ADM_ATTEMPT_EXPIRED` (400): Lượt thi đã hết thời gian làm bài server-side
+  - `ADM_VALIDATION_ERROR` (400): Dữ liệu gửi lên không đúng định dạng
+  - `INTERNAL_SERVER_ERROR` (500): Lỗi hệ thống nội bộ
 
 ---
 

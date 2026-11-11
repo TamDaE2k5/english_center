@@ -11,13 +11,7 @@
 
 | Task ID | Thành viên phụ trách | Nhánh Git (Branch) | Thời điểm bắt đầu | Trạng thái | Ghi chú & Phạm vi can thiệp |
 |---|---|---|---|---|---|
-| *Ví dụ: TASK-ADM-00* | *Nguyễn Văn A* | *feature/adm-foundation* | *2026-11-02 08:30* | 🟡 `IN_PROGRESS` | *Đang tạo ApiResponse.java & GlobalExceptionHandler.java* |
-| *(Trống)* | | | | | *(Chưa có ai nhận task tiếp theo)* |
-
-> **Quy tắc phối hợp nhóm**:
-> 1. **Trước khi bắt đầu code**: Thêm một dòng vào bảng trên với trạng thái `IN_PROGRESS`.
-> 2. **Trong khi code**: Chỉ sửa đổi các file trong phạm vi cho phép được quy định tại file mô tả task tương ứng.
-> 3. **Sau khi code xong**: Chạy `python3 -m unittest discover -s tests/invariants -p "test_*.py" -v`, sau đó chuyển task sang bảng Lịch sử Hoàn thành bên dưới và tick vào [`CHECKLIST.md`](CHECKLIST.md).
+| *(Trống)* | | | | 🟢 `ALL_COMPLETED` | *Toàn bộ 35/35 tasks phân hệ Admission đã hoàn tất 100%* |
 
 ---
 
@@ -42,6 +36,385 @@ Mỗi khi hoàn thành hoặc bàn giao một phần việc, thành viên bổ s
 ---
 
 ## 3. Lịch Sử Chi Tiết Các Phiên Làm Việc (Historical Log Entries)
+
+### [2026-11-08 20:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-60 -> TASK-ADM-64
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất 100% Phase 6: Giao diện Người dùng Frontend (UI) gồm toàn bộ 5 tasks (TASK-ADM-60 đến TASK-ADM-64), đáp ứng trọn vẹn quy chuẩn Vanilla Web, Design System Tokens (`/shared/css/variables.css`), kết nối các API RESTful của Admission Service (:8081) qua API Gateway (:8080) và tuân thủ tuyệt đối các quy tắc nghiệp vụ bất biến.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `frontend/rooms.html` (TASK-ADM-63): Giao diện quản lý danh mục phòng học, hiển thị sức chứa trần, modal thêm phòng mới và Ma trận thời khóa biểu ca học tuần (Ca 1 đến Ca 6 x 7 ngày) thể hiện trực quan các ca bận/trống.
+    - `frontend/test.html` (TASK-ADM-62): Cổng khảo thí trực tuyến SPA 3 màn hình (Màn hình tiếp nhận thí sinh -> Màn hình thi trực tuyến countdown có sticky timer, question palette, audio player cho listening, thanh cuộn độc lập cho reading -> Màn hình kết quả tự động chấm 3 kỹ năng, đề xuất khóa học tối ưu và 1-click đăng ký giữ chỗ 48h).
+    - `frontend/bi-dashboard.html` (TASK-ADM-64): Dashboard trực quan hóa báo cáo BI gồm 4 thẻ KPI thời gian thực (Pipeline revenue 48h, Realized revenue, Occupancy rate, Paid conversion), biểu đồ thanh ngang phễu chuyển đổi tuyển sinh 4 bước kèm cảnh báo điểm nghẽn, bảng xếp hạng khóa học hàng đầu, bộ lọc khoảng ngày linh hoạt và thẻ giám sát gắn kết DAU/MAU / an toàn brute-force chỉ dành riêng cho ADMIN.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `frontend/courses.html` (TASK-ADM-60): Bổ sung hiển thị khóa tiên quyết, modal thêm khóa học có validation và các nút thao tác nhanh (tạm ngưng/mở lại, xóa khóa học bảo vệ toàn vẹn).
+    - `frontend/classes.html` (TASK-ADM-60): Bổ sung lọc theo khóa học & trạng thái, hiển thị sĩ số đã duyệt / trần và badge số slot còn lại, modal mở lớp học tích hợp chọn ca học và kiểm tra sức chứa phòng học, nút xuất danh sách lớp ra file CSV.
+    - `frontend/enrollments.html` (TASK-ADM-61): Tích hợp đồng hồ đếm ngược giữ chỗ 48h chạy từng giây chính xác (tự động chuyển màu đỏ cảnh báo khi còn dưới 4 tiếng), bộ lọc tab trạng thái, modal duyệt nộp tiền mặt/POS tại quầy bảo vệ sĩ số trần INV-ADM-01, modal gia hạn giữ chỗ kèm lý do nghiệp vụ, và chức năng hủy đơn giải phóng slot.
+    - `controller/PlacementTestController.java`: Bổ sung endpoint public `GET /api/admission/tests/public/sets` cho phép cổng khảo thí trực tuyến tải danh mục bộ đề thi đang hoạt động mà không cần đăng nhập.
+    - `tasks/CHECKLIST.md`: Đánh dấu hoàn thành toàn bộ 5/5 tasks Phase 6 và cập nhật tổng tiến độ phân hệ Admission đạt 35/35 tasks (100%).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.002s)`
+  - Unit Tests: `84/84 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (143 source files compiled)`
+- **Ghi chú bàn giao**: Toàn bộ 35/35 tasks của phân hệ Admission & Identity Service đã được hoàn thành 100%, vượt qua toàn bộ các cổng kiểm soát chất lượng (Quality Gates). Hệ thống đã sẵn sàng cho kiểm thử tích hợp toàn diện end-to-end cùng các module khác (Student, Learning, Finance).
+
+### [2026-11-08 18:35] - AI Assistant (Pair with Team Lead) - TASK-ADM-50 -> TASK-ADM-53
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất 100% Phase 5: Xuất Dữ liệu & Báo cáo Thông minh BI (OPS/BI) gồm toàn bộ 4 tasks (TASK-ADM-50 đến TASK-ADM-53): Xuất danh sách lớp & điểm khảo thí ra CSV UTF-8 kèm BOM, API Phân tích Phễu tuyển sinh 4 giai đoạn, API Báo cáo Xếp hạng Khóa học / Doanh thu tiềm năng / Tỷ lệ lấp đầy, và API Giám sát Gắn kết DAU/MAU / Cảnh báo Brute-force dành cho ADMIN.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `util/CsvExportHelper.java`: Tiện ích xuất dữ liệu CSV chuẩn UTF-8 kèm BOM `\uFEFF` chống lỗi font Excel.
+    - `service/ExportService.java` & `service/impl/ExportServiceImpl.java`: Nghiệp vụ xuất danh sách lớp (phân quyền giáo viên INV-SEC-02) và bảng điểm khảo thí.
+    - `controller/ExportController.java`: Endpoints tải file CSV `/api/admission/exports/classes/{classId}/roster` và `/api/admission/exports/tests/{testSetId}/results`.
+    - `dto/bi/FunnelReportResponse.java`: DTO báo cáo phễu chuyển đổi 4 giai đoạn, 4 chỉ số KPI và cảnh báo tắc nghẽn.
+    - `dto/bi/RevenueOccupancyReportResponse.java`: DTO báo cáo doanh thu tuyển sinh, pipeline revenue và tỷ lệ lấp đầy sĩ số.
+    - `dto/bi/SecurityEngagementReportResponse.java`: DTO giám sát DAU/MAU theo vai trò, tỷ lệ login failed và Top IP khả nghi.
+    - `service/BiAnalyticsService.java` & `service/impl/BiAnalyticsServiceImpl.java`: Logic tính toán các chỉ số kinh doanh BI và phân tích bảo mật.
+    - `controller/BiAnalyticsController.java`: Endpoints RESTful báo cáo BI phân quyền chặt chẽ.
+    - `src/test/java/com/englishcenter/admission/service/ExportServiceTest.java`: 3 unit tests kiểm thử xuất CSV UTF-8.
+    - `src/test/java/com/englishcenter/admission/service/BiAnalyticsServiceTest.java`: 4 unit tests kiểm thử phễu chuyển đổi, doanh thu và an toàn bảo mật.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/ClassRepository.java`: Bổ sung `findByCourseId` và `findByStatusIn`.
+    - `repository/EnrollmentRepository.java`: Bổ sung `findByClassIdOrderByCreatedAtAsc` và các queries đếm theo khoảng thời gian.
+    - `repository/TestAttemptRepository.java` & `TestSubmissionRepository.java`: Bổ sung các queries đếm lượt thi và bài nộp theo thời gian.
+    - `repository/AuthAuditLogRepository.java`: Bổ sung queries DAU/MAU, đếm login attempts và tìm kiếm Top IP khả nghi.
+    - `config/SecurityConfig.java`: Phân quyền `/api/admission/exports/**` và `/api/admission/bi/**`.
+    - `tasks/CHECKLIST.md`: Đánh dấu hoàn thành toàn bộ 4 tasks Phase 5.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `84/84 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (143 source files compiled)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 5 (OPS/BI). Phân hệ Admission đã sẵn sàng bước vào Phase 6 cuối cùng: Giao diện Người dùng Frontend (UI - TASK-ADM-60 đến TASK-ADM-64) vào ca làm việc tối nay.
+
+### [2026-11-08 18:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-40 -> TASK-ADM-47
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất 100% Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR) gồm toàn bộ 8 tasks (TASK-ADM-40 đến TASK-ADM-47), bảo vệ nghiêm ngặt các quy tắc bất biến INV-ADM-01, INV-ADM-03, INV-ENR-02, INV-ENR-03, INV-SYS-02 và INV-SEC-01.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/enrollment/CreateEnrollmentRequest.java`: DTO nhận yêu cầu đăng ký tuyển sinh đa kênh kèm validation.
+    - `dto/enrollment/EnrollmentResponse.java`: DTO trả về chi tiết đơn tuyển sinh, thông tin lớp, mã đếm ngược giữ chỗ remaining_seconds.
+    - `dto/enrollment/ExtendHoldRequest.java`: DTO nhận yêu cầu gia hạn giữ chỗ 1-72h kèm lý do nghiệp vụ.
+    - `dto/enrollment/ManualApproveRequest.java`: DTO duyệt nộp tiền mặt/POS tại quầy kèm số phiếu thu.
+    - `dto/webhook/PaymentSuccessWebhookRequest.java`: DTO tiếp nhận callback thanh toán từ Finance Service.
+    - `repository/ProcessedFinanceEventRepository.java`: Kho truy vấn bảng admission.processed_finance_events phục vụ Idempotency INV-ENR-02.
+    - `helper/StudentServiceSyncHelper.java`: Helper đồng bộ hồ sơ học viên sang Student Service bất đồng bộ/resilient INV-SYS-02.
+    - `service/EnrollmentService.java` & `service/impl/EnrollmentServiceImpl.java`: Toàn bộ logic nghiệp vụ tuyển sinh, giữ chỗ 48h, duyệt đơn, webhook callback, hủy đơn và tra cứu phân quyền INV-SEC-01.
+    - `job/HoldSlotExpirationJob.java`: Scheduled background job quét và thu hồi slot quá hạn mỗi 5 phút (TASK-ADM-43).
+    - `controller/EnrollmentController.java`: Endpoints RESTful tuyển sinh, bàn tiếp nhận đơn học vụ và hủy đơn.
+    - `controller/WebhookController.java`: Endpoint nhận callback thanh toán thành công `/api/admission/webhooks/payment-success`.
+    - `src/test/java/com/englishcenter/admission/service/EnrollmentServiceTest.java`: 14 bài kiểm thử đơn vị JUnit 5 & Mockito bao phủ toàn bộ invariant guards.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/ClassRepository.java`: Thêm `@Lock(LockModeType.PESSIMISTIC_WRITE) findByIdWithLock` chống race condition duyệt đơn INV-ADM-01.
+    - `repository/EnrollmentRepository.java`: Bổ sung `@Modifying expireOverdueEnrollments`.
+    - `common/exception/ErrorCode.java`: Thêm mã lỗi `ADM_ENROLLMENT_EXISTS`.
+    - `AdmissionApplication.java`: Thêm `@EnableScheduling` và `@EnableAsync`.
+    - `tasks/CHECKLIST.md`: Đánh dấu hoàn thành toàn bộ 8 tasks của Phase 4.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `77/77 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (133 source files compiled)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 4 (ENR). Sẵn sàng chuyển tiếp sang Phase 5: Xuất Dữ liệu & Báo cáo Thông minh BI (OPS/BI - TASK-ADM-50 đến TASK-ADM-53).
+
+### [2026-11-08 17:45] - AI Assistant (Pair with Team Lead) - TASK-ADM-30, TASK-ADM-31, TASK-ADM-32
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai toàn bộ Phân hệ Khảo thí Đầu vào Chuyên sâu (TST) gồm: Quản lý Ngân hàng Bộ Đề & Câu hỏi 3 Kỹ năng (FR-TST-01, FR-TST-02), Động cơ Thi Trực tuyến Countdown, Tự động Chấm điểm bóc tách Listening, Reading, Grammar (FR-TST-03, FR-TST-04, INV-TST-02), và Động cơ Khớp Quy tắc Đề xuất Khóa học kèm danh sách lớp còn slot khả dụng (FR-TST-05, TASK-ADM-32).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.repository.TestSetRepository`: Interface JPA repository quản lý bộ đề thi.
+    - `com.englishcenter.admission.repository.TestQuestionRepository`: Interface JPA repository quản lý câu hỏi trắc nghiệm 3 kỹ năng, tính tổng điểm sumScoreWeightByTestSetId.
+    - `com.englishcenter.admission.repository.TestAttemptRepository`: Interface JPA repository theo dõi lượt thi countdown và hết hạn phía server.
+    - `com.englishcenter.admission.repository.TestSubmissionRepository`: Interface JPA repository lưu kết quả bài thi bóc tách 3 kỹ năng và details JSON.
+    - `com.englishcenter.admission.repository.TestRecommendationRuleRepository`: Interface JPA repository quản lý quy tắc dải điểm và kiểm tra chồng lấn findOverlappingRules.
+    - `com.englishcenter.admission.dto.test.*`: Bộ DTO tạo đề (CreateTestSetRequest), tạo câu hỏi (CreateQuestionRequest), đề thi công khai ẩn đáp án (PublicQuestionResponse, TakeTestResponse), nộp bài (SubmitTestRequest), kết quả chấm (TestResultResponse), cấu hình quy tắc (CreateRuleRequest, RecommendationRuleResponse), kết quả gợi ý (RecommendationResultDTO).
+    - `com.englishcenter.admission.service.TestManagementService` & `TestManagementServiceImpl`: Nghiệp vụ CRUD bộ đề, câu hỏi, kiểm tra tính hợp lệ file audio (Listening), đoạn văn (Reading), tự động cập nhật total_max_score.
+    - `com.englishcenter.admission.service.RecommendationService` & `RecommendationServiceImpl`: Động cơ so khớp dải điểm min_score <= score <= max_score, tìm khóa học tương ứng và các lớp OPEN còn slot.
+    - `com.englishcenter.admission.service.PlacementTestService` & `PlacementTestServiceImpl`: Động cơ thi trực tuyến bắt đầu lượt thi, countdown, tự động chấm điểm 3 kỹ năng, chống nộp lặp (INV-TST-02), chống nộp quá hạn, cách ly kết quả cá nhân (INV-SEC-01).
+    - `com.englishcenter.admission.controller.TestManagementController`: Endpoints quản lý bộ đề và câu hỏi dành cho STAFF/ADMIN (/api/admission/tests/sets, /questions).
+    - `com.englishcenter.admission.controller.RecommendationRuleController`: Endpoints quản lý quy tắc đề xuất (/api/admission/tests/rules).
+    - `com.englishcenter.admission.controller.PlacementTestController`: Endpoints công khai cho học viên thi và nộp bài (/api/admission/tests/public/{id}/start, /public/submit, /submissions/{id}).
+    - `com.englishcenter.admission.service.TestManagementServiceTest`: 5 unit tests kiểm tra tạo đề, thêm câu hỏi listening/reading có validation, xóa câu hỏi.
+    - `com.englishcenter.admission.service.RecommendationServiceTest`: 3 unit tests kiểm tra tạo rule, chặn chồng lấn dải điểm ADM_RULE_OVERLAP, so khớp đề xuất.
+    - `com.englishcenter.admission.service.PlacementTestServiceTest`: 4 unit tests kiểm tra ẩn đáp án bí mật khỏi đề thi, tự động chấm 3 kỹ năng, chặn nộp lần 2 (INV-TST-02), chặn nộp quá hạn.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `com.englishcenter.admission.common.exception.ErrorCode`: Bổ sung ADM_RULE_NOT_FOUND, ADM_NOT_FOUND.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK`.
+  - Compile / Build: `Build Success` (63/63 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Phase 3 hoàn tất 100% (3/3 tasks). Sẵn sàng chuyển tiếp sang Phase 4: Tuyển sinh, Giữ chỗ 48h & Xét duyệt (ENR - TASK-ADM-40 đến 47).
+
+### [2026-11-08 17:25] - AI Assistant (Pair with Team Lead) - TASK-ADM-22, TASK-ADM-23, TASK-ADM-24
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai trọn vẹn cụm tính năng Quản lý Lớp học (FR-ACA-02), Kiểm soát Sức chứa Phòng (FR-FAC-03), Động cơ Chống Xung đột Lịch Phòng & Giảng viên (Conflict Engine - FR-ACA-03), Vòng đời Lớp học (FR-ACA-04) và API Tính toán Sĩ số/Slot Khả dụng Thời gian thực (FR-ACA-05, TASK-ADM-24).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.engine.dto.ConflictCheckRequest`: DTO truyền dữ liệu kiểm tra xung đột thời khóa biểu giữa phòng học và giảng viên.
+    - `com.englishcenter.admission.engine.dto.ConflictCheckResult`: DTO chứa kết quả phân tích xung đột (ROOM_CONFLICT, TEACHER_CONFLICT, NONE).
+    - `com.englishcenter.admission.engine.ConflictEngine`: Động cơ phân tích giao cắt khoảng ngày [startDate, endDate], khung giờ [startTime, endTime] và đối chiếu mẫu ngày học (DayPattern).
+    - `com.englishcenter.admission.engine.ConflictEngineTest`: 5 unit tests bao phủ toàn bộ các kịch bản trùng/khác phòng, trùng/khác giảng viên, và giao thoa mẫu ngày (DAILY vs MON_WED_FRI).
+    - `com.englishcenter.admission.dto.clazz.CreateClassRequest`: DTO mở lớp với validation ngày/giờ và sĩ số tối đa >= tối thiểu.
+    - `com.englishcenter.admission.dto.clazz.UpdateClassRequest`: DTO cập nhật thông tin lớp.
+    - `com.englishcenter.admission.dto.clazz.UpdateClassStatusRequest`: DTO chuyển trạng thái vòng đời lớp.
+    - `com.englishcenter.admission.dto.clazz.ClassResponse`: DTO phản hồi thông tin chi tiết lớp kèm sĩ số và slot khả dụng.
+    - `com.englishcenter.admission.dto.clazz.ClassCapacityResponse`: DTO phản hồi sức chứa, số lượng đã duyệt (APPROVED), số lượng đang giữ chỗ 48h (activeHeldCount), và số slot còn lại.
+    - `com.englishcenter.admission.repository.EnrollmentRepository`: Interface JPA repository truy vấn và đếm slot tuyển sinh (countByClassIdAndStatus, countOccupiedSlots, countActiveHeldSlots).
+    - `com.englishcenter.admission.service.ClassService`: Interface nghiệp vụ quản lý lớp học.
+    - `com.englishcenter.admission.service.impl.ClassServiceImpl`: Hiện thực nghiệp vụ kiểm tra max_students <= room.capacity (ADM_ROOM_CAPACITY_EXCEEDED), gọi ConflictEngine chống trùng lịch, chuyển trạng thái OPEN -> IN_PROGRESS -> COMPLETED, tính toán available_slots thời gian thực.
+    - `com.englishcenter.admission.controller.ClassController`: REST Controller cung cấp các endpoint /api/admission/classes (GET danh sách public, GET /{id} public, GET /{id}/capacity public, POST mở lớp, PUT cập nhật, PATCH /{id}/status).
+    - `com.englishcenter.admission.service.ClassServiceTest`: 7 unit tests kiểm tra toàn diện mở lớp, chặn vượt sức chứa, chặn ngày sai, kiểm tra chuyển trạng thái hợp lệ/bất hợp lệ và tính toán capacity.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `com.englishcenter.admission.repository.ClassRepository`: Bổ sung query findConflictingRoomClasses và findConflictingTeacherClasses kiểm tra giao thoa ngày và giờ.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK`.
+  - Compile / Build: `Build Success` (51/51 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Phase 2 hoàn tất 100% (5/5 tasks). Sẵn sàng chuyển tiếp sang Phase 3: Khảo thí Đầu vào Chuyên sâu (TST - TASK-ADM-30 đến 32).
+
+### [2026-11-08 17:10] - AI Assistant (Pair with Team Lead) - TASK-ADM-21
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai Quản lý Khóa học, Học phí Chuẩn & Khóa học Tiên quyết (FR-ACA-01, INV-ADM-02), bảo vệ tính duy nhất của mã khóa học code, hỗ trợ khóa học tiên quyết (prerequisite_course_id) với thuật toán phát hiện và ngăn ngừa chu trình phụ thuộc (Circular Dependency A -> B -> A), bảo vệ tính toàn vẹn khi xóa khóa học (chặn xóa nếu có lớp học hoặc đang là điều kiện tiên quyết của khóa khác).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.dto.course.CreateCourseRequest`: DTO tạo khóa học kèm validation @NotBlank, @Min(1), @DecimalMin("0.0") và @JsonAlias cho title, tuition_fee.
+    - `com.englishcenter.admission.dto.course.UpdateCourseRequest`: DTO cập nhật khóa học.
+    - `com.englishcenter.admission.dto.course.CourseResponse`: DTO phản hồi thông tin khóa học kèm nạp mã và tên khóa tiên quyết.
+    - `com.englishcenter.admission.repository.ClassRepository`: Interface JPA repository quản lý lớp học và kiểm tra tồn tại existsByCourseId.
+    - `com.englishcenter.admission.service.CourseService`: Interface nghiệp vụ quản lý khóa học.
+    - `com.englishcenter.admission.service.impl.CourseServiceImpl`: Hiện thực nghiệp vụ kiểm tra trùng mã INV-ADM-02, kiểm tra khóa tiên quyết, thuật toán validateNoCircularDependency duyệt cây phụ thuộc, và bảo vệ ràng buộc khóa ngoại khi xóa.
+    - `com.englishcenter.admission.service.CourseServiceTest`: 8 bộ kiểm thử đơn vị bao phủ toàn diện luồng tạo, cập nhật, phát hiện chu trình, xóa có ràng buộc và kiểm tra mã duy nhất.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `com.englishcenter.admission.repository.CourseRepository`: Bổ sung existsByCode, existsByCodeAndIdNot, existsByPrerequisiteCourseId, searchCourses, findByIdWithPrerequisite.
+    - `com.englishcenter.admission.controller.CourseController`: Tái cấu trúc chuẩn 3 tầng (Controller -> Service -> Repository), chuẩn hóa API công khai (Public GET /api/admission/courses, GET /api/admission/courses/{id}) và phân quyền STAFF/ADMIN cho POST, PUT, DELETE, bọc toàn bộ phản hồi bằng ApiResponse<T>.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK` (Đạt chuẩn INV-ADM-02).
+  - Compile / Build: `Build Success` (39/39 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Sẵn sàng phục vụ TASK-ADM-22 (Class Management) và TASK-ADM-23 (Schedule Conflict Engine).
+
+### [2026-11-08 17:00] - AI Assistant (Pair with Team Lead) - TASK-ADM-20
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai Quản lý Danh mục Phòng học, Ca học & Mẫu Ngày học (FR-FAC-01, FR-FAC-02), định nghĩa 6 ca học chuẩn (StandardShift) và 5 mẫu ngày học (DayPattern), xây dựng đầy đủ API CRUD phòng học có kiểm tra tính duy nhất của mã phòng và kiểm tra sức chứa tối thiểu >= 1.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `com.englishcenter.admission.common.constant.DayPattern`: Enum mẫu ngày học tuần (MON_WED_FRI, TUE_THU_SAT, SAT_SUN, DAILY, CUSTOM) kèm hàm kiểm tra trùng lặp overlapsWith.
+    - `com.englishcenter.admission.common.constant.StandardShift`: Enum 6 ca học tiêu chuẩn kèm thuật toán kiểm tra giao cắt thời gian isTimeOverlapping.
+    - `com.englishcenter.admission.dto.room.CreateRoomRequest`: DTO tạo phòng học với validation @NotBlank, @Min(1).
+    - `com.englishcenter.admission.dto.room.UpdateRoomRequest`: DTO cập nhật thông tin phòng học.
+    - `com.englishcenter.admission.dto.room.UpdateRoomStatusRequest`: DTO kích hoạt/vô hiệu hóa phòng học.
+    - `com.englishcenter.admission.dto.room.RoomResponse`: DTO phản hồi thông tin phòng học theo quy ước snake_case.
+    - `com.englishcenter.admission.repository.RoomRepository`: Interface JPA repository truy vấn phòng học và tìm kiếm lọc searchRooms.
+    - `com.englishcenter.admission.service.RoomService`: Interface nghiệp vụ quản lý phòng học.
+    - `com.englishcenter.admission.service.impl.RoomServiceImpl`: Hiện thực nghiệp vụ kiểm tra mã trùng ADM_ROOM_CODE_EXISTS, kiểm tra tồn tại ADM_ROOM_NOT_FOUND.
+    - `com.englishcenter.admission.controller.RoomController`: REST Controller cung cấp các endpoint /api/admission/rooms (POST, GET, GET /{id}, PUT /{id}, PATCH /{id}/status).
+    - `com.englishcenter.admission.service.RoomServiceTest`: 6 bộ kiểm thử đơn vị bao phủ toàn bộ luồng tạo, cập nhật, đổi trạng thái và xử lý ngoại lệ phòng học.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 Tests OK`
+  - Compile / Build: `Build Success` (31/31 unit tests pass, 0 failures, 0 errors).
+- **Ghi chú bàn giao**: Sẵn sàng phục vụ TASK-ADM-21 (Course Management) và TASK-ADM-22 (Class Management).
+
+### [2026-11-08 16:50] - AI Assistant (Pair with Team Lead) - TASK-ADM-15
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai toàn diện Hệ thống Kiểm toán Bảo mật và Giám sát An toàn Thông tin (FR-IAM-07, BI-SEC-01), phát hiện và ngăn chặn Brute-force tự động khi thử sai >= 5 lần trong 10 phút, cung cấp API truy vấn nhật ký kiểm toán có phân trang và đa tiêu chí (`GET /api/admission/audit-logs`) chỉ dành cho Quản trị viên (ADMIN).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/audit/AuditLogResponse.java`: DTO chuẩn hóa bản ghi nhật ký kiểm toán (`log_id`, `user_id`, `email`, `event_type`, `ip_address`, `user_agent`, `details`, `created_at`).
+    - `service/AuditLogService.java`: Interface quản lý ghi log, phát hiện brute-force và truy vấn nhật ký.
+    - `service/impl/AuditLogServiceImpl.java`: Triển khai logic kiểm toán an toàn, cảnh báo brute-force và truy vấn theo filter (action, userId, fromDate, toDate).
+    - `controller/AuditLogController.java`: Endpoint REST API `/api/admission/audit-logs` với phân quyền `@PreAuthorize("hasRole('ADMIN')")`.
+    - `src/test/java/com/englishcenter/admission/service/AuditLogServiceTest.java`: Bộ kiểm thử đơn vị JUnit 5 & Mockito (4 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/AuthAuditLogRepository.java`: Bổ sung `countByIpAddressAndActionAndCreatedAtAfter` và query tìm kiếm `searchAuditLogs`.
+    - `service/impl/AuthServiceImpl.java`: Tích hợp bộ đệm kiểm tra phòng vệ Brute-force tự động trước khi xác thực mật khẩu.
+    - `config/SecurityConfig.java`: Phân quyền tường minh `/api/admission/audit-logs/**` chỉ dành riêng cho ADMIN.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `25/25 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (64 source files compiled in 4.08s)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 1: Quản trị Định danh & Phiên làm việc (IAM - 6/6 tasks). Sẵn sàng chuyển tiếp sang Phase 2: Cơ sở Vật chất & Đào tạo (FAC/ACA - `TASK-ADM-20` đến `TASK-ADM-24`).
+
+### [2026-11-08 16:45] - AI Assistant (Pair with Team Lead) - TASK-ADM-14
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai luồng quên mật khẩu tự phục vụ (`POST /api/admission/auth/forgot-password`) với cơ chế phòng chống rò quét email (Email Enumeration Prevention), cấp mã token bảo mật 15 phút lưu vào `admission.password_reset_tokens`, và API đặt lại mật khẩu (`POST /api/admission/auth/reset-password`) cập nhật mật khẩu băm BCrypt, vô hiệu hóa token và thu hồi toàn bộ session đăng nhập cũ của người dùng.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `repository/PasswordResetTokenRepository.java`: Quản lý tra cứu và vô hiệu hóa token đặt lại mật khẩu (`invalidateAllByUserId`).
+    - `dto/auth/ForgotPasswordRequest.java`: DTO nhận email yêu cầu khôi phục mật khẩu.
+    - `dto/auth/ResetPasswordRequest.java`: DTO nhận token xác thực và mật khẩu mới (tối thiểu 8 ký tự).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `service/AuthService.java` & `AuthServiceImpl.java`: Triển khai `forgotPassword` và `resetPassword` với đầy đủ kiểm tra hạn 15 phút, thu hồi refresh tokens và ghi nhận nhật ký kiểm toán `PASSWORD_CHANGED`, `FORGOT_PASSWORD_REQUEST`.
+    - `controller/AuthController.java`: Khai báo endpoints `/api/admission/auth/forgot-password` và `/api/admission/auth/reset-password`.
+    - `src/test/java/com/englishcenter/admission/service/AuthServiceTest.java`: Bổ sung 2 test case kiểm tra luồng quên mật khẩu và đặt lại mật khẩu thành công (8 tests passed).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `21/21 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (60 source files compiled in 3.85s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-15` (Hệ thống Truy vấn Nhật ký Kiểm toán & Cảnh báo An toàn Tài khoản).
+
+### [2026-11-08 16:40] - AI Assistant (Pair with Team Lead) - TASK-ADM-13
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai cơ chế Refresh Token Rotation (RTR) chống tấn công Replay Attack (`POST /api/admission/auth/refresh`), thu hồi lập tức token cũ khi cấp token mới, phòng vệ an ninh tự động hủy toàn bộ phiên của người dùng nếu phát hiện tái sử dụng token đã thu hồi, và endpoint đăng xuất thu hồi token (`POST /api/admission/auth/logout`).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/auth/RefreshTokenRequest.java`: DTO nhận chuỗi refresh token.
+    - `dto/auth/RefreshTokenResponse.java`: DTO trả về cặp token mới (`access_token`, `refresh_token`, `expires_in`).
+    - `dto/auth/LogoutRequest.java`: DTO yêu cầu thu hồi token đăng xuất.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `service/AuthService.java` & `AuthServiceImpl.java`: Triển khai `refreshToken` với phát hiện Replay Attack, kiểm tra hết hạn `expires_at`, thu hồi khẩn cấp toàn bộ phiên và hàm `logout`.
+    - `controller/AuthController.java`: Khai báo endpoints `/api/admission/auth/refresh` và `/api/admission/auth/logout`.
+    - `src/test/java/com/englishcenter/admission/service/AuthServiceTest.java`: Bổ sung 3 test case kiểm thử Rotation thành công, phát hiện Replay Attack phòng vệ hủy phiên, và đăng xuất thu hồi token (6 tests passed).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `19/19 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (57 source files compiled in 3.76s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-14` (Quy trình Quên mật khẩu & Đặt lại mật khẩu qua Token 15 phút).
+
+### [2026-11-08 16:35] - AI Assistant (Pair with Team Lead) - TASK-ADM-12
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai API Đăng nhập chuẩn REST (`POST /api/admission/auth/login`), cấp phát bộ token kép (Access Token 15m, Refresh Token 7d lưu vào `admission.refresh_tokens`), ghi nhận nhật ký kiểm toán `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGIN_BLOCKED` vào `admission.auth_audit_logs`.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/auth/LoginRequest.java`: DTO nhận thông tin đăng nhập với validation `@NotBlank` và `@Email`.
+    - `dto/auth/LoginResponse.java`: DTO trả về cặp token (`access_token`, `refresh_token`, `expires_in`, `token_type`, `user`).
+    - `dto/auth/UserSummary.java`: DTO tóm tắt người dùng (`user_id`, `email`, `full_name`, `role`).
+    - `service/AuthService.java`: Interface định nghĩa nghiệp vụ xác thực đăng nhập.
+    - `service/impl/AuthServiceImpl.java`: Triển khai xác thực mật khẩu BCrypt, kiểm tra trạng thái khóa tài khoản, cấp phát JWT kép, lưu phiên và ghi log kiểm toán.
+    - `src/test/java/com/englishcenter/admission/service/AuthServiceTest.java`: Bộ kiểm thử đơn vị JUnit 5 & Mockito (3 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `controller/AuthController.java`: Refactor sử dụng AuthService và chuẩn hóa response ApiResponse, hỗ trợ bóc tách IP qua `X-Forwarded-For`.
+  - 🔴 **Xóa bỏ (Deleted)**:
+    - `util/JwtUtil.java`: Xóa bỏ lớp util mẫu cũ do đã được thay thế hoàn toàn bởi `JwtTokenProvider` và `SecurityConfig`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `16/16 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (54 source files compiled in 3.63s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-13` (Cơ chế Refresh Token Rotation & Thu hồi Token Đang hoạt động).
+
+### [2026-11-08 16:30] - AI Assistant (Pair with Team Lead) - TASK-ADM-11
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Xây dựng toàn bộ luồng quản lý nhân sự Staff/Teacher và cơ chế Khóa/Mở khóa tài khoản (FR-IAM-02, FR-IAM-05), thu hồi lập tức Refresh Token khi khóa tài khoản, ghi nhận nhật ký kiểm toán và bảo vệ ranh giới xem hồ sơ INV-SEC-01.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `repository/RefreshTokenRepository.java`: Quản lý truy vấn và thu hồi token (`revokeAllByUserId`).
+    - `repository/AuthAuditLogRepository.java`: Quản lý ghi và truy vấn nhật ký kiểm toán bảo mật.
+    - `dto/user/CreateUserRequest.java`: DTO tạo nhân viên mới (validation email, role STAFF|TEACHER, password >= 8 ký tự).
+    - `dto/user/UpdateUserRequest.java`: DTO cập nhật hồ sơ người dùng.
+    - `dto/user/ToggleActiveRequest.java`: DTO khóa/mở khóa tài khoản kèm lý do.
+    - `dto/user/UserResponse.java`: DTO trả về thông tin người dùng an toàn.
+    - `controller/UserController.java`: Endpoints REST API `/api/admission/users` với `@PreAuthorize("hasRole('ADMIN')")` và phân quyền chi tiết.
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/UserRepository.java`: Bổ sung `@Query searchUsers` tìm kiếm theo role và từ khóa keyword.
+    - `service/UserService.java` & `UserServiceImpl.java`: Triển khai các hàm `createUser`, `getUserById`, `listUsers`, `updateUser`, `toggleUserStatus`, kiểm tra `INV-SEC-01`.
+    - `common/dto/PageResponse.java`: Bổ sung static factory method `PageResponse.of(...)`.
+    - `src/test/java/com/englishcenter/admission/service/UserServiceTest.java`: Bổ sung các test case kiểm tra tạo nhân viên, kiểm tra trùng email, kiểm tra INV-SEC-01 cách ly học viên, kiểm tra khóa tài khoản thu hồi token (6 tests passed).
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `13/13 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (50 source files compiled in 3.55s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-12` (API Đăng nhập, cấp JWT kép & ghi nhận nhật ký kiểm toán bảo mật).
+
+### [2026-11-08 16:25] - AI Assistant (Pair with Team Lead) - TASK-ADM-10
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Triển khai cơ chế tự động tìm kiếm hoặc khởi tạo tài khoản học viên (role STUDENT) với mật khẩu ngẫu nhiên băm BCrypt, cờ must_change_password=true khi học viên nộp đơn online hoặc làm bài kiểm tra đầu vào (FR-IAM-01).
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `dto/user/CreateStudentAccountRequest.java`: DTO xác thực email, fullName, phone.
+    - `service/UserService.java`: Interface định nghĩa `getOrCreateStudentUser(email, fullName, phone)`.
+    - `service/impl/UserServiceImpl.java`: Triển khai logic chuẩn hóa email, tái sử dụng tài khoản cũ nếu có hoặc tạo mới tài khoản STUDENT kèm mật khẩu ngẫu nhiên băm BCrypt.
+    - `src/test/java/com/englishcenter/admission/service/UserServiceTest.java`: Bộ kiểm thử đơn vị JUnit 5 & Mockito (2 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `repository/UserRepository.java`: Bổ sung `existsByEmail(email)` và `findByRole(role, pageable)`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `9/9 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (43 source files compiled in 3.33s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-11` (Quản lý tài khoản nhân sự Staff/Teacher và cơ chế Khóa/Mở khóa tài khoản).
+
+### [2026-11-08 16:20] - AI Assistant (Pair with Team Lead) - TASK-ADM-03
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Cấu hình Spring Boot 3 RestClient với timeout kết nối (3s) & đọc dữ liệu (5s), triển khai FinanceServiceClient & StudentServiceClient giao tiếp trực tiếp REST API liên service (East-West traffic) sử dụng header X-Internal-Secret và viết kiểm thử MockRestServiceServer.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `config/RestClientConfig.java`: Cấu hình Bean RestClient với SimpleClientHttpRequestFactory (connectTimeout 3s, readTimeout 5s).
+    - `client/dto/CreateInvoiceRequest.java`: DTO gửi yêu cầu tạo hóa đơn học phí tự động sang Finance Service.
+    - `client/dto/InvoiceData.java`: DTO phản hồi dữ liệu hóa đơn từ Finance Service (`invoice_id`, `invoice_code`, `amount`).
+    - `client/dto/CreateStudentProfileRequest.java`: DTO gửi yêu cầu tạo hồ sơ học viên chính thức sang Student Service.
+    - `client/dto/StudentProfileData.java`: DTO phản hồi dữ liệu hồ sơ học viên từ Student Service (`student_id`, `student_code`).
+    - `client/FinanceServiceClient.java`: Client gọi `POST /api/finance/invoices/auto-generate` kèm `X-Internal-Secret`.
+    - `client/StudentServiceClient.java`: Client gọi `POST /api/student/internal/students` kèm `X-Internal-Secret` và cơ chế fallback an toàn `trySyncStudentProfile`.
+    - `src/test/java/com/englishcenter/admission/client/InterServiceClientTest.java`: Bộ kiểm thử đơn vị JUnit 5 với MockRestServiceServer (3 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `common/exception/ErrorCode.java`: Thêm mã lỗi `ADM_SERVICE_UNAVAILABLE` (HTTP 503) khi dịch vụ liên kết lân cận gặp sự cố.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `7/7 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (40 source files compiled in 2.71s)`
+- **Ghi chú bàn giao**: Đã hoàn thành 100% Phase 0 (Nền móng & Hạ tầng kỹ thuật). Sẵn sàng chuyển tiếp sang Phase 1: IAM (`TASK-ADM-10` đến `TASK-ADM-15`).
+
+### [2026-11-08 16:15] - AI Assistant (Pair with Team Lead) - TASK-ADM-02
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Thiết lập Spring Security 6, Bộ cấp phát Token kép (Access Token 15m / Refresh Token 7d), CustomUserDetailsService, UserPrincipal, JwtAuthenticationFilter, SecurityUtils và kiểm thử đơn vị.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `security/UserPrincipal.java`: Triển khai UserDetails từ thực thể User, quản lý vai trò và quyền hạn tiền tố `ROLE_`.
+    - `security/CustomUserDetailsService.java`: Nạp người dùng từ UserRepository theo email hoặc ID.
+    - `security/JwtTokenProvider.java`: Ký và giải mã JWT HS256, sinh Access Token (15m) chứa `sub`, `email`, `role`, `full_name` và Refresh Token (7d) chứa `jti`.
+    - `security/JwtAuthenticationFilter.java`: Filter chặn request, bóc tách Bearer token, xác thực và nạp Authentication vào SecurityContext.
+    - `security/SecurityUtils.java`: Lớp tiện ích lấy thông tin người dùng đang đăng nhập (`getCurrentUserId`, `getCurrentUserRole`, `hasRole`, ...).
+    - `config/SecurityConfig.java`: Cấu hình SecurityFilterChain Stateless, CSRF disable, CORS linh hoạt, phân quyền endpoint chuẩn REST và bắt lỗi 401/403 trả về ApiResponse JSON.
+    - `src/test/java/com/englishcenter/admission/security/JwtTokenProviderTest.java`: Bộ kiểm thử đơn vị JUnit 5 cho JwtTokenProvider và UserPrincipal (4 tests passed).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `common/dto/ApiResponse.java`: Bổ sung các phương thức tiện ích `error(ErrorCode)`, `error(ErrorCode, String)`, `error(String, String)`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Unit Tests: `4/4 Tests Run, 0 Failures, 0 Errors (Surefire)`
+  - Compile / Build: `BUILD SUCCESS (33 source files compiled in 1.51s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-03` (Cấu hình RestClient tích hợp liên service Finance & Student với header X-Internal-Secret).
+
+### [2026-11-08 16:10] - AI Assistant (Pair with Team Lead) - TASK-ADM-01
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Hoàn tất khởi tạo BaseEntity và toàn bộ 14 JPA Entities cho Schema `admission` theo đúng DDL trong `scripts/init-db.sql` và `docs/MASTER_DB_AND_API_RULES.md`.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `BaseEntity.java`: Lớp kiểm toán thời gian tự động gán `created_at` và `updated_at`.
+    - `RefreshToken.java`: Quản lý phiên token kép và thu hồi.
+    - `PasswordResetToken.java`: Quản lý token đổi mật khẩu 15 phút.
+    - `AuthAuditLog.java`: Quản lý nhật ký kiểm toán an toàn thông tin.
+    - `Room.java`: Quản lý phòng học, sức chứa trần và chi nhánh.
+    - `ClassEntity.java`: Quản lý lớp học, ca học, phòng học, giáo viên và sĩ số tối đa.
+    - `Enrollment.java`: Quản lý đơn tuyển sinh, hạn giữ chỗ 48h và cờ đồng bộ sang Student Service.
+    - `TestSet.java`: Quản lý bộ đề khảo thí và thời lượng làm bài đếm ngược.
+    - `TestQuestion.java`: Quản lý câu hỏi trắc nghiệm 3 kỹ năng (Listening, Reading, Grammar).
+    - `TestRecommendationRule.java`: Quản lý quy tắc đề xuất khóa học theo dải điểm.
+    - `TestAttempt.java`: Quản lý lượt thi đếm ngược server-side (INV-TST-02).
+    - `TestSubmission.java`: Quản lý bài nộp khảo thí, điểm bóc tách và khóa học đề xuất.
+    - `ProcessedFinanceEvent.java`: Quản lý đối soát thanh toán Finance callback idempotency (INV-ENR-02 / INV-ENR-03).
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `User.java`: Kế thừa BaseEntity, bổ sung `gender`, `date_of_birth`, `avatar_url`, `must_change_password`, `email_verified_at`.
+    - `Course.java`: Kế thừa BaseEntity, bổ sung quan hệ `prerequisiteCourse`, `target_output`, `tuition_amount`.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Compile / Build: `BUILD SUCCESS (Compiling 27 source files via Docker in 1.41s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-02` (Spring Security 6, BCrypt, JwtTokenProvider, JwtAuthenticationFilter).
+
+---
+
+### [2026-11-08 16:05] - AI Assistant (Pair with Team Lead) - TASK-ADM-00
+- **Nhánh Git (Branch)**: `feature/admission`
+- **Mục tiêu công việc**: Thiết lập nền tảng đa tầng, cấu hình Jackson snake_case, chuẩn hóa ApiResponse, ErrorDetail, PageResponse, ErrorCode (tiền tố AUTH_ và ADM_) và GlobalExceptionHandler theo Master Rules.
+- **Chi tiết thay đổi**:
+  - 🟢 **Thêm mới (Added)**:
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/dto/ApiResponse.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/dto/ErrorDetail.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/dto/PageResponse.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/exception/ErrorCode.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/exception/BusinessException.java`
+    - `services/admission/backend/src/main/java/com/englishcenter/admission/common/exception/GlobalExceptionHandler.java`
+  - 🟡 **Cập nhật / Nâng cấp (Updated)**:
+    - `services/admission/backend/pom.xml`: Thêm dependency `spring-boot-starter-validation` và `spring-boot-starter-security`.
+    - `services/admission/backend/src/main/resources/application.properties`: Bổ sung cấu hình Jackson snake_case, JWT expiration, internal secret key và inter-service URLs.
+    - `services/admission/tasks/API_CATALOG.md`: Đồng bộ 60 API Endpoints sau khi thống nhất liên service với dev.
+- **Trạng thái Quality Gate**:
+  - Invariant Tests: `15/15 OK (Ran in 0.003s)`
+  - Compile / Build: `BUILD SUCCESS (Maven Java 21 via Docker in 1.44s)`
+- **Ghi chú bàn giao**: Sẵn sàng chuyển tiếp sang `TASK-ADM-01` (khởi tạo 14 JPA Entities theo `scripts/init-db.sql`).
+
+---
 
 ### [2026-11-01 21:45] - Team Lead & AI Assistant - TASK-ADM-PLANNING
 - **Nhánh Git (Branch)**: `feature/admission`

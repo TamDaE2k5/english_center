@@ -1,0 +1,2 @@
+html:not([data-admission-role="ADMIN"]):not([data-admission-role="STAFF"]) .admission-write { display: none !important; }
+html:not([data-admission-role="ADMIN"]) .admission-admin-only { display: none !important; }
