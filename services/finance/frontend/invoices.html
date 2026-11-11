@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hóa đơn & Thu phí - Finance Module</title>
+  <title>Hóa đơn, Thu phí, Ví bảo lưu & Hoàn tiền - Finance Module</title>
   <link rel="stylesheet" href="/shared/css/variables.css">
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/shared/css/components.css">
@@ -16,18 +16,24 @@
       <div id="header"></div>
       <div class="content">
         <nav class="breadcrumb">
-          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Hóa đơn & Thu phí</span>
+          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Hóa đơn, VietQR, Ví Bảo lưu & Hoàn tiền</span>
         </nav>
 
-        <div class="card">
+        <!-- Bảng 1: Quản lý Hóa đơn & Thu học phí -->
+        <div class="card" style="margin-bottom: var(--space-lg);">
           <div class="card-header">
             <div>
-              <h1 class="heading-1">Quản Lý Hóa Đơn & Thu Học Phí</h1>
-              <p class="text-secondary text-sm">Theo dõi hóa đơn học phí, trạng thái đóng tiền và thanh toán</p>
+              <h1 class="heading-1">Quản Lý Hóa Đơn & Thu Học Phí (FIN-F03 → FIN-F06)</h1>
+              <p class="text-secondary text-sm">Hỗ trợ sinh hóa đơn tự động, áp mã Voucher, chia đợt trả góp, thu tiền mặt và đối soát VietQR</p>
             </div>
-            <button class="btn btn-primary" onclick="openCreateModal()">
-              + Tạo hóa đơn mới
-            </button>
+            <div style="display: flex; gap: var(--space-sm);">
+              <button class="btn btn-secondary" onclick="openWalletModal()">
+                Tra cứu Ví Bảo lưu
+              </button>
+              <button class="btn btn-primary" onclick="openCreateModal()">
+                + Sinh hóa đơn học phí
+              </button>
+            </div>
           </div>
           <div class="card-body">
             <div class="table-container">
@@ -35,8 +41,10 @@
                 <thead>
                   <tr>
                     <th>Mã hóa đơn</th>
-                    <th>Mã học viên</th>
-                    <th>Số tiền học phí</th>
+                    <th>Học viên</th>
+                    <th>Gốc / Giảm giá</th>
+                    <th>Phải thu</th>
+                    <th>Đã đóng / Còn nợ</th>
                     <th>Hạn nộp</th>
                     <th>Trạng thái</th>
                     <th>Thao tác</th>
@@ -44,9 +52,75 @@
                 </thead>
                 <tbody id="invoices-tbody">
                   <tr>
-                    <td colspan="6" style="text-align: center; color: var(--color-text-secondary);">
+                    <td colspan="8" style="text-align: center; color: var(--color-text-secondary);">
                       Đang tải danh sách hóa đơn...
                     </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng 2: Quản lý Yêu cầu Hoàn tiền 3 cấp -->
+        <div class="card" style="margin-bottom: var(--space-lg);">
+          <div class="card-header">
+            <div>
+              <h2 class="heading-2">Quy Trình Phê Duyệt Hoàn Tiền 3 Cấp (FIN-F08 / INV-FIN-07)</h2>
+              <p class="text-secondary text-sm">Cấp 1: Tư vấn viên tạo → Cấp 2: Kế toán xác minh buổi học → Cấp 3: Giám đốc duyệt → Giải ngân</p>
+            </div>
+            <button class="btn btn-primary" onclick="openRefundModal()">
+              + Tạo yêu cầu hoàn tiền
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã hoàn tiền</th>
+                    <th>Hóa đơn / HV</th>
+                    <th>Buổi học</th>
+                    <th>Số tiền yêu cầu</th>
+                    <th>Số tiền duyệt</th>
+                    <th>Trạng thái 3 cấp</th>
+                    <th>Thao tác duyệt</th>
+                  </tr>
+                </thead>
+                <tbody id="refunds-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align: center;">Đang tải danh sách hoàn tiền...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng 3: Báo cáo BI Tài chính -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="heading-2">Báo Cáo BI Doanh Thu Thực Thu Theo Tháng (FIN-F09)</h2>
+              <p class="text-secondary text-sm">Tổng hợp từ View <code>finance.vw_bi_cash_revenue_monthly</code> (Cash-basis)</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Tháng báo cáo</th>
+                    <th>Thu tiền mặt (CASH)</th>
+                    <th>Chuyển khoản (VIETQR)</th>
+                    <th>Tổng thực thu</th>
+                    <th>Tổng hoàn phí</th>
+                    <th>Doanh thu thuần (Net)</th>
+                  </tr>
+                </thead>
+                <tbody id="bi-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align: center;">Đang tải dữ liệu BI...</td>
                   </tr>
                 </tbody>
               </table>
@@ -57,37 +131,153 @@
     </div>
   </div>
 
-  <!-- Modal Tạo hóa đơn -->
+  <!-- Modal Sinh Hóa đơn tự động -->
   <div class="modal-overlay" id="invoiceModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="heading-3">Lập Hóa Đơn Mới</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3 class="heading-3">Sinh Hóa Đơn Học Phí (FIN-F03)</h3>
+        <button class="modal-close" onclick="closeModal('invoiceModal')">&times;</button>
       </div>
       <form id="invoiceForm">
         <div class="modal-body">
-          <div class="form-group">
-            <label class="label" for="invCode">Mã hóa đơn <span class="required">*</span></label>
-            <input type="text" id="invCode" class="form-input" placeholder="INV-2026-004" required>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">ID Học viên (user_id) *</label>
+              <input type="number" id="studentId" class="form-input" value="4" required>
+            </div>
+            <div class="form-group">
+              <label class="label">ID Khóa học (course_id) *</label>
+              <input type="number" id="courseId" class="form-input" value="2" required>
+            </div>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
-              <label class="label" for="studentId">ID Học viên <span class="required">*</span></label>
-              <input type="number" id="studentId" class="form-input" value="1" required>
+              <label class="label">Số tiền gốc (VND) *</label>
+              <input type="number" id="amount" class="form-input" value="6500000" step="50000" required>
             </div>
             <div class="form-group">
-              <label class="label" for="dueDate">Hạn thanh toán</label>
+              <label class="label">Mã Voucher (tùy chọn)</label>
+              <input type="text" id="voucherCode" class="form-input" placeholder="KHAI_GIANG_2026">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Số đợt đóng (Installments)</label>
+              <input type="number" id="installmentsCount" class="form-input" value="1" min="1" max="6">
+            </div>
+            <div class="form-group">
+              <label class="label">Hạn thanh toán đợt 1</label>
               <input type="date" id="dueDate" class="form-input">
             </div>
           </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('invoiceModal')">Đóng</button>
+          <button type="submit" class="btn btn-primary">Sinh hóa đơn</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal VietQR & Gạch nợ -->
+  <div class="modal-overlay" id="vietqrModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Mã Thanh Toán Động VietQR (FIN-F06)</h3>
+        <button class="modal-close" onclick="closeModal('vietqrModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="vietqrBody" style="text-align: center;">
+        Đang tạo mã QR...
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('vietqrModal')">Đóng</button>
+        <button type="button" class="btn btn-primary" id="btnSimulateWebhook">Giả lập Webhook Ngân hàng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ví Bảo lưu -->
+  <div class="modal-overlay" id="walletModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Ví Bảo Lưu Học Viên (FIN-F07 / INV-FIN-06)</h3>
+        <button class="modal-close" onclick="closeModal('walletModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-md);">
+          <input type="number" id="walletStudentId" class="form-input" value="4" placeholder="Nhập ID Học viên">
+          <button type="button" class="btn btn-secondary" onclick="loadWalletInfo()">Tra cứu</button>
+        </div>
+        <div id="walletInfoBox" style="padding: var(--space-md); background: #f8fafc; border-radius: 8px; margin-bottom: var(--space-md);"></div>
+        <form id="walletForm">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Loại giao dịch</label>
+              <select id="walletTxType" class="form-input">
+                <option value="RESERVATION_CREDIT">Cộng tiền bảo lưu (RESERVATION_CREDIT)</option>
+                <option value="TUITION_OFFSET">Cấn trừ học phí (TUITION_OFFSET)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label">Số tiền (VND) *</label>
+              <input type="number" id="walletAmount" class="form-input" value="2000000" step="100000" required>
+            </div>
+          </div>
           <div class="form-group">
-            <label class="label" for="amount">Số tiền (VND) <span class="required">*</span></label>
-            <input type="number" id="amount" class="form-input" placeholder="6500000" step="50000" required>
+            <label class="label">ID Hóa đơn liên quan (nếu cấn trừ)</label>
+            <input type="number" id="walletInvoiceId" class="form-input" placeholder="Nhập ID hóa đơn">
+          </div>
+          <div class="form-group">
+            <label class="label">Lý do *</label>
+            <input type="text" id="walletReason" class="form-input" value="Bảo lưu học phí theo đơn được duyệt" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Thực hiện giao dịch ví</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tạo yêu cầu Hoàn tiền -->
+  <div class="modal-overlay" id="refundModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="heading-3">Khởi Tạo Yêu Cầu Hoàn Tiền Cấp 1 (FIN-F08)</h3>
+        <button class="modal-close" onclick="closeModal('refundModal')">&times;</button>
+      </div>
+      <form id="refundForm">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">ID Hóa đơn (đã thu tiền) *</label>
+              <input type="number" id="refInvoiceId" class="form-input" value="1" required>
+            </div>
+            <div class="form-group">
+              <label class="label">Số buổi đã học (tối đa 3 buổi) *</label>
+              <input type="number" id="refAttended" class="form-input" value="2" min="0" max="24" required>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+            <div class="form-group">
+              <label class="label">Tỷ lệ hoàn theo hợp đồng (%)</label>
+              <input type="number" id="refPercent" class="form-input" value="80" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label class="label">Khấu trừ tài liệu (VND)</label>
+              <input type="number" id="refDeduction" class="form-input" value="200000" step="50000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label">Thông tin tài khoản nhận hoàn phí</label>
+            <input type="text" id="refBank" class="form-input" value="Vietcombank - 0071000123456 - NGUYEN VAN NAM">
+          </div>
+          <div class="form-group">
+            <label class="label">Lý do xin rút hồ sơ / hoàn phí *</label>
+            <input type="text" id="refReason" class="form-input" value="Chuyển công tác đột xuất trước buổi thứ 3" required>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-          <button type="submit" class="btn btn-primary">Lập hóa đơn</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('refundModal')">Đóng</button>
+          <button type="submit" class="btn btn-primary">Gửi yêu cầu Cấp 1</button>
         </div>
       </form>
     </div>
@@ -96,7 +286,25 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/finance/js/finance-ui.js"></script>
   <script>
+    let currentVietQrData = null;
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+    function openCreateModal() {
+      document.getElementById('invoiceForm').reset();
+      document.getElementById('invoiceModal').classList.add('active');
+    }
+    function openWalletModal() {
+      document.getElementById('walletModal').classList.add('active');
+      loadWalletInfo();
+    }
+    function openRefundModal() {
+      document.getElementById('refundModal').classList.add('active');
+    }
+
     async function loadInvoices() {
       const tbody = document.getElementById('invoices-tbody');
       try {
@@ -104,83 +312,268 @@
         const list = (res && res.data) ? res.data : [];
 
         if (list.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Chưa có hóa đơn nào.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center;">Chưa có hóa đơn nào.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = list.map(inv => `
-          <tr>
-            <td><code>${inv.invoice_code}</code></td>
-            <td>Học viên #${inv.student_id}</td>
-            <td><strong style="color: var(--color-primary);">${formatCurrency(inv.amount)}</strong></td>
-            <td>${formatDate(inv.due_date)}</td>
-            <td>
-              <span class="badge ${inv.status === 'PAID' ? 'badge-success' : 'badge-danger'}">
-                ${inv.status === 'PAID' ? 'Đã nộp đủ' : 'Chưa đóng'}
-              </span>
-            </td>
-            <td>
-              ${inv.status === 'UNPAID' ? `
-                <button class="btn btn-primary btn-sm" onclick="payInvoice(${inv.id}, ${inv.amount})">
-                  Thu tiền 💰
-                </button>
-              ` : `
-                <span class="text-xs text-secondary">Đã đối soát</span>
-              `}
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = list.map(inv => {
+          const badgeClass = inv.status === 'PAID'
+            ? 'badge-success'
+            : (inv.status === 'PARTIAL' ? 'badge-warning' : 'badge-danger');
+          const canPay = ['PENDING', 'UNPAID', 'PARTIAL', 'OVERDUE'].includes(inv.status);
+          return `
+            <tr>
+              <td><code>#${escapeHtml(inv.id)} - ${escapeHtml(inv.invoice_code)}</code></td>
+              <td>Học viên #${escapeHtml(inv.student_id)}</td>
+              <td>
+                <div>${formatCurrency(inv.amount)}</div>
+                ${inv.discount_applied > 0 ? `<small style="color: #16a34a;">-${formatCurrency(inv.discount_applied)}</small>` : ''}
+              </td>
+              <td><strong style="color: var(--color-primary);">${formatCurrency(inv.final_amount)}</strong></td>
+              <td>
+                <div>Đã thu: ${formatCurrency(inv.paid_amount)}</div>
+                <small style="color: var(--color-danger);">Còn: ${formatCurrency(inv.remaining_amount)}</small>
+              </td>
+              <td>${escapeHtml(formatDate(inv.due_date))}</td>
+              <td><span class="badge ${badgeClass}">${escapeHtml(inv.status)}</span></td>
+              <td>
+                ${canPay ? `
+                  <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    <button class="btn btn-primary btn-sm" onclick="payCash(${Number(inv.id)}, ${Number(inv.remaining_amount)})">Thu TM</button>
+                    <button class="btn btn-secondary btn-sm" onclick="showVietQR(${Number(inv.id)})">VietQR</button>
+                  </div>
+                ` : `<span class="text-xs text-secondary">Đã tất toán</span>`}
+              </td>
+            </tr>
+          `;
+        }).join('');
       } catch (err) {
         tbody.innerHTML = `
-          <tr><td colspan="6" style="text-align: center; color: var(--color-danger);">
-            Không thể tải dữ liệu từ API Finance (:8084). Vui lòng kiểm tra container.
+          <tr><td colspan="8" style="text-align: center; color: var(--color-danger);">
+            Không thể tải dữ liệu từ API Finance (:8084).
           </td></tr>
         `;
       }
     }
 
-    function openCreateModal() {
-      document.getElementById('invoiceForm').reset();
-      document.getElementById('invCode').value = 'INV-' + Math.floor(1000 + Math.random() * 9000);
-      document.getElementById('invoiceModal').classList.add('active');
-    }
-
-    function closeModal() {
-      document.getElementById('invoiceModal').classList.remove('active');
-    }
 
     document.getElementById('invoiceForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const payload = {
-        invoice_code: document.getElementById('invCode').value.trim(),
         student_id: parseInt(document.getElementById('studentId').value, 10),
+        course_id: parseInt(document.getElementById('courseId').value, 10),
         amount: parseFloat(document.getElementById('amount').value),
+        voucher_code: document.getElementById('voucherCode').value.trim() || null,
+        installments_count: parseInt(document.getElementById('installmentsCount').value || '1', 10),
         due_date: document.getElementById('dueDate').value || null
       };
 
       try {
-        await apiPost('/api/finance/invoices', payload);
-        showToast('success', 'Đã lập hóa đơn mới!');
-        closeModal();
+        await apiPost('/api/finance/invoices/auto-generate', payload);
+        showToast('success', 'Đã sinh hóa đơn học phí và chia kỳ trả góp!');
+        closeModal('invoiceModal');
         loadInvoices();
       } catch (e) {}
     });
 
-    async function payInvoice(id, amount) {
-      if (!confirm(`Xác nhận ghi nhận học viên đã thanh toán số tiền ${formatCurrency(amount)}?`)) return;
+    async function payCash(invoiceId, remainingAmount) {
+      const inputAmt = prompt(`Nhập số tiền mặt thực thu tại quầy (Còn phải thu: ${formatCurrency(remainingAmount)}):`, remainingAmount);
+      if (!inputAmt) return;
+      const amount = parseFloat(inputAmt);
+      if (isNaN(amount) || amount <= 0) return;
+
       try {
-        await apiPost('/api/finance/payments', {
-          invoice_id: id,
+        await apiPost('/api/finance/payments/cash', {
+          invoice_id: invoiceId,
           amount: amount,
-          payment_method: 'BANK_TRANSFER',
-          transaction_ref: 'TRANS_' + Date.now()
+          notes: 'Thu tiền mặt trực tiếp tại quầy'
         });
-        showToast('success', 'Ghi nhận thanh toán thành công!');
+        showToast('success', 'Đã ghi nhận phiếu thu tiền mặt!');
         loadInvoices();
+        loadBI();
       } catch (e) {}
     }
 
+    async function showVietQR(invoiceId) {
+      document.getElementById('vietqrModal').classList.add('active');
+      const body = document.getElementById('vietqrBody');
+      body.innerHTML = 'Đang tạo mã VietQR...';
+      try {
+        const res = await apiGet(`/api/finance/invoices/${invoiceId}/vietqr`);
+        currentVietQrData = res.data;
+        body.innerHTML = `
+          <div style="margin-bottom: 8px;"><strong>Mã tham chiếu kỳ đóng:</strong> <code>${currentVietQrData.payment_ref_code}</code></div>
+          <div style="margin-bottom: 8px;"><strong>Số tiền cần chuyển:</strong> <span style="color: var(--color-primary); font-weight: 700;">${formatCurrency(currentVietQrData.amount_due)}</span></div>
+          <div style="margin-bottom: 12px;"><strong>Nội dung CK:</strong> <code>${currentVietQrData.transfer_content}</code></div>
+          <img src="${currentVietQrData.qr_image_url}" alt="VietQR" style="max-width: 240px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px;">
+        `;
+      } catch (e) {
+        body.innerHTML = 'Không tạo được mã VietQR.';
+      }
+    }
+
+    document.getElementById('btnSimulateWebhook').addEventListener('click', async () => {
+      if (!currentVietQrData) return;
+      try {
+        await apiPost('/api/finance/webhooks/vietqr', {
+          bank_transaction_id: 'FT' + Date.now(),
+          amount: currentVietQrData.amount_due,
+          content: currentVietQrData.transfer_content,
+          qr_reference_code: currentVietQrData.payment_ref_code
+        });
+        showToast('success', 'Webhook VietQR đã đối soát và gạch nợ thành công!');
+        closeModal('vietqrModal');
+        loadInvoices();
+        loadBI();
+      } catch (e) {}
+    });
+
+    async function loadWalletInfo() {
+      const studentId = parseInt(document.getElementById('walletStudentId').value || '4', 10);
+      const box = document.getElementById('walletInfoBox');
+      try {
+        const res = await apiGet(`/api/finance/wallets/${studentId}`);
+        const w = res.data;
+        box.innerHTML = `
+          <div><strong>Học viên #${w.student_id}</strong> | Trạng thái: <span class="badge badge-success">${w.status}</span></div>
+          <div style="margin-top: 4px;">Số dư bảo lưu hiện tại: <strong style="color: var(--color-primary); font-size: 1.1rem;">${formatCurrency(w.balance)}</strong> (Không rút tiền mặt: <code>is_withdrawable=${w.is_withdrawable}</code>)</div>
+        `;
+      } catch (e) {
+        box.innerHTML = 'Không tải được thông tin ví.';
+      }
+    }
+
+    document.getElementById('walletForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const studentId = parseInt(document.getElementById('walletStudentId').value || '4', 10);
+      const relInv = document.getElementById('walletInvoiceId').value;
+      try {
+        await apiPost(`/api/finance/wallets/${studentId}/reserve`, {
+          tx_type: document.getElementById('walletTxType').value,
+          amount: parseFloat(document.getElementById('walletAmount').value),
+          related_invoice_id: relInv ? parseInt(relInv, 10) : null,
+          reason: document.getElementById('walletReason').value.trim()
+        });
+        showToast('success', 'Giao dịch ví bảo lưu thành công!');
+        loadWalletInfo();
+        loadInvoices();
+      } catch (err) {}
+    });
+
+    async function loadRefunds() {
+      const tbody = document.getElementById('refunds-tbody');
+      try {
+        const res = await apiGet('/api/finance/refunds');
+        const list = (res && res.data) ? res.data : [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Chưa có yêu cầu hoàn tiền nào.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = list.map(r => {
+          let actionBtn = '<span class="text-xs text-secondary">Hoàn tất</span>';
+          if (r.status === 'PENDING_ACCOUNTANT') {
+            actionBtn = `<button class="btn btn-secondary btn-sm" onclick="verifyRefund(${r.id})">Cấp 2: Kế toán xác minh</button>`;
+          } else if (r.status === 'PENDING_DIRECTOR') {
+            actionBtn = `<button class="btn btn-primary btn-sm" onclick="approveRefund(${r.id}, ${r.requested_refund_amount})">Cấp 3: Giám đốc duyệt</button>`;
+          } else if (r.status === 'APPROVED') {
+            actionBtn = `<button class="btn btn-primary btn-sm" onclick="completeRefund(${r.id})">Chi hoàn tiền (UNC)</button>`;
+          }
+          return `
+            <tr>
+              <td><code>${r.refund_code}</code></td>
+              <td>HĐ #${r.invoice_id} (HV #${r.student_id})</td>
+              <td>${r.attended_sessions}/${r.total_sessions} buổi</td>
+              <td><strong>${formatCurrency(r.requested_refund_amount)}</strong></td>
+              <td>${r.approved_refund_amount != null ? formatCurrency(r.approved_refund_amount) : '-'}</td>
+              <td><span class="badge badge-warning">${r.status}</span></td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Không tải được danh sách hoàn tiền.</td></tr>`;
+      }
+    }
+
+    document.getElementById('refundForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await apiPost('/api/finance/refunds', {
+          invoice_id: parseInt(document.getElementById('refInvoiceId').value, 10),
+          total_sessions: 24,
+          attended_sessions: parseInt(document.getElementById('refAttended').value, 10),
+          refundable_percent: parseInt(document.getElementById('refPercent').value, 10),
+          deduction_amount: parseFloat(document.getElementById('refDeduction').value || '0'),
+          bank_name: document.getElementById('refBank').value.trim(),
+          reason: document.getElementById('refReason').value.trim()
+        });
+        showToast('success', 'Đã tạo yêu cầu hoàn tiền Cấp 1!');
+        closeModal('refundModal');
+        loadRefunds();
+      } catch (err) {}
+    });
+
+    async function verifyRefund(id) {
+      try {
+        await apiPut(`/api/finance/refunds/${id}/verify`, {
+          accountant_note: 'Kế toán đã đối chiếu công nợ và số buổi điểm danh hợp lệ'
+        });
+        showToast('success', 'Đã xác minh Cấp 2!');
+        loadRefunds();
+      } catch (e) {}
+    }
+
+    async function approveRefund(id, reqAmt) {
+      try {
+        await apiPut(`/api/finance/refunds/${id}/approve`, {
+          is_approved: true,
+          approved_refund_amount: reqAmt,
+          director_note: 'Giám đốc đồng ý phê duyệt hoàn phí'
+        });
+        showToast('success', 'Giám đốc đã phê duyệt Cấp 3!');
+        loadRefunds();
+      } catch (e) {}
+    }
+
+    async function completeRefund(id) {
+      try {
+        await apiPut(`/api/finance/refunds/${id}/complete`, {
+          transaction_ref: 'UNC-VCB-' + Date.now()
+        });
+        showToast('success', 'Đã hoàn tất giải ngân hoàn tiền!');
+        loadRefunds();
+        loadInvoices();
+        loadBI();
+      } catch (e) {}
+    }
+
+    async function loadBI() {
+      const tbody = document.getElementById('bi-tbody');
+      try {
+        const res = await apiGet('/api/finance/bi/cash-revenue');
+        const list = (res && res.data) ? res.data : [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Chưa có dữ liệu doanh thu.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = list.map(row => `
+          <tr>
+            <td><strong>${formatDate(row.report_month)}</strong></td>
+            <td>${formatCurrency(row.cash_at_counter)}</td>
+            <td>${formatCurrency(row.vietqr_transfer)}</td>
+            <td><strong>${formatCurrency(row.gross_cash_in)}</strong></td>
+            <td style="color: var(--color-danger);">${formatCurrency(row.total_refunded)} (${row.refund_count} đơn)</td>
+            <td><strong style="color: var(--color-primary);">${formatCurrency(row.net_cash_revenue)}</strong></td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Không tải được báo cáo BI.</td></tr>`;
+      }
+    }
+
     loadInvoices();
+    loadRefunds();
+    loadBI();
   </script>
 </body>
 </html>

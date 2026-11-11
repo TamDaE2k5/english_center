@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard BI Tài Chính - Finance Module</title>
+  <link rel="stylesheet" href="/shared/css/variables.css">
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/components.css">
+  <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar"></div>
+    <div class="main-content">
+      <div id="header"></div>
+      <div class="content">
+        <nav class="breadcrumb">
+          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Dashboard BI Tài chính</span>
+        </nav>
+
+        <!-- 4 KPI Cards -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); margin-bottom: var(--space-lg);">
+          <div class="card">
+            <div class="card-body">
+              <div class="text-secondary text-sm">Doanh thu Thực thu Thuần (Net Cash)</div>
+              <div class="heading-2" id="kpiNetCash" style="color: var(--color-primary); margin-top: 4px;">0 ₫</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="text-secondary text-sm">Dư nợ Học phí Chờ thu (Pipeline)</div>
+              <div class="heading-2" id="kpiPipelineRevenue" style="margin-top: 4px;">0 ₫</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="text-secondary text-sm">Tổng Quỹ Ví Bảo Lưu Đang Giữ</div>
+              <div class="heading-2" id="kpiWalletBalance" style="margin-top: 4px;">0 ₫</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="text-secondary text-sm">Tổng Đã Giải Ngân Hoàn Phí</div>
+              <div class="heading-2" id="kpiDisbursedRefund" style="color: var(--color-danger); margin-top: 4px;">0 ₫</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="biError" style="color: var(--color-danger); margin-bottom: var(--space-md);"></div>
+
+        <!-- Bảng 1: Doanh thu Thực thu Theo Tháng -->
+        <div class="card" style="margin-bottom: var(--space-lg);">
+          <div class="card-header">
+            <div>
+              <h1 class="heading-1">Báo Cáo Doanh Thu Thực Thu Theo Tháng (Cash-Basis)</h1>
+              <p class="text-secondary text-sm">Nguồn dữ liệu: <code>finance.vw_bi_cash_revenue_monthly</code></p>
+            </div>
+            <button class="btn btn-secondary" id="btnReloadBi" onclick="loadFinanceDashboard()">Làm mới báo cáo</button>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Tháng báo cáo</th>
+                    <th>Thu tại quầy (CASH)</th>
+                    <th>Chuyển khoản (VIETQR)</th>
+                    <th>Tổng tiền vào (Gross)</th>
+                    <th>Hoàn phí (COMPLETED)</th>
+                    <th>Doanh thu thuần (Net)</th>
+                    <th>Tỷ lệ hoàn (%)</th>
+                  </tr>
+                </thead>
+                <tbody id="cash-revenue-tbody">
+                  <tr><td colspan="7" style="text-align: center;">Đang tải dữ liệu...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng 2: Hiệu quả Chiến dịch Voucher -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="heading-2">Hiệu Quả Chiến Dịch Mã Giảm Giá Voucher</h2>
+              <p class="text-secondary text-sm">Nguồn dữ liệu: <code>finance.vw_bi_voucher_campaigns</code></p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã Voucher</th>
+                    <th>Tên chiến dịch</th>
+                    <th>Lượt dùng / Hạn mức</th>
+                    <th>Tỷ lệ hấp thụ (%)</th>
+                    <th>Số hóa đơn áp dụng</th>
+                    <th>Tổng chiết khấu đã cấp</th>
+                    <th>Thực thu mang về</th>
+                  </tr>
+                </thead>
+                <tbody id="voucher-bi-tbody">
+                  <tr><td colspan="7" style="text-align: center;">Đang tải dữ liệu...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/js/auth.js"></script>
+  <script src="/shared/js/api.js"></script>
+  <script src="/shared/js/layout.js"></script>
+  <script src="/finance/js/finance-ui.js"></script>
+  <script>
+    let biGeneration = 0;
+
+    async function loadFinanceDashboard() {
+      const gen = ++biGeneration;
+      const errEl = document.getElementById('biError');
+      errEl.textContent = '';
+
+      try {
+        const [cashRes, voucherRes, summaryRes, admMetricsRes] = await Promise.all([
+          apiGet('/api/finance/bi/cash-revenue'),
+          apiGet('/api/finance/bi/voucher-campaigns'),
+          apiGet('/api/finance/bi/refund-summary'),
+          apiGet('/api/finance/bi/admission-metrics')
+        ]);
+
+        if (gen !== biGeneration) return;
+
+        const cashRows = cashRes?.data || [];
+        const voucherRows = voucherRes?.data || [];
+        const summary = summaryRes?.data || {};
+        const admMetrics = admMetricsRes?.data || {};
+
+        document.getElementById('kpiNetCash').textContent = formatCurrency(admMetrics.realized_revenue || 0);
+        document.getElementById('kpiPipelineRevenue').textContent = formatCurrency(admMetrics.pipeline_revenue || 0);
+        document.getElementById('kpiWalletBalance').textContent = formatCurrency(summary.wallets?.total_reserved_balance || 0);
+        document.getElementById('kpiDisbursedRefund').textContent = formatCurrency(summary.refunds?.total_disbursed_amount || 0);
+
+        const cashTbody = document.getElementById('cash-revenue-tbody');
+        cashTbody.innerHTML = cashRows.length ? cashRows.map(r => `
+          <tr>
+            <td><strong>${escapeHtml(formatDate(r.report_month))}</strong></td>
+            <td>${formatCurrency(r.cash_at_counter)}</td>
+            <td>${formatCurrency(r.vietqr_transfer)}</td>
+            <td><strong>${formatCurrency(r.gross_cash_in)}</strong></td>
+            <td style="color: var(--color-danger);">${formatCurrency(r.total_refunded)} (${escapeHtml(r.refund_count)})</td>
+            <td><strong style="color: var(--color-primary);">${formatCurrency(r.net_cash_revenue)}</strong></td>
+            <td>${escapeHtml(r.refund_rate_pct ?? 0)}%</td>
+          </tr>
+        `).join('') : '<tr><td colspan="7" style="text-align: center;">Chưa có dữ liệu doanh thu.</td></tr>';
+
+        const voucherTbody = document.getElementById('voucher-bi-tbody');
+        voucherTbody.innerHTML = voucherRows.length ? voucherRows.map(v => `
+          <tr>
+            <td><code>${escapeHtml(v.code)}</code></td>
+            <td><strong>${escapeHtml(v.campaign_name)}</strong></td>
+            <td>${escapeHtml(v.current_uses)} / ${escapeHtml(v.max_uses)}</td>
+            <td>${escapeHtml(v.usage_rate_pct ?? 0)}%</td>
+            <td>${escapeHtml(v.total_invoices)}</td>
+            <td>${formatCurrency(v.total_discount_given)}</td>
+            <td><strong style="color: var(--color-primary);">${formatCurrency(v.actual_cash_collected)}</strong></td>
+          </tr>
+        `).join('') : '<tr><td colspan="7" style="text-align: center;">Chưa có chiến dịch voucher.</td></tr>';
+      } catch (e) {
+        if (gen === biGeneration) {
+          errEl.textContent = e.message || 'Không tải được báo cáo BI Tài chính.';
+        }
+      }
+    }
+
+    loadFinanceDashboard();
+  </script>
+</body>
+</html>
