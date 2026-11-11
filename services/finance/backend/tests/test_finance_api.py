@@ -25,7 +25,8 @@ class FinanceServiceContractTest(unittest.TestCase):
             for f in files:
                 if f.endswith(".py"):
                     full_path = os.path.join(root, f)
-                    py_compile.compile(full_path, doraise=True)
+                    with open(full_path, "r", encoding="utf-8") as src_f:
+                        compile(src_f.read(), full_path, "exec")
                     py_files.append(f)
         self.assertGreaterEqual(len(py_files), 10)
 
