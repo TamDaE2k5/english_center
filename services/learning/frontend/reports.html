@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo Học lực & Tỷ lệ Pass/Fail - Trung tâm Anh ngữ</title>
+    <link rel="stylesheet" href="/shared/css/variables.css">
+    <link rel="stylesheet" href="/shared/css/base.css">
+    <link rel="stylesheet" href="/shared/css/components.css">
+    <link rel="stylesheet" href="/shared/css/layout.css">
+</head>
+<body>
+    <div id="app">
+        <div id="sidebar"></div>
+        <div class="main-content">
+        <div id="header"></div>
+        <div class="content">
+            <nav class="breadcrumb">
+            <a href="/">Trang chủ</a> / <span>Đào tạo & Học tập</span> / <span>Báo cáo kết quả học tập</span>
+            </nav>
+
+            <!-- Bộ lọc lớp & học viên -->
+            <div class="card" style="margin-bottom: var(--space-lg);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                <h1 class="heading-1">Báo Cáo Tổng Kết & Tỷ Lệ Pass/Fail (LRN-03)</h1>
+                <p class="text-sm" style="color:var(--color-text-secondary);">
+                    Chuẩn hóa thang 100% từ View <code>v_student_grade_summary</code> và <code>v_class_pass_rate</code> (Pass khi ≥ 50% - INV-LRN-05)
+                </p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                <a href="/learning/materials.html" class="btn btn-secondary">Kho học liệu</a>
+                <a href="/learning/grades.html" class="btn btn-secondary">Sổ điểm</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <div class="form-group">
+                    <label class="label" for="repClassId">Mã Lớp (class_id)</label>
+                    <input type="number" id="repClassId" class="form-input" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="label" for="repStudentId">Mã Học viên (student_id - tùy chọn)</label>
+                    <input type="number" id="repStudentId" class="form-input" placeholder="Để trống nếu xem cả lớp">
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end; gap:8px;">
+                    <button class="btn btn-primary" onclick="loadClassSummary()">Xem Báo cáo Lớp</button>
+                    <button class="btn btn-secondary" onclick="loadStudentSummary()">Tra cứu Cá nhân</button>
+                </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- KPI Cards từ v_class_pass_rate -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: var(--space-lg);">
+            <div class="card">
+                <div class="card-body">
+                <div class="text-xs" style="color:var(--color-text-secondary);">SĨ SỐ CÓ ĐIỂM (total_students)</div>
+                <div id="kpiTotalStudents" class="heading-1">0</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                <div class="text-xs" style="color:var(--color-text-secondary);">SỐ HỌC VIÊN ĐẠT (pass_count)</div>
+                <div id="kpiPassCount" class="heading-1" style="color:var(--color-success);">0</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                <div class="text-xs" style="color:var(--color-text-secondary);">SỐ HỌC VIÊN TRƯỢT (fail_count)</div>
+                <div id="kpiFailCount" class="heading-1" style="color:var(--color-danger);">0</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                <div class="text-xs" style="color:var(--color-text-secondary);">TỶ LỆ ĐẠT (pass_rate_percentage)</div>
+                <div id="kpiPassRate" class="heading-1" style="color:var(--color-primary);">0%</div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Bảng xếp hạng tổng kết học viên từ v_student_grade_summary -->
+            <div class="card">
+            <div class="card-header">
+                <h2 class="heading-2">Bảng Tổng Kết Điểm Học Viên Chuẩn Hóa Thang 100%</h2>
+            </div>
+            <div class="card-body" style="overflow-x:auto;">
+                <table class="data-table">
+                <thead>
+                    <tr>
+                    <th>Lớp (class_id)</th>
+                    <th>Mã Học viên (student_id)</th>
+                    <th>Tổng số đầu điểm (total_assessments)</th>
+                    <th>Điểm TB Trọng số (weighted_avg_score)</th>
+                    <th>Điểm Chuẩn hóa Thang 100% (average_percentage)</th>
+                    <th>Kết quả (result - INV-LRN-05)</th>
+                    </tr>
+                </thead>
+                <tbody id="reportSummaryBody">
+                    <tr>
+                    <td colspan="6" style="text-align:center;">Đang tải báo cáo...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+            </div>
+
+        </div>
+        </div>
+    </div>
+
+    <script src="/shared/js/auth.js"></script>
+    <script src="/shared/js/api.js"></script>
+    <script src="/shared/js/layout.js"></script>
+    <script src="/learning/js/reports.js"></script>
+</body>
+</html>
