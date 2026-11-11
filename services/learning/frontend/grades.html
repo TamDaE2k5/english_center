@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sổ Điểm & Báo cáo Học lực - Trung tâm Anh ngữ</title>
+    <title>Sổ Điểm Trọng Số - Trung tâm Anh ngữ</title>
     <link rel="stylesheet" href="/shared/css/variables.css">
     <link rel="stylesheet" href="/shared/css/base.css">
     <link rel="stylesheet" href="/shared/css/components.css">
@@ -16,61 +16,36 @@
         <div id="header"></div>
         <div class="content">
             <nav class="breadcrumb">
-            <a href="/">Trang chủ</a> / <span>Đào tạo &amp; Học tập</span> / <span>Sổ điểm &amp; Kết quả học tập</span>
+            <a href="/">Trang chủ</a> / <span>Đào tạo & Học tập</span> / <span>Sổ điểm trọng số</span>
             </nav>
 
-            <!-- Thống kê BI v_class_pass_rate (LRN-03) -->
-            <div id="classReportSection" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: var(--space-lg);">
             <div class="card">
-                <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">SĨ SỐ ĐÃ CÓ ĐIỂM</div>
-                <div id="statTotalStudents" class="heading-1">0</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">SỐ HỌC VIÊN ĐẠT (PASS &ge; 50%)</div>
-                <div id="statPassCount" class="heading-1" style="color:var(--color-success);">0</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">SỐ HỌC VIÊN CHƯA ĐẠT (FAIL)</div>
-                <div id="statFailCount" class="heading-1" style="color:var(--color-danger);">0</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">TỶ LỆ ĐẠT TOÀN LỚP</div>
-                <div id="statPassRate" class="heading-1" style="color:var(--color-primary);">0%</div>
-                </div>
-            </div>
-            </div>
-
-            <!-- Bảng chi tiết đầu điểm (LRN-02) -->
-            <div class="card" style="margin-bottom: var(--space-lg);">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
-                <h1 class="heading-1">Sổ Điểm Trọng Số &amp; Nhận Xét </h1>
+                <h1 class="heading-1">Sổ Điểm Trọng Số & Đánh Giá (LRN-02)</h1>
                 <p class="text-sm" style="color:var(--color-text-secondary);">
-                    
+                    Nhập điểm mới (POST) và cập nhật điểm (PUT) tuân thủ INV-LRN-01, INV-LRN-02, INV-LRN-03, INV-LRN-06
                 </p>
                 </div>
-                <button class="btn btn-primary" onclick="openGradeModal()">+ Nhập điểm mới</button>
+                <div style="display:flex; gap:8px;">
+                <a href="/learning/materials.html" class="btn btn-secondary">Kho học liệu</a>
+                <a href="/learning/reports.html" class="btn btn-secondary">Xem Báo cáo Tổng kết</a>
+                <button class="btn btn-primary" onclick="openCreateGradeModal()">+ Nhập điểm mới</button>
+                </div>
             </div>
 
             <div class="card-body">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: var(--space-md);">
                 <div class="form-group">
-                    <label class="label" for="gradeFilterClassId">Mã Lớp </label>
+                    <label class="label" for="gradeFilterClassId">Mã Lớp (class_id)</label>
                     <input type="number" id="gradeFilterClassId" class="form-input" value="1" min="1">
                 </div>
                 <div class="form-group">
-                    <label class="label" for="gradeFilterStudentId">Mã Hồ sơ Học viên </label>
-                    <input type="number" id="gradeFilterStudentId" class="form-input" placeholder="Tất cả (hoặc của tôi)">
+                    <label class="label" for="gradeFilterStudentId">Mã Học viên (student_id)</label>
+                    <input type="number" id="gradeFilterStudentId" class="form-input" placeholder="Tất cả / Của tôi">
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end;">
-                    <button class="btn btn-secondary" onclick="refreshAllGradeData()">Tải sổ điểm &amp; Báo cáo</button>
+                    <button class="btn btn-secondary" onclick="loadGradesList(1)">Lọc bảng điểm</button>
                 </div>
                 </div>
 
@@ -80,96 +55,73 @@
                     <tr>
                         <th>ID</th>
                         <th>Lớp</th>
-                        <th>Mã Học viên </th>
-                        <th>Bài đánh giá </th>
+                        <th>Học viên (student_id)</th>
+                        <th>Đầu điểm (assessment_name)</th>
                         <th>Điểm / Thang tối đa</th>
-                        <th>Trọng số </th>
-                        <th>Quy đổi (%)</th>
-                        <th>Nhận xét của Giáo viên</th>
+                        <th>Trọng số (weight)</th>
+                        <th>Tỷ lệ (%)</th>
+                        <th>Nhận xét</th>
+                        <th>Thao tác</th>
                     </tr>
                     </thead>
                     <tbody id="gradesTableBody">
                     <tr>
-                        <td colspan="8" style="text-align:center;">Đang tải bảng điểm...</td>
+                        <td colspan="9" style="text-align:center;">Đang tải bảng điểm...</td>
                     </tr>
                     </tbody>
                 </table>
                 </div>
-            </div>
-            </div>
 
-            <!-- Bảng tổng kết chuẩn hóa thang 100% từ View v_student_grade_summary (LRN-03) -->
-            <div class="card">
-            <div class="card-header">
-                <h2 class="heading-2">Bảng Tổng Kết Điểm </h2>
-            </div>
-            <div class="card-body" style="overflow-x:auto;">
-                <table class="data-table">
-                <thead>
-                    <tr>
-                    <th>Lớp </th>
-                    <th>Học viên </th>
-                    <th>Số đầu điểm</th>
-                    <th>Điểm TB Trọng số </th>
-                    <th>Tỷ lệ Phần trăm Chuẩn hóa </th>
-                    <th>Xếp loại </th>
-                    </tr>
-                </thead>
-                <tbody id="summaryTableBody">
-                    <tr>
-                    <td colspan="6" style="text-align:center;">Chưa có dữ liệu tổng kết.</td>
-                    </tr>
-                </tbody>
-                </table>
+                <div id="gradesPagination" style="display:flex; justify-content:space-between; align-items:center; margin-top: var(--space-md);"></div>
             </div>
             </div>
-
         </div>
         </div>
     </div>
 
-    <!-- Modal Nhập điểm -->
+    <!-- Modal Nhập / Cập nhật điểm (POST & PUT) -->
     <div class="modal-overlay" id="gradeModal" style="display:none;">
         <div class="modal">
         <div class="modal-header">
-            <h3 class="heading-3">Nhập Điểm Đánh Giá Học Viên</h3>
+            <h3 class="heading-3" id="gradeModalTitle">Nhập Điểm Đánh Giá Học Viên</h3>
             <button class="modal-close" onclick="closeGradeModal()">&times;</button>
         </div>
         <div class="modal-body">
+            <input type="hidden" id="editGradeId" value="">
             <div class="form-group">
-            <label class="label" for="inpGradeClassId">Mã Lớp*</label>
+            <label class="label" for="inpGradeClassId">Mã Lớp (class_id) <span class="required">*</span></label>
             <input type="number" id="inpGradeClassId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
-            <label class="label" for="inpGradeStudentId">ID Học viên</label>
+            <label class="label" for="inpGradeStudentId">Mã Học viên (student.students.id - R-ID-1) <span class="required">*</span></label>
             <input type="number" id="inpGradeStudentId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
-            <label class="label" for="inpAssessmentName">Tên đầu điểm *</label>
-            <input type="text" id="inpAssessmentName" class="form-input" placeholder="VD: Quiz 1, Midterm, Final Exam" required>
+            <label class="label" for="inpAssessmentName">Tên đầu điểm (assessment_name - INV-LRN-06) <span class="required">*</span></label>
+            <input type="text" id="inpAssessmentName" class="form-input" placeholder="VD: Quiz 1, Midterm, Final" required>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
             <div class="form-group">
-                <label class="label" for="inpScore">Điểm đạt*</label>
+                <label class="label" for="inpScore">Điểm (score) <span class="required">*</span></label>
                 <input type="number" step="0.01" id="inpScore" class="form-input" min="0" value="85" required>
             </div>
             <div class="form-group">
-                <label class="label" for="inpMaxScore">Thang điểm</label>
-                <input type="number" step="0.01" id="inpMaxScore" class="form-input" min="1" value="100" required>
+                <label class="label" for="inpMaxScore">Thang tối đa <span class="required">*</span></label>
+                <input type="number" step="0.01" id="inpMaxScore" class="form-input" min="0.01" value="100" required>
             </div>
             <div class="form-group">
-                <label class="label" for="inpWeight">Trọng số *</label>
-                <input type="number" step="0.05" id="inpWeight" class="form-input" min="0.05" max="1.0" value="0.4" required>
+                <label class="label" for="inpWeight">Trọng số (0 &lt; w &le; 1)</label>
+                <input type="number" step="0.05" id="inpWeight" class="form-input" min="0.01" max="1.0" value="1.0">
             </div>
             </div>
             <div class="form-group">
-            <label class="label" for="inpFeedback">Nhận xét chi tiết của Giảng viên</label>
-            <textarea id="inpFeedback" class="form-input" rows="3" placeholder="Nắm vững cấu trúc ngữ pháp, cần cải thiện phát âm..."></textarea>
+            <label class="label" for="inpFeedback">Nhận xét của Giảng viên</label>
+            <textarea id="inpFeedback" class="form-input" rows="3" placeholder="Nhận xét chi tiết bài làm của học viên..."></textarea>
             </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeGradeModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="submitCreateGrade()">Lưu điểm</button>
+            <button class="btn btn-primary" onclick="submitSaveGrade()">Lưu điểm</button>
         </div>
         </div>
     </div>

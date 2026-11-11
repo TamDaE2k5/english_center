@@ -42,8 +42,6 @@ flowchart LR
     Admin --> UC_LRN_03_1
 ```
 
-
-
 ## PHẦN 2: ĐẶC TẢ USE CASE CHI TIẾT
 
 ### UC-LRN-01.1: Đăng tải & Xóa học liệu số
