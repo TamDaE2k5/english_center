@@ -16,44 +16,46 @@
         <div id="header"></div>
         <div class="content">
             <nav class="breadcrumb">
-            <a href="/">Trang chủ</a> / <span>Đào tạo &amp; Học tập</span> / <span>Kho học liệu số</span>
+            <a href="/">Trang chủ</a> / <span>Đào tạo & Học tập</span> / <span>Kho học liệu số</span>
             </nav>
 
-            <div class="card" style="margin-bottom: var(--space-lg);">
+            <div class="card">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
-                <h1 class="heading-1">Kho Học liệu Số</h1>
+                <h1 class="heading-1">Kho Học liệu Số theo Lớp</h1>
                 <p class="text-sm" style="color: var(--color-text-secondary);">
-
+                    
                 </p>
                 </div>
-                <button id="btnOpenMaterialModal" class="btn btn-primary" onclick="openMaterialModal()">
-                + Đăng tải học liệu
-                </button>
+                <div style="display:flex; gap:8px;">
+                <a href="/learning/grades.html" class="btn btn-secondary">Sổ điểm</a>
+                <a href="/learning/reports.html" class="btn btn-secondary">Báo cáo Pass/Fail</a>
+                <button class="btn btn-primary" onclick="openMaterialModal()">+ Đăng tải học liệu</button>
+                </div>
             </div>
 
             <div class="card-body">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: var(--space-md);">
-                <div class="form-group" style="min-width: 160px;">
+                <div class="form-group" style="min-width: 150px;">
                     <label class="label" for="filterClassId">Mã Lớp</label>
                     <input type="number" id="filterClassId" class="form-input" value="1" min="1">
                 </div>
                 <div class="form-group" style="min-width: 180px;">
-                    <label class="label" for="filterType">Phân loại</label>
+                    <label class="label" for="filterType">Loại học liệu</label>
                     <select id="filterType" class="form-select">
                     <option value="">Tất cả loại</option>
                     <option value="DOCUMENT">DOCUMENT (Tài liệu)</option>
-                    <option value="SLIDE">SLIDE (Bài giảng)</option>
+                    <option value="SLIDE">SLIDE (Slide bài giảng)</option>
                     <option value="VIDEO">VIDEO (Video)</option>
                     <option value="EXERCISE">EXERCISE (Bài tập)</option>
                     </select>
                 </div>
                 <div class="form-group" style="flex:1; min-width: 220px;">
-                    <label class="label" for="filterSearch">Tìm tiêu đề</label>
-                    <input type="text" id="filterSearch" class="form-input" placeholder="Nhập từ khóa học liệu...">
+                    <label class="label" for="filterSearch">Tìm kiếm tiêu đề</label>
+                    <input type="text" id="filterSearch" class="form-input" placeholder="Nhập từ khóa tiêu đề...">
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end;">
-                    <button class="btn btn-secondary" onclick="loadMaterials()">Lọc dữ liệu</button>
+                    <button class="btn btn-secondary" onclick="loadMaterials(1)">Lọc dữ liệu</button>
                 </div>
                 </div>
 
@@ -63,11 +65,11 @@
                     <tr>
                         <th>ID</th>
                         <th>Lớp</th>
-                        <th>Tiêu đề học liệu</th>
-                        <th>Loại</th>
-                        <th>Tên file / Link</th>
+                        <th>Tiêu đề & Mô tả</th>
+                        <th>Phân loại</th>
+                        <th>File / Đường dẫn</th>
                         <th>Dung lượng</th>
-                        <th>Ngày đăng</th>
+                        <th>Cập nhật</th>
                         <th>Thao tác</th>
                     </tr>
                     </thead>
@@ -78,6 +80,8 @@
                     </tbody>
                 </table>
                 </div>
+
+                <div id="materialsPagination" style="display:flex; justify-content:space-between; align-items:center; margin-top: var(--space-md);"></div>
             </div>
             </div>
         </div>
@@ -93,15 +97,15 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
-            <label class="label" for="matClassId">ID Lớp học*</label>
+            <label class="label" for="matClassId">ID Lớp học <span class="required">*</span></label>
             <input type="number" id="matClassId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
-            <label class="label" for="matTitle">Tiêu đề học liệu *</label>
-            <input type="text" id="matTitle" class="form-input" placeholder="VD: IELTS Reading Unit 1 - Skimming & Scanning" required>
+            <label class="label" for="matTitle">Tiêu đề học liệu <span class="required">*</span></label>
+            <input type="text" id="matTitle" class="form-input" placeholder="VD: IELTS Reading Unit 1" required>
             </div>
             <div class="form-group">
-            <label class="label" for="matType">Loại học liệu *</label>
+            <label class="label" for="matType">Phân loại <span class="required">*</span></label>
             <select id="matType" class="form-select">
                 <option value="DOCUMENT">DOCUMENT</option>
                 <option value="SLIDE">SLIDE</option>
@@ -110,20 +114,20 @@
             </select>
             </div>
             <div class="form-group">
-            <label class="label" for="matFileUrl">Đường dẫn File *</label>
+            <label class="label" for="matFileUrl">Đường dẫn File <span class="required">*</span></label>
             <input type="text" id="matFileUrl" class="form-input" placeholder="https://cdn.englishcenter.edu.vn/materials/unit1.pdf" required>
             </div>
             <div class="form-group">
-            <label class="label" for="matFilename">Tên file gốc</label>
+            <label class="label" for="matFilename">Tên file gốc </label>
             <input type="text" id="matFilename" class="form-input" placeholder="unit1_reading.pdf">
             </div>
             <div class="form-group">
-            <label class="label" for="matFileSize">Dung lượng (Bytes)</label>
+            <label class="label" for="matFileSize">Dung lượng </label>
             <input type="number" id="matFileSize" class="form-input" min="0" placeholder="1048576">
             </div>
             <div class="form-group">
-            <label class="label" for="matDesc">Mô tả hướng dẫn học tập</label>
-            <textarea id="matDesc" class="form-input" rows="3" placeholder="Đọc trước trang 1-12 trước buổi học..."></textarea>
+            <label class="label" for="matDesc">Mô tả hướng dẫn</label>
+            <textarea id="matDesc" class="form-input" rows="3" placeholder="Đọc trước tài liệu trước khi đến lớp..."></textarea>
             </div>
         </div>
         <div class="modal-footer">

@@ -27,7 +27,7 @@ class CurrentUser:
     role: str
     full_name: Optional[str] = None
     student_id: Optional[int] = None
-
+    raw_token: Optional[str] = None          # THÊM
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
@@ -74,6 +74,7 @@ def get_current_user(
         role=role,
         full_name=payload.get("name") or payload.get("full_name"),
         student_id=student_id,
+        raw_token=token,                     # THÊM
     )
 
 
