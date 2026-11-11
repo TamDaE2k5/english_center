@@ -36,7 +36,9 @@ english_center/
 │
 ├── docs/                                      # 📚 THƯ MỤC TÀI LIỆU CHUNG CỦA TOÀN DỰ ÁN (CẤP HỆ THỐNG)
 │   ├── README.md                              # ⭐ Mục lục điều hướng trung tâm & cây cấu trúc chức năng từng file trong dự án
+│   ├── StRS.md                                # ⭐ [ĐẶC TẢ CÁC BÊN LIÊN QUAN] Stakeholder Requirements Specification (ISO/IEC/IEEE 29148) cho cả dự án
 │   ├── MASTER_DB_AND_API_RULES.md             # ⭐ [TÀI LIỆU MASTER CỦA LEADER] Thiết kế tổng thể 4 Schemas, sơ đồ Mermaid kiến trúc,
+
 │   │                                          #    quy ước định danh R-ID-1 (student_id), State Machines, và Quy tắc gọi REST API/Webhook liên service
 │   ├── contract.md                            # Hợp đồng kỹ thuật chung: tóm tắt 28 bảng, cấu trúc JSON snake_case, RBAC 4 vai trò
 │   ├── invariants.md                          # Đặc tả 15 Bất biến Hệ thống (INV-SYS, INV-SEC, INV-ADM, INV-STU, INV-LRN, INV-FIN)
@@ -130,7 +132,9 @@ english_center/
 
 | Tài liệu | Mô tả |
 |---|---|
+| [**`StRS.md`**](StRS.md) | **Đặc tả Yêu cầu Các bên Liên quan (StRS)**: Phân tích bài toán, 8 nhóm Stakeholder, 17 yêu cầu cấp cao xuyên 4 phân hệ và Ma trận Truy vết toàn dự án theo chuẩn ISO/IEC/IEEE 29148. |
 | [**`MASTER_DB_AND_API_RULES.md`**](MASTER_DB_AND_API_RULES.md) | **Tài liệu Master**: Thiết kế chi tiết 4 Schemas (28 bảng, 4 views), Sơ đồ Mermaid & Quy tắc gọi API liên service (Inter-Service REST & Webhook Rules). |
+
 | [**`database/DATA_DICTIONARY_INDEX.md`**](database/DATA_DICTIONARY_INDEX.md) | **Chỉ mục Từ điển Dữ liệu**: Bảng tổng hợp 28 bảng, 4 views, 342 cột, 35 triggers và bản đồ 24 liên kết Logical FK toàn hệ thống. |
 | [**`contract.md`**](contract.md) | Hợp đồng kỹ thuật, quy ước định danh `R-ID-1`, vòng đời đối tượng (State Machines) và phân quyền RBAC. |
 | [**`invariants.md`**](invariants.md) | 15 Bất biến Hệ thống (System Invariants) và cơ chế kiểm thử tự động trong `tests/invariants/`. |
