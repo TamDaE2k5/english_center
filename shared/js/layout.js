@@ -26,6 +26,8 @@ function renderSidebar() {
     { type: 'section', title: '2. Quản lý học viên' },
     { type: 'link', href: '/student/students.html', label: 'Hồ sơ học viên', icon: '👨‍🎓' },
     { type: 'link', href: '/student/attendance.html', label: 'Điểm danh buổi học', icon: '✅' },
+    // Dòng được thêm mới vào đây:
+    { type: 'link', href: '/student/status_requests.html', label: 'Yêu cầu học vụ', icon: '📄' },
 
     { type: 'section', title: '3. Học tập & Kết quả' },
     { type: 'link', href: '/learning/materials.html', label: 'Kho học liệu & Slide', icon: '📁' },
