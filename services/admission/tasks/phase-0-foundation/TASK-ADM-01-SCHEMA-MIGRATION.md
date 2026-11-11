@@ -43,21 +43,23 @@ Thiết lập toàn bộ 12 bảng thuộc schema `admission` trong cơ sở d�
 
 ---
 
-## 3. Đặc tả 12 Bảng Thuộc Schema `admission`
+## 3. Đặc tả 14 Bảng Thuộc Schema `admission` (Đã Thống Nhất tại Master DB Spec)
 
 ```
-1.  admission.users                     - Tài khoản người dùng (Admin, Staff, Teacher, Student)
-2.  admission.refresh_tokens            - Phiên đăng nhập & Refresh Token stateful
-3.  admission.password_reset_tokens     - Mã xác thực đặt lại mật khẩu 15 phút
+1.  admission.users                     - Tài khoản người dùng (Admin, Staff, Teacher, Student, email_verified_at)
+2.  admission.refresh_tokens            - Phiên đăng nhập & Refresh Token stateful (token & token_hash)
+3.  admission.password_reset_tokens     - Mã xác thực đặt lại mật khẩu 15 phút (token & token_hash)
 4.  admission.auth_audit_logs           - Nhật ký kiểm toán an toàn thông tin
-5.  admission.rooms                     - Phòng học & Chi nhánh
-6.  admission.courses                   - Danh mục khóa học & Lộ trình đào tạo
-7.  admission.classes                   - Lớp học mở theo khóa học & phòng học
-8.  admission.enrollments               - Đơn đăng ký tuyển sinh & Giữ chỗ 48h
-9.  admission.test_sets                 - Ngân hàng bộ đề khảo thí đầu vào
+5.  admission.rooms                     - Phòng học & Chi nhánh cơ sở
+6.  admission.courses                   - Danh mục khóa học & Lộ trình đào tạo (tuition_amount, target_output)
+7.  admission.classes                   - Lớp học mở theo khóa học & phòng học (code UNIQUE, snapshot fields)
+8.  admission.enrollments               - Đơn đăng ký tuyển sinh & Giữ chỗ 48h (source, channel, sync_status)
+9.  admission.test_sets                 - Ngân hàng bộ đề khảo thí đầu vào (code UNIQUE, total_max_score)
 10. admission.test_questions            - Câu hỏi trắc nghiệm 3 kỹ năng (Listening, Reading, Grammar)
-11. admission.test_recommendation_rules - Quy tắc đề xuất khóa học theo điểm số
-12. admission.test_submissions          - Bài nộp khảo thí & Điểm số bóc tách
+11. admission.test_recommendation_rules - Quy tắc đề xuất khóa học theo điểm số (advice_text / advice_note)
+12. admission.test_attempts             - Lượt làm bài khảo thí (started_at, expires_at, status - INV-TST-02)
+13. admission.test_submissions          - Kết quả bài thi & Điểm bóc tách (attempt_id UNIQUE, answers_detail)
+14. admission.processed_finance_events  - Đối soát callback thanh toán từ Finance (finance_event_id UNIQUE - INV-ENR-02)
 ```
 
 ---

@@ -93,6 +93,11 @@
 - **Endpoint**: `GET /api/finance/invoices/{id}`
 - **Quyền**: `ADMIN`, `STAFF`, `STUDENT`
 
+### FIN-F04B (Internal): Ánh xạ `invoice_code` / `enrollment_id` sang `invoice_id`
+- **Endpoint**: `GET /api/finance/internal/invoices/lookup?invoice_code=INV-2026-001` (hoặc `?enrollment_id=1`)
+- **Quyền**: `ADMIN`, `STAFF`, `INTERNAL` (`X-Internal-Secret`)
+
+
 ---
 
 ## 3. Thu tiền & Gạch nợ VietQR (PAY)
@@ -202,6 +207,12 @@
   }
   ```
 
+### FIN-F08B (Internal): Đối soát Hủy lớp Cascade từ Admission
+- **Endpoint**: `POST /api/finance/internal/class-cancellations`
+- **Quyền**: `ADMIN`, `STAFF`, `INTERNAL` (`X-Internal-Secret`)
+- **Mô tả**: Hủy hóa đơn nếu `paid_amount = 0` hoặc khởi tạo yêu cầu hoàn tiền 100% (`PENDING_ACCOUNTANT`, idempotent) nếu đã có thực thu.
+
+
 ---
 
 ## 6. Báo cáo Thông minh BI (BI)
@@ -217,3 +228,8 @@
 ### FIN-F09: Báo cáo Tổng hợp Quỹ Bảo lưu & Tỷ lệ Hoàn phí
 - **Endpoint**: `GET /api/finance/bi/refund-summary`
 - **Quyền**: `ADMIN`, `STAFF`
+
+### FIN-F09B: Chỉ số Doanh thu Dư nợ & Thực thu Liên thông Admission BI (`BI-REV-01`, `BI-REV-02`)
+- **Endpoint**: `GET /api/finance/bi/admission-metrics`
+- **Quyền**: `ADMIN`, `STAFF`, `INTERNAL` (`X-Internal-Secret`)
+

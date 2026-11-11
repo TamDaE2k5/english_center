@@ -32,34 +32,64 @@ Xây dựng lớp giao tiếp HTTP Client độc lập (sử dụng Spring Boot 
 
 ---
 
-## 3. Đặc tả Hợp đồng Giao tiếp Liên Service
+## 3. Đặc tả Hợp đồng Giao tiếp Liên Service (Theo Master Rules Mục 9)
 
-### 3.1. Gọi Finance Service - Tạo Hóa đơn
-- **URL**: `POST ${services.finance.url}/api/finance/invoices`
+### 3.1. Gọi Finance Service - Sinh Hóa đơn Tự động
+- **Trigger**: Khi đơn đăng ký tuyển sinh được tạo ở trạng thái `PENDING` (giữ chỗ 48h).
+- **URL**: `POST ${services.finance.url}/api/finance/invoices/auto-generate`
+- **Header**:
+  - `Content-Type: application/json`
+  - `X-Internal-Secret: ${INTERNAL_SECRET_KEY:english_center_internal_secret_2026}`
 - **Request Body**:
   ```json
   {
-    "enrollment_id": "ENR-2026-0001",
-    "student_id": "USR-2026-0001",
-    "amount": 4500000.0,
-    "due_date": "2026-11-03T23:59:59"
+    "enrollment_id": 100,
+    "student_id": 42,
+    "course_id": 2,
+    "voucher_code": null
   }
   ```
-- **Response**: Trả về `invoice_id` và trạng thái `UNPAID`.
+- **Response Kỳ vọng (HTTP 201 Created)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "invoice_id": 55,
+      "invoice_code": "INV-202611-0001"
+    },
+    "message": "Sinh hóa đơn học phí tự động thành công"
+  }
+  ```
+- Sau đó Admission lưu `enrollments.invoice_code = "INV-202611-0001"`. Cùng `enrollment_id` chỉ sinh 1 hóa đơn (Idempotency).
 
-### 3.2. Gọi Student Service - Tạo Hồ sơ Học viên
-- **URL**: `POST ${services.student.url}/api/student/students`
+### 3.2. Gọi Student Service - Tạo Hồ sơ Học viên Chính thức
+- **Trigger**: Khi đơn đăng ký tuyển sinh chuyển sang `APPROVED` (nhận thanh toán VietQR / tiền mặt tại quầy).
+- **URL**: `POST ${services.student.url}/api/student/internal/students`
+- **Header**:
+  - `Content-Type: application/json`
+  - `X-Internal-Secret: ${INTERNAL_SECRET_KEY:english_center_internal_secret_2026}`
 - **Request Body**:
   ```json
   {
-    "user_id": "USR-2026-0001",
-    "full_name": "Nguyen Van A",
-    "email": "student@englishcenter.edu.vn",
-    "phone": "0912345678",
-    "enrolled_class_id": "CLS-2026-0001"
+    "user_id": 42,
+    "full_name": "Tran Thi Mai",
+    "email": "mai.tran@gmail.com",
+    "phone": "0988776655",
+    "date_of_birth": "2000-05-15"
   }
   ```
-- **Response**: Trả về `student_code` (ví dụ `STU-0001`) và trạng thái hồ sơ `ACTIVE`.
+- **Response Kỳ vọng (HTTP 201 Created)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "student_id": 1,
+      "student_code": "STU-202611-0001"
+    },
+    "message": "Đã tạo hồ sơ học viên thành công"
+  }
+  ```
+- **Idempotency**: Nếu student với `user_id` đã tồn tại, Student Service trả về HTTP 200 OK với dữ liệu hiện có. Admission cập nhật `enrollments.student_sync_status = 'SYNCED'`.
 
 ---
 
