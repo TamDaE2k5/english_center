@@ -1,5 +1,9 @@
 # Kiểm thử Admission độc lập
 
+Mốc **H06 gia hạn — 11/11/2026**: **200/200 Java tests (87 PostgreSQL16.15), JDK21, không skip;15 invariants;12 Node;Chrome7 trang/BI roles/CASH/hold snapshot pass**. Log `C:/Users/Admin/admission-work/qa-admission-hold-20261111/java-final.log` và lần siết assertion quyền `java-final-guard.log`. Áp dụng thêm `services/admission/backend/src/main/resources/db/admission-hold-extension-audit.sql` sau các migration Admission hiện có (gồm H01); cập nhật client để gửi `expected_hold_expires_at` theo đúng GET response. Payload cũ thiếu trường này400, snapshot stale409; không phát deadline mới cho đơn quá hạn/NULL. Xem [hold-extension-qa.md](hold-extension-qa.md). Không chạy E2E; cron dispatcher bị tắt trong fixture, expiry service/SQL/transaction thật được test với barrier hai hướng.
+
+Mốc callback/chu kỳ hóa đơn **11/11/2026**: **185 Java tests pass (72 PostgreSQL 16.15, không skip), JDK21;15 invariants;10 Node;Chrome7 trang/BI roles pass**. Áp dụng thêm migration `services/admission/backend/src/main/resources/db/admission-payment-callback.sql` sau các migration QA hiện có, trước khi chạy app/test (`ddl-auto=none`). Migration replay đã pass trên DB QA, không reset dữ liệu. Log `C:/Users/Admin/admission-work/qa-admission-callback-20261111/java-final.log`. Guard/cycle/Finance limitations: [payment-callback-qa.md](payment-callback-qa.md). Phiên Java/Chrome sandbox bị chặn attach/localhost không tính pass; bản cuối chạy ngoài sandbox thành công. Không chạy E2E toàn hệ thống.
+
 
 Mốc sức chứa/booking mới nhất: **171 Java tests pass,58 PostgreSQL tests, không skip;15 invariants;10 Node;Chrome7 trang và BI role pass**. Không cần migration mới. Xem [room-booking-qa.md](room-booking-qa.md). Log `C:/Users/Admin/admission-work/qa-admission-room-booking-20261110/verified.log`. Giữ dữ liệu/migration cũ, không E2E hệ thống.
 

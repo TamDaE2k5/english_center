@@ -70,6 +70,12 @@ class EnrollmentServiceTest {
     @Mock
     private CashConfirmationService cashConfirmationService;
 
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Mock
+    private com.englishcenter.admission.repository.HoldExtensionAuditRepository holdAudit;
+
     @InjectMocks
     private EnrollmentServiceImpl enrollmentService;
 
@@ -99,6 +105,8 @@ class EnrollmentServiceTest {
         mockEnrollment.setClassId(10);
         mockEnrollment.setStudentId(101);
         mockEnrollment.setStatus("PENDING");
+        mockEnrollment.setInvoiceCode("INV-2026-0001");
+        mockEnrollment.setEnrolledAt(LocalDateTime.now().minusDays(1));
         mockEnrollment.setHoldExpiresAt(LocalDateTime.now().plusHours(48));
         mockEnrollment.setClazz(mockClass);
         mockEnrollment.setStudent(mockStudent);
@@ -232,7 +240,6 @@ class EnrollmentServiceTest {
         PaymentSuccessWebhookRequest req = new PaymentSuccessWebhookRequest(
                 "EVT-FIN-001", 50, "INV-2026-0001", new BigDecimal("5000000"), LocalDateTime.now(), "TXN-001");
 
-        when(processedFinanceEventRepository.existsByFinanceEventId("EVT-FIN-001")).thenReturn(false);
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
         when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
         when(enrollmentRepository.countByClassIdAndStatus(10, "APPROVED")).thenReturn(5L);
@@ -251,7 +258,10 @@ class EnrollmentServiceTest {
         PaymentSuccessWebhookRequest req = new PaymentSuccessWebhookRequest(
                 "EVT-FIN-001", 50, "INV-2026-0001", new BigDecimal("5000000"), LocalDateTime.now(), "TXN-001");
 
-        when(processedFinanceEventRepository.existsByFinanceEventId("EVT-FIN-001")).thenReturn(true);
+        var receipt = new ProcessedFinanceEvent();
+        receipt.setEnrollmentId(50);
+        receipt.setPayloadHash(req.fingerprint());
+        when(processedFinanceEventRepository.findByFinanceEventId("EVT-FIN-001")).thenReturn(Optional.of(receipt));
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
 
         EnrollmentResponse res = enrollmentService.processPaymentSuccess(req);
@@ -269,7 +279,6 @@ class EnrollmentServiceTest {
         PaymentSuccessWebhookRequest req = new PaymentSuccessWebhookRequest(
                 "EVT-FIN-LATE", 50, "INV-2026-0001", new BigDecimal("5000000"), LocalDateTime.now(), "TXN-001");
 
-        when(processedFinanceEventRepository.existsByFinanceEventId("EVT-FIN-LATE")).thenReturn(false);
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
         when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -285,7 +294,9 @@ class EnrollmentServiceTest {
     @Test
     @DisplayName("Gia hạn thời gian giữ chỗ thành công (TASK-ADM-44)")
     void testExtendHold_Success() {
+        holdStaff();
         ExtendHoldRequest req = new ExtendHoldRequest(24, "Chờ người nhà chuyển tiền");
+        req.setExpectedHoldExpiresAt(mockEnrollment.getHoldExpiresAt());
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
         when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
         when(enrollmentRepository.countOccupiedSlots(eq(10), any())).thenReturn(6L);
@@ -301,9 +312,12 @@ class EnrollmentServiceTest {
     @Test
     @DisplayName("Gia hạn thất bại khi đơn không ở trạng thái PENDING")
     void testExtendHold_NotPending_ThrowsException() {
+        holdStaff();
         mockEnrollment.setStatus("EXPIRED");
         ExtendHoldRequest req = new ExtendHoldRequest(24, "Lý do");
+        req.setExpectedHoldExpiresAt(mockEnrollment.getHoldExpiresAt());
         when(enrollmentRepository.findById(50)).thenReturn(Optional.of(mockEnrollment));
+        when(classRepository.findByIdWithLock(10)).thenReturn(Optional.of(mockClass));
 
         BusinessException ex = assertThrows(BusinessException.class, () -> enrollmentService.extendHold(50, req));
         assertEquals(ErrorCode.ADM_INVALID_STATE_TRANSITION, ex.getErrorCode());
@@ -319,4 +333,15 @@ class EnrollmentServiceTest {
         assertEquals(3, count);
         verify(enrollmentRepository).expireOverdueEnrollments(any(LocalDateTime.class));
     }
+
+    /** Bổ sung danh tính Staff thật của SecurityContext cho service guard gia hạn, không mock bypass quyền. */
+    private void holdStaff() {
+        var principal = new com.englishcenter.admission.security.UserPrincipal(1, "qa@example.test", "unused", "QA Staff", "STAFF", true,
+                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_STAFF")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearHoldIdentity() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
 }

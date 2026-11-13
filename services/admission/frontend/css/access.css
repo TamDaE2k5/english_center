@@ -1,2 +1,6 @@
 html:not([data-admission-role="ADMIN"]):not([data-admission-role="STAFF"]) .admission-write { display: none !important; }
 html:not([data-admission-role="ADMIN"]) .admission-admin-only { display: none !important; }
+html:not([data-admission-role="ADMIN"]):not([data-admission-role="STAFF"])
+  body[data-admission-protected] :is(.content, .page-content, .modal-overlay) { display: none !important; }
+html[data-admission-role="GUEST"] .admission-session-only,
+#admissionAccountLogout[hidden] { display: none !important; }

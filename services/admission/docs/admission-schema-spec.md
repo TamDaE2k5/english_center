@@ -788,6 +788,18 @@ Số dòng seed: **0**
 
 - `trg_processed_finance_events_updated_at`: `CREATE TRIGGER trg_processed_finance_events_updated_at BEFORE UPDATE ON admission.processed_finance_events FOR EACH ROW EXECUTE FUNCTION set_updated_at()`
 
+### Bổ sung migration QA H01 — 11/11/2026
+
+Sau baseline schema và các migration Admission trước, áp dụng `backend/src/main/resources/db/admission-payment-callback.sql`:
+
+- `admission.processed_finance_events.payload_hash VARCHAR(64) NULL`: fingerprint canonical evidence cho receipt mới; NULL là legacy cần đối soát, không tự backfill hoặc xóa receipt.
+- `admission.finance_callback_audit`: `id BIGSERIAL PRIMARY KEY`, `event_id VARCHAR(255) NULL`, `enrollment_id INTEGER NULL`, `reason VARCHAR(80) NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`. Không FK vì ghi nhận cả identity không tồn tại và giữ audit độc lập transaction bị từ chối. Không chứa full payload, secret hoặc chứng từ.
+- Migration chỉ thêm đối tượng Admission, không phải bảng hóa đơn/ledger Finance; chạy lại an toàn với IF NOT EXISTS. `ddl-auto=none`, app không tự áp dụng. Các bảng baseline được giữ nguyên; xem [payment-callback-qa.md](payment-callback-qa.md) về biên bảo đảm.
+
+### Bổ sung migration QA H06 — 11/11/2026
+
+`backend/src/main/resources/db/admission-hold-extension-audit.sql` bổ sung `admission.hold_extension_audit`: `id BIGSERIAL PRIMARY KEY`, nullable `enrollment_id INTEGER`, `actor_id INTEGER`, `extended_hours INTEGER`, `previous_deadline TIMESTAMPTZ`, `new_deadline TIMESTAMPTZ`; `outcome VARCHAR(20) NOT NULL CHECK IN (EXTENDED,REJECTED)`, `reason_code VARCHAR(80) NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`. Không FK để lưu được lỗi identity và bảo toàn audit độc lập sau rollback. Không tạo/đổi hạn cho dữ liệu enrollment cũ. Audit thành công có hạn cũ/mới, lý do nghiệp vụ lưu ở notes/hold_extension_reason hiện có; audit từ chối không lưu full payload/secret. Áp dụng trước deploy vì ddl-auto=none. Xem [hold-extension-qa.md](hold-extension-qa.md).
+
 ## 6. View báo cáo
 
 _Schema này không có view._

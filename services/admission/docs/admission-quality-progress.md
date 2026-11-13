@@ -1,4 +1,8 @@
-# Tiến độ chất lượng riêng Admission — 10/11/2026
+# Tiến độ chất lượng riêng Admission — 11/11/2026
+
+Cập nhật gia hạn **H06 — 11/11/2026**: đã chặn PENDING quá hạn/NULL deadline dù scheduler chưa chạy; guard STAFF/ADMIN ở service, snapshot deadline bắt buộc chống gửi lặp, audit thành công nguyên tử và từ chối sau rollback. Không hồi sinh đơn đã đóng/lớp đã hủy. Giữ 1–72 giờ của task/API hiện có, không đặt cap số lần; override sau hạn và mâu thuẫn 24/48 so với1–72 cần nhóm chốt. Migration mới `admission-hold-extension-audit.sql`, frontend/API phải gửi `expected_hold_expires_at`. **200/200 Java tests (87 PostgreSQL16.15, không skip),15/15 invariants,12/12 Node,Chrome7 trang/BI roles/CASH/hold snapshot pass**. Chi tiết quy tắc/kiểm thử: [hold-extension-qa.md](hold-extension-qa.md). **PARTIAL về chính sách tổng thể**. Các phần H01/H02/H03 và checkpoint vẫn được bảo toàn.
+
+Cập nhật callback/chu kỳ hóa đơn **11/11/2026** trên checkpoint `cbf5be7`: **PARTIAL**. Đã xử lý guard H01 về invoice/evidence/identity/thời điểm, ràng buộc event với fingerprint, khóa concurrent callback, rollback approval/outbox/receipt và audit từ chối sau rollback. Journal cả REJECTED/refund-pending/APPROVED, không hồi sinh đơn muộn. Chặn tái dùng row đã đóng/quá hạn vì hợp đồng Finance hiện chỉ idempotent theo enrollment_id; đăng ký lại với thế hệ hóa đơn mới **chưa hoàn thiện**. Không tự kiểm chứng thu đủ tiền từ amount dương hoặc tuition; mapping numeric invoice ID/mã, số dư, chu kỳ mới và clock contract còn phụ thuộc Finance. **185/185 Java tests JDK21 (72 PostgreSQL 16.15, không skip),15/15 invariants,10/10 Node,Chrome7 trang/BI roles pass; migration replay và diff check pass**. Cần áp dụng thêm `admission-payment-callback.sql`. Chi tiết/giới hạn: [payment-callback-qa.md](payment-callback-qa.md). H02/H03 và các nghiệp vụ cũ được regression; không chỉnh Finance/Student/Learning, không E2E/commit/push/merge, không tuyên bố V1 hoàn thành. Các mốc bên dưới là lịch sử.
 
 
 Cập nhật sức chứa/booking 10/11/2026: đã sửa H02/H03 bằng capacity guard và PostgreSQL transaction advisory lock dùng chung cho create/update class, update/status room.10 PG tests mới: capacity/races room-teacher/update/status, giờ kề, ngày rời, rollback. **171/171 Java tests (58 PostgreSQL),15/15 invariants,10/10 Node và Chrome regression pass**. Giữ các luồng cũ; không có migration mới/không chỉnh frontend. Xem [room-booking-qa.md](room-booking-qa.md) về READ COMMITTED, writer phối hợp, contention và CUSTOM chưa có định nghĩa ngày. Không tự đánh dấu Admission V1 feature-complete hoặc xử lý nhóm lỗi khác.
@@ -42,13 +46,13 @@ Nguồn đối chiếu: BA/BI v3.6, technical spec, UML, schema spec và bản t
 | FR | Đã triển khai/kiểm thử | Phần chưa hoàn thiện hoặc chưa kiểm chứng |
 |---|---|---|
 | IAM-01 | Tài khoản STUDENT, xác minh/setup qua email; HTTP/SMTP/PG | SMTP ngoài môi trường QA; mời tài khoản tạo tại quầy |
-| IAM-02 | API nhân sự, unit; tạo user + audit trên PG | Giao diện quản trị nhân sự chuyên biệt |
-| IAM-03 | Login/refresh/logout, unit; HTTP login sau setup/reset | Refresh token hiện chưa chuyển toàn bộ sang lưu hash |
-| IAM-04 | Rotation/replay, khóa repository, unit và test thu hồi refresh | Chưa có PG stress test nhiều request refresh; access-token versioning |
+| IAM-02 | H07-B bắt buộc hồ sơ nhân sự theo BA, kiểm tra ADMIN, bcrypt và luồng đổi mật khẩu đầu | PARTIAL. Giao diện quản trị nhân sự chuyên biệt còn thiếu. [QA H07-B](../../../docs/tasks/completed/admission-staff-account-lifecycle-2026-11-12.md) |
+| IAM-03 | H07-A nối cặp JWT theo tab, dùng `auth/me` khi khôi phục, phân biệt logout local và revoke | PARTIAL. Cần kiến trúc lưu refresh chống XSS và phiên dùng chung giữa các tab. [QA H07-A](../../../docs/tasks/completed/admission-session-lifecycle-2026-11-11.md) |
+| IAM-04 | Rotation nguyên tử, replay và thu hồi cặp vừa cấp đã qua hai request cạnh tranh trên PostgreSQL. Chrome fixtures kiểm tra Web Locks, tab giữ bản sao cũ đăng nhập lại | Cơ chế rotation/replay đã kiểm chứng. Lưu hash refresh trong DB còn là hạng mục hardening |
 | IAM-05 | Khóa user chặn access JWT cũ, PG | Kiểm tra vận hành nhiều instance chưa thực hiện |
-| IAM-06 | Email VERIFY/SETUP/RESET, quên/đổi mật khẩu, PG/SMTP | Provider SMTP và chuyển thư thực tế |
-| IAM-07 | Audit thành công/thất bại, brute-force, CHECK migration, PG | UI audit chuyên biệt; chính sách trusted proxy |
-| FAC-01 | API tạo/sửa/trạng thái phòng, unit, Chrome trang phòng | UI chỉnh sửa đầy đủ và nghiệm thu CRUD với DB thật |
+| IAM-06 | Email VERIFY/SETUP/RESET và đổi mật khẩu qua PG/SMTP. H07-B giữ cờ first-password nhân sự khi reset email | PARTIAL. BA cần xác nhận quy tắc reset nhân sự. Provider SMTP và chuyển thư thực tế chưa nghiệm thu |
+| IAM-07 | H07-A nối logout với backend. H07-B kiểm tra PASSWORD_CHANGED khi đổi mật khẩu và có request cạnh tranh | PARTIAL. UI audit chuyên biệt, trusted proxy và nghiệm thu audit vận hành còn thiếu |
+| FAC-01 | GET danh mục qua HTTP/PostgreSQL đã qua ca khởi động mới, bộ lọc và phân quyền. API tạo/sửa/trạng thái có unit và smoke test | UI chỉnh sửa đầy đủ và nghiệm thu toàn bộ CRUD với DB thật. [QA Rooms](../../../docs/tasks/completed/admission-rooms-http-500-2026-11-13.md) |
 | FAC-02 | Enum/preset ca, validation giờ | CRUD ca chuẩn theo đề xuất V2 chưa triển khai |
 | FAC-03 | Ràng buộc room.capacity, unit ClassService | Nghiệm thu DB tranh chấp cập nhật sức chứa phòng |
 | ACA-01 | Course API, prerequisite, unit, Chrome | Form sửa khóa đầy đủ; kiểm tra chuỗi tiên quyết nâng cao |
@@ -58,19 +62,19 @@ Nguồn đối chiếu: BA/BI v3.6, technical spec, UML, schema spec và bản t
 | ACA-05 | Tính approved + active hold, unit và PG cạnh tranh slot | Quy ước deadline null legacy cần thống nhất |
 | TST-01 | API test sets, unit | Trang quản lý ngân hàng đề |
 | TST-02 | API câu hỏi, unit; Chrome hiển thị nội dung | Trang biên soạn đề; phát media ngoài môi trường fixture |
-| TST-03 | Deadline server, token sở hữu, frontend countdown | Chưa nghiệm thu đồng hồ qua nhiều múi giờ/mạng chậm |
-| TST-04 | Chấm ba kỹ năng, chống lặp; unit/PG/HTTP JSONB | Timeout tự chốt bài và bài trắng cần chốt chính sách |
+| TST-03 | H05 dùng deadline/giờ server, mở lại lượt chính chủ khi refresh, khóa giao diện khi hết giờ. Đã kiểm tra Node, Chrome fixtures và HTTP trên PostgreSQL | PARTIAL. Cần chốt cơ chế tự thu bài khi hết giờ. Xem [QA H05](../../../docs/tasks/completed/admission-placement-timeout-2026-11-11.md) |
+| TST-04 | H05 khóa lượt khi nộp, chấm ba kỹ năng một lần và bảo toàn kết quả khi có request cạnh tranh. Đã kiểm tra unit và PostgreSQL | PARTIAL. Cần chốt cách chấm khi tự chốt hết giờ và khi không có đáp án. Xem [QA H05](../../../docs/tasks/completed/admission-placement-timeout-2026-11-11.md) |
 | TST-05 | Recommendation API/unit; sửa nút class_id, Node | Nghiệm thu toàn bộ các dải điểm và UI tư vấn |
 | ENR-01 | Staff-assisted API; Student tự đăng ký chính chủ | Invite email tự động sau khi Staff tiếp nhận |
 | ENR-02 | Khóa slot theo lớp, PG hai transaction | Chưa load test nhiều instance |
 | ENR-03 | Hold 48h và trùng người-lớp; unit/PG | Nghiệm thu toàn bộ trải nghiệm tra cứu của Student |
 | ENR-04 | Expiration service/unit; deadline độc lập job trên PG | Chưa kiểm tra cron vận hành; hủy hóa đơn chưa đầy đủ |
-| ENR-05 | Gia hạn có khóa và tính slot, unit | BA mới đề xuất cấm gia hạn PENDING quá hạn; code legacy có thể khôi phục nếu còn slot |
+| ENR-05 | H06: PENDING còn hạn, class/row lock, precondition deadline chống lặp, actor/reason/time + audit; PG/HTTP/concurrency/UI | PARTIAL: thực thi FR hiện có, không khôi phục sau hạn. Cần nhóm chốt override, số lần/tổng thời gian tối đa và24/48 so với1–72 giờ; chi tiết hold-extension-qa.md |
 | ENR-06 | Webhook secret/idempotency, late reconciliation; unit/PG | Đối chiếu đủ tình trạng/số tiền invoice và chính sách paid_at |
 | ENR-07 | Ghi yêu cầu CASH/audit; quyền, validation, replay, đồng thời/rollback trên PG; frontend Node/Chrome | PARTIAL: chưa gửi/tạo CASH tại Finance; thiếu mapping invoice_id, acknowledgment và bằng chứng phương thức CASH trong callback |
 | ENR-08 | Outbox + worker bền vững, giới hạn/backoff/lease/fencing, PG retry/rollback/concurrency | PARTIAL: endpoint/idempotency Student thật; restart process thật; UI/requeue quản trị có audit |
-| OPS-01 | Export CSV/unit, Chrome JWT; chống CSV formula | Export roster chưa kiểm chứng cùng DB/HTTP thật; XLSX chưa có |
-| OPS-02 | Export kết quả CSV/unit | UI quản lý đề và nút export kết quả; XLSX chưa có |
+| OPS-01 | H04 sửa cột ID tài khoản Admission. HTTP/PostgreSQL kiểm tra đúng lớp, quyền STAFF/ADMIN và xuất chỉ đọc. Chrome fixtures kiểm tra tải roster và lỗi | PARTIAL. Student code cần nguồn mapping đã xác nhận. Chốt chênh lệch quyền TEACHER và phạm vi trạng thái giữa BA và TASK-ADM-50. [QA H04](../../../docs/tasks/completed/admission-student-csv-export-2026-11-11.md) |
+| OPS-02 | HTTP/PostgreSQL xác nhận dữ liệu điểm theo bộ đề, phạm vi quyền, snapshot và định dạng CSV | PARTIAL. UI tải kết quả theo bộ đề và lọc theo thời gian của TASK-ADM-50 chưa có. [QA H04](../../../docs/tasks/completed/admission-student-csv-export-2026-11-11.md) |
 
 ## BI và lỗi/thiếu chức năng còn mở của Admission
 

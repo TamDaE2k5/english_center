@@ -21,6 +21,7 @@ public class UserPrincipal implements UserDetails {
     private final String fullName;
     private final String role;
     private final boolean isActive;
+    private final boolean firstPasswordChangeRequired;
     private final Collection<? extends GrantedAuthority> authorities;
 
     /**
@@ -37,12 +38,19 @@ public class UserPrincipal implements UserDetails {
     public UserPrincipal(Integer id, String email, String password, String fullName,
                          String role, boolean isActive,
                          Collection<? extends GrantedAuthority> authorities) {
+        this(id, email, password, fullName, role, isActive, false, authorities);
+    }
+
+    private UserPrincipal(Integer id, String email, String password, String fullName,
+                          String role, boolean isActive, boolean firstPasswordChangeRequired,
+                         Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.fullName = fullName;
         this.role = role;
         this.isActive = isActive;
+        this.firstPasswordChangeRequired = firstPasswordChangeRequired;
         this.authorities = authorities;
     }
 
@@ -70,6 +78,7 @@ public class UserPrincipal implements UserDetails {
                 user.getFullName(),
                 roleName,
                 active,
+                user.requiresFirstPasswordChange(),
                 authorities
         );
     }
@@ -88,6 +97,11 @@ public class UserPrincipal implements UserDetails {
 
     public String getRole() {
         return role;
+    }
+
+    /** Trạng thái hiện tại đọc từ tài khoản khi xác thực request. */
+    public boolean requiresFirstPasswordChange() {
+        return firstPasswordChangeRequired;
     }
 
     @Override

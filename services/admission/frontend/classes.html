@@ -191,6 +191,7 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-session.js"></script>
   <script src="/admission/js/admission-ui.js"></script>
   <script>
     let roomsCache = [];
@@ -386,7 +387,6 @@
 
     async function exportRoster(classId) {
       try {
-        const token = getToken();
         await admissionDownload(`/api/admission/exports/classes/${classId}/roster?format=csv`, `class-${classId}.csv`);
         showToast('info', 'Đang tải xuống danh sách học viên...');
       } catch (err) {
@@ -394,8 +394,10 @@
       }
     }
 
-    initSelects();
-    loadClasses();
+    admissionWhenReady(() => {
+      initSelects();
+      loadClasses();
+    });
   </script>
 </body>
 </html>

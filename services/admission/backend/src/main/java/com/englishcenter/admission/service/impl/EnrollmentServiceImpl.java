@@ -18,6 +18,7 @@ import com.englishcenter.admission.helper.StudentServiceSyncHelper;
 import com.englishcenter.admission.repository.ClassRepository;
 import com.englishcenter.admission.repository.EnrollmentRepository;
 import com.englishcenter.admission.repository.ProcessedFinanceEventRepository;
+import com.englishcenter.admission.repository.HoldExtensionAuditRepository;
 import com.englishcenter.admission.security.SecurityUtils;
 import com.englishcenter.admission.service.ClassService;
 import com.englishcenter.admission.service.EnrollmentService;
@@ -30,6 +31,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -57,6 +61,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final FinanceServiceClient financeServiceClient;
     private final StudentServiceSyncHelper studentServiceSyncHelper;
     private final CashConfirmationService cashConfirmationService;
+    private final TransactionTemplate callbackTransaction;
+    private final TransactionTemplate holdTransaction;
+    private final HoldExtensionAuditRepository holdAudit;
 
     public EnrollmentServiceImpl(EnrollmentRepository enrollmentRepository,
                                  ClassRepository classRepository,
@@ -65,7 +72,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                                  UserService userService,
                                  FinanceServiceClient financeServiceClient,
                                  StudentServiceSyncHelper studentServiceSyncHelper,
-                                 CashConfirmationService cashConfirmationService) {
+                                 CashConfirmationService cashConfirmationService,
+                                 PlatformTransactionManager transactionManager,
+                                 HoldExtensionAuditRepository holdAudit) {
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.processedFinanceEventRepository = processedFinanceEventRepository;
@@ -74,6 +83,11 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         this.financeServiceClient = financeServiceClient;
         this.studentServiceSyncHelper = studentServiceSyncHelper;
         this.cashConfirmationService = cashConfirmationService;
+        this.callbackTransaction = new TransactionTemplate(transactionManager);
+        this.callbackTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.holdAudit = holdAudit;
+        this.holdTransaction = new TransactionTemplate(transactionManager);
+        this.holdTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -124,20 +138,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 throw new BusinessException(ErrorCode.ADM_ENROLLMENT_EXISTS, "Học viên đang có đơn giữ chỗ còn hiệu lực cho lớp học này");
             }
 
-            // Trường hợp đơn cũ đã CANCELLED hoặc EXPIRED: Kích hoạt lại bản ghi để tái sử dụng
-            existing.setStatus("PENDING");
-            existing.setHoldExpiresAt(holdExpiry);
-            existing.setEnrolledAt(now);
-            existing.setSource(request.getSource() != null ? request.getSource() : "ONLINE");
-            existing.setEnrollmentChannel(request.getEnrollmentChannel() != null ? request.getEnrollmentChannel() : "ONLINE");
-            existing.setNotes(request.getNotes());
-            existing.setNote(request.getNotes());
-            existing.setIsSyncedToStudent(false);
-            existing.setStudentSyncStatus("NOT_STARTED");
-            existing.setApprovedAt(null);
-            existing.setApprovedByUserId(null);
-            existing.setApprovalMethod(null);
-            enrollment = enrollmentRepository.save(existing);
+            // Finance auto-generate hiện idempotent theo enrollment_id; chưa có contract thế hệ hóa đơn mới.
+            // Không tái dùng ID/hoá đơn/receipt cũ cho một chu kỳ khác, không xóa lịch sử để giả chu kỳ mới.
+            throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION,
+                    "Đơn cũ cần đối soát chu kỳ hóa đơn với Finance trước khi đăng ký lại");
         } else {
             // Khởi tạo đơn tuyển sinh mới
             Enrollment newEnrollment = new Enrollment();
@@ -241,66 +245,77 @@ public class EnrollmentServiceImpl implements EnrollmentService {
      * Webhook tiếp nhận thanh toán thành công từ Finance Service (TASK-ADM-45, INV-ENR-02, INV-ENR-03).
      */
     @Override
-    @Transactional
     public EnrollmentResponse processPaymentSuccess(PaymentSuccessWebhookRequest request) {
-        // 1. Kiểm tra Idempotency (INV-ENR-02): Nếu eventId đã xử lý thì trả về kết quả ngay
-        if (processedFinanceEventRepository.existsByFinanceEventId(request.getEventId())) {
-            log.info("Sự kiện thanh toán {} đã được xử lý trước đó (Idempotency - INV-ENR-02)", request.getEventId());
-            Enrollment existing = enrollmentRepository.findById(request.parseNumericEnrollmentId()).orElse(null);
-            return EnrollmentResponse.fromEntity(existing);
+        Integer id = null;
+        try {
+            try {
+                id = request.parseNumericEnrollmentId();
+            } catch (IllegalArgumentException ex) {
+                throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Mã đơn callback không hợp lệ");
+            }
+            if (id == null || request.getEventId() == null || request.getEventId().isBlank() || request.getEventId().length() > 255
+                    || request.getInvoiceId() == null || request.getInvoiceId().isBlank() || request.getInvoiceId().length() > 50
+                    || request.getAmountPaid() == null || request.getAmountPaid().signum() <= 0
+                    || request.getPaidAt() == null || request.getInvoiceStatus() != null && !"PAID".equals(request.getInvoiceStatus())) {
+                throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Callback thiếu bằng chứng hoặc không phải PAID");
+            }
+            Integer enrollmentId = id;
+            // Kết thúc commit/rollback và nhả connection trước khi ghi audit độc lập.
+            // Không giữ khóa callback trong lúc chờ connection thứ hai để ghi audit khi tải cao.
+            return callbackTransaction.execute(status -> applyPaymentSuccess(enrollmentId, request));
+        } catch (BusinessException ex) {
+            String event = request.getEventId();
+            if (event != null && event.length() > 255) event = event.substring(0, 255);
+            processedFinanceEventRepository.auditRejected(event, id, ex.getErrorCode().name());
+            throw ex;
         }
+    }
 
-        // 2. Tra cứu đơn đăng ký
-        Integer enrollmentId = request.parseNumericEnrollmentId();
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND, "Không tìm thấy đơn đăng ký ID: " + enrollmentId));
-
-        // Serialize callback với đăng ký/gia hạn của cùng lớp, rồi đối chiếu deadline server.
-        classRepository.findByIdWithLock(enrollment.getClassId())
+    /**
+     * Xử lý evidence đã qua validation trong transaction callback riêng.
+     * Khóa event rồi lớp; receipt, chuyển trạng thái và Student outbox cùng commit hoặc rollback.
+     * ADM_VALIDATION_ERROR khi event/binding/chu kỳ sai; các guard duyệt giữ nguyên mã lỗi cũ.
+     */
+    private EnrollmentResponse applyPaymentSuccess(Integer id, PaymentSuccessWebhookRequest request) {
+        // Endpoint payment-success xác nhận PAID ngầm theo TASK-ADM-45, không thay sổ thu Finance.
+        processedFinanceEventRepository.lockCallbacks();
+        var previous = processedFinanceEventRepository.findByFinanceEventId(request.getEventId());
+        if (previous.isPresent()) {
+            var receipt = previous.get();
+            if (!id.equals(receipt.getEnrollmentId()) || !request.fingerprint().equals(receipt.getPayloadHash())) {
+                throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR,
+                        "Event đã có nhưng bằng chứng/binding khác hoặc receipt legacy cần đối soát");
+            }
+            return EnrollmentResponse.fromEntity(enrollmentRepository.findById(id)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND)));
+        }
+        var enrollment = enrollmentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND));
+        var clazz = classRepository.findByIdWithLock(enrollment.getClassId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND));
         enrollmentRepository.refreshForMutation(enrollment);
-        if (processedFinanceEventRepository.existsByFinanceEventId(request.getEventId())) {
-            return EnrollmentResponse.fromEntity(enrollment);
+        if (!request.getInvoiceId().equals(enrollment.getInvoiceCode()) || enrollment.getEnrolledAt() == null
+                || request.getPaidAt().isBefore(enrollment.getEnrolledAt()) || request.getPaidAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Invoice/thời điểm không khớp chu kỳ hiện hành; cần đối soát");
         }
-        if (isHoldOverdue(enrollment, LocalDateTime.now())) {
-            enrollment.setStatus("EXPIRED");
-        }
-
-        // 3. Xử lý thanh toán đến muộn (INV-ENR-03): Đơn đã EXPIRED hoặc CANCELLED
-        if ("EXPIRED".equalsIgnoreCase(enrollment.getStatus()) || "CANCELLED".equalsIgnoreCase(enrollment.getStatus())) {
-            log.warn("Tiếp nhận thanh toán cho đơn {} đã ở trạng thái {} (INV-ENR-03). Ghi nhận đối soát, không tự động duyệt.",
-                    enrollment.getId(), enrollment.getStatus());
-
-            ProcessedFinanceEvent event = new ProcessedFinanceEvent();
-            event.setEnrollmentId(enrollment.getId());
-            event.setFinanceEventId(request.getEventId());
-            event.setPaidAt(request.getPaidAt() != null ? request.getPaidAt() : LocalDateTime.now());
-            processedFinanceEventRepository.save(event);
-
-            String lateNote = String.format("[Thanh toán muộn - INV-ENR-03]: Nhận tiền khi đơn đã %s. Chờ học vụ đối soát hoặc hoàn tiền.", enrollment.getStatus());
-            String existingNotes = enrollment.getNotes() != null ? enrollment.getNotes() : "";
-            enrollment.setNotes(existingNotes.isEmpty() ? lateNote : existingNotes + " | " + lateNote);
+        if (isHoldOverdue(enrollment, LocalDateTime.now())) enrollment.setStatus("EXPIRED");
+        if (!"PENDING".equals(enrollment.getStatus()) || "CANCELLED".equals(clazz.getStatus())) {
+            // Ghi journal cả REJECTED/refund-pending/APPROVED, không hồi sinh hoặc đổi approval method.
+            String note = "[Thanh toán muộn - INV-ENR-03]: Finance callback cần đối soát; trạng thái " + enrollment.getStatus();
+            enrollment.setNotes((enrollment.getNotes() == null ? "" : enrollment.getNotes() + " | ") + note);
             enrollment.setNote(enrollment.getNotes());
             enrollmentRepository.save(enrollment);
-
-            return EnrollmentResponse.fromEntity(enrollment);
+        } else {
+            enrollment = approveEnrollment(id);
+            enrollment.setApprovalMethod("ONLINE_PAYMENT");
+            enrollmentRepository.save(enrollment);
         }
-
-        // 4. Nếu đơn PENDING: Tiến hành duyệt đơn an toàn với Invariant Guard
-        enrollment = approveEnrollment(enrollment.getId());
-        enrollment.setApprovalMethod("ONLINE_PAYMENT");
-        if (request.getInvoiceId() != null) {
-            enrollment.setInvoiceCode(request.getInvoiceId());
-        }
-        enrollment = enrollmentRepository.save(enrollment);
-
-        // 5. Ghi nhận sự kiện thanh toán thành công để đối soát Idempotency
-        ProcessedFinanceEvent event = new ProcessedFinanceEvent();
-        event.setEnrollmentId(enrollment.getId());
-        event.setFinanceEventId(request.getEventId());
-        event.setPaidAt(request.getPaidAt() != null ? request.getPaidAt() : LocalDateTime.now());
-        processedFinanceEventRepository.save(event);
-
+        ProcessedFinanceEvent receipt = new ProcessedFinanceEvent();
+        receipt.setEnrollmentId(id);
+        receipt.setFinanceEventId(request.getEventId());
+        receipt.setPaidAt(request.getPaidAt());
+        receipt.setPayloadHash(request.fingerprint());
+        processedFinanceEventRepository.save(receipt);
         return EnrollmentResponse.fromEntity(enrollment);
     }
 
@@ -308,47 +323,64 @@ public class EnrollmentServiceImpl implements EnrollmentService {
      * Gia hạn thời gian giữ chỗ 48h bởi Học vụ (TASK-ADM-44).
      */
     @Override
-    @Transactional
     public EnrollmentResponse extendHold(Integer enrollmentId, ExtendHoldRequest request) {
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND, "Không tìm thấy đơn đăng ký ID: " + enrollmentId));
-
-        if (!"PENDING".equalsIgnoreCase(enrollment.getStatus())) {
-            throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION,
-                    "Chỉ có thể gia hạn cho đơn đăng ký đang ở trạng thái PENDING (hiện tại: " + enrollment.getStatus() + ")");
+        Integer actor = SecurityUtils.getCurrentUserId();
+        try {
+            // Transaction riêng kết thúc trước audit từ chối, không giữ khóa lớp/connection khi ghi audit khác.
+            return holdTransaction.execute(status -> applyHoldExtension(enrollmentId, actor, request));
+        } catch (BusinessException ex) {
+            holdAudit.rejected(enrollmentId, actor, request, ex.getErrorCode().name());
+            throw ex;
         }
+    }
 
+    /**
+     * Gia hạn PENDING còn hiệu lực theo FR-ENR-05, trong transaction gọi từ extendHold.
+     * Khóa lớp rồi refresh/khóa đơn như callback/hủy/duyệt; ADM_HOLD_CONFLICT khi snapshot deadline cũ.
+     * Không quyết định giới hạn số lần hoặc khôi phục đơn đã quá hạn thay cho nhóm nghiệp vụ.
+     */
+    private EnrollmentResponse applyHoldExtension(Integer enrollmentId, Integer actor, ExtendHoldRequest request) {
+        if (actor == null) throw new BusinessException(ErrorCode.AUTH_UNAUTHORIZED);
+        if (!SecurityUtils.hasRole("STAFF") && !SecurityUtils.hasRole("ADMIN")) throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+        if (request == null || request.getExtendedHours() == null || request.getExtendedHours() < 1 || request.getExtendedHours() > 72
+                || request.getReason() == null || request.getReason().trim().length() < 5 || request.getExpectedHoldExpiresAt() == null) {
+            throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR);
+        }
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ENROLLMENT_NOT_FOUND));
         ClassEntity clazz = classRepository.findByIdWithLock(enrollment.getClassId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND, "Không tìm thấy lớp học"));
         enrollmentRepository.refreshForMutation(enrollment);
+        if ("CANCELLED".equals(clazz.getStatus())) throw new BusinessException(ErrorCode.ADM_CLASS_NOT_OPEN);
         if (!"PENDING".equalsIgnoreCase(enrollment.getStatus())) {
             throw new BusinessException(ErrorCode.ADM_INVALID_STATE_TRANSITION);
         }
 
         LocalDateTime now = LocalDateTime.now();
-        // Đơn còn hạn đã chiếm một slot; đơn quá hạn phải xin lại slot như đăng ký mới.
+        LocalDateTime previous = enrollment.getHoldExpiresAt();
+        // Deadline quyết định hiệu lực, không dựa vào job đã đổi status hay chưa. NULL không đủ bằng chứng còn hạn.
+        if (previous == null || !previous.isAfter(now)) throw new BusinessException(ErrorCode.ADM_HOLD_EXPIRED);
+        // Compare-and-set dưới row lock: double click/retry/cùng snapshot chỉ một lần được tăng deadline.
+        if (!previous.equals(request.getExpectedHoldExpiresAt())) throw new BusinessException(ErrorCode.ADM_HOLD_CONFLICT);
         long occupied = enrollmentRepository.countOccupiedSlots(clazz.getId(), now);
-        long ownSlot = isHoldOverdue(enrollment, now) ? 0 : 1;
-        if (occupied - ownSlot >= clazz.getMaxStudents()) {
+        // Slot của đơn còn hạn đã nằm trong occupied; gia hạn không xin thêm slot mới.
+        if (occupied > clazz.getMaxStudents()) {
             throw new BusinessException(ErrorCode.ADM_CLASS_FULL, "Không còn chỗ để gia hạn giữ chỗ");
         }
 
-        LocalDateTime base = (enrollment.getHoldExpiresAt() != null && enrollment.getHoldExpiresAt().isAfter(now))
-                ? enrollment.getHoldExpiresAt()
-                : now;
-
-        LocalDateTime newHoldExpiresAt = base.plusHours(request.getExtendedHours());
+        LocalDateTime newHoldExpiresAt = previous.plusHours(request.getExtendedHours());
         enrollment.setHoldExpiresAt(newHoldExpiresAt);
-        enrollment.setHoldExtendedByUserId(SecurityUtils.getCurrentUserId());
-        enrollment.setHoldExtensionReason(request.getReason());
+        enrollment.setHoldExtendedByUserId(actor);
+        enrollment.setHoldExtensionReason(request.getReason().trim());
 
         String staffName = SecurityUtils.getCurrentUserFullName() != null ? SecurityUtils.getCurrentUserFullName() : "Học vụ";
-        String noteStr = String.format("[Gia hạn %dh bởi %s]: %s", request.getExtendedHours(), staffName, request.getReason());
+        String noteStr = String.format("[Gia hạn %dh bởi %s (ID=%d) lúc %s]: %s", request.getExtendedHours(), staffName, actor, now, request.getReason().trim());
         String existingNotes = enrollment.getNotes() != null ? enrollment.getNotes() : "";
         enrollment.setNotes(existingNotes.isEmpty() ? noteStr : existingNotes + " | " + noteStr);
         enrollment.setNote(enrollment.getNotes());
 
         enrollment = enrollmentRepository.save(enrollment);
+        holdAudit.extended(enrollmentId, actor, request.getExtendedHours(), previous, newHoldExpiresAt);
         log.info("Gia hạn giữ chỗ thành công: enrollment_id={}, new_hold_expires_at={}", enrollment.getId(), newHoldExpiresAt);
 
         return EnrollmentResponse.fromEntity(enrollment);

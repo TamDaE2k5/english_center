@@ -1,7 +1,11 @@
 package com.englishcenter.admission.repository;
 
 import com.englishcenter.admission.entity.TestAttempt;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,6 +16,15 @@ import java.util.Optional;
  */
 @Repository
 public interface TestAttemptRepository extends JpaRepository<TestAttempt, Integer> {
+
+    /** Đọc chủ lượt theo ID mà không tải trạng thái lượt thi vào persistence context. */
+    @Query("select a.userId from TestAttempt a where a.id = :id")
+    Optional<Integer> findUserIdById(@Param("id") Integer id);
+
+    /** Khóa bản ghi theo ID đến hết transaction trước khi đọc trạng thái và chấm bài. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from TestAttempt a where a.id = :id")
+    Optional<TestAttempt> findLockedById(@Param("id") Integer id);
 
     /**
      * Tìm lượt thi theo ID và ID người dùng (kiểm soát bảo mật).

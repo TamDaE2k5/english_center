@@ -7,7 +7,7 @@ public interface ExportService {
 
     /**
      * Xuất danh sách học viên của lớp học ra mảng byte CSV chuẩn UTF-8 kèm BOM.
-     * Kiểm tra phân quyền: Giáo viên chỉ được xuất danh sách lớp mình phụ trách.
+     * Chỉ Học vụ và Quản trị viên được xuất. ID tài khoản lấy từ khóa Admission của đơn.
      *
      * @param classId ID lớp học
      * @return Mảng byte định dạng CSV UTF-8

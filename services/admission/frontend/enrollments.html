@@ -47,7 +47,7 @@
   </style>
   <link rel="stylesheet" href="/admission/css/access.css">
 </head>
-<body>
+<body data-admission-protected>
   <div id="app">
     <div id="sidebar"></div>
     <div class="main-content">
@@ -212,6 +212,7 @@
       </div>
       <form id="extendHoldForm">
         <input type="hidden" id="extendEnrollmentId">
+        <input type="hidden" id="extendExpectedDeadline">
         <div class="modal-body">
           <p class="text-secondary text-sm" style="margin-bottom: 16px;">
             Gia hạn cho đơn <strong id="extendEnrollmentCode"></strong>. Thời gian giữ chỗ mới sẽ được cộng dồn.
@@ -242,9 +243,9 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-session.js"></script>
   <script src="/admission/js/admission-ui.js"></script>
   <script>
-    admissionRequireStaff();
     let currentFilterStatus = '';
     let enrollmentsData = [];
     let countdownInterval = null;
@@ -341,7 +342,7 @@
             actions = `
               <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                 ${!e.cash_confirmation && e.remaining_seconds > 0 && e.invoice_code && admissionCanManage() ? `<button class="btn btn-primary btn-sm" onclick="openApproveModal(${e.enrollment_id})">Yêu cầu xác nhận tiền mặt</button>` : '<span class="text-sm text-secondary">Chưa thể gửi yêu cầu tiền mặt mới</span>'}
-                <button class="btn btn-secondary btn-sm" onclick="openExtendModal(${e.enrollment_id})">⏱️ Gia hạn</button>
+                ${admissionCanManage() && e.remaining_seconds > 0 && e.hold_expires_at ? `<button class="btn btn-secondary btn-sm" onclick="openExtendModal(${e.enrollment_id})">⏱️ Gia hạn</button>` : '<span class="text-sm text-secondary">Không thể gia hạn</span>'}
                 <button class="btn btn-ghost btn-sm" style="color: var(--color-danger);" onclick="cancelEnrollment(${e.enrollment_id})">❌ Hủy</button>
               </div>
             `;
@@ -453,8 +454,15 @@
     });
 
     function openExtendModal(id, code) {
+      const enrollment = enrollmentsData.find(e => e.enrollment_id === id);
+      if (!admissionCanManage() || !enrollment || enrollment.status !== 'PENDING' || !(enrollment.remaining_seconds > 0) || !enrollment.hold_expires_at) {
+        showToast('error', 'Chỉ có thể gia hạn đơn PENDING còn thời hạn. Vui lòng tải lại danh sách.');
+        return;
+      }
       document.getElementById('extendHoldForm').reset();
       document.getElementById('extendEnrollmentId').value = id;
+      // Giữ snapshot qua retry/mất phản hồi; không thay bằng deadline mới nếu người dùng chưa mở yêu cầu mới.
+      document.getElementById('extendExpectedDeadline').value = enrollment.hold_expires_at;
       document.getElementById('extendEnrollmentCode').textContent = code || enrollmentsData.find(e => e.enrollment_id === id)?.enrollment_code || '';
       document.getElementById('extendHoldModal').classList.add('active');
     }
@@ -463,21 +471,24 @@
       e.preventDefault();
       const id = document.getElementById('extendEnrollmentId').value;
       const btn = document.getElementById('btnConfirmExtend');
+      if (btn.disabled) return;
       btn.disabled = true;
       btn.textContent = 'Đang xử lý...';
 
       const payload = {
         extended_hours: parseInt(document.getElementById('extendHours').value, 10),
-        reason: document.getElementById('extendReason').value.trim()
+        reason: document.getElementById('extendReason').value.trim(),
+        expected_hold_expires_at: document.getElementById('extendExpectedDeadline').value
       };
 
       try {
-        await apiPost(`/api/admission/enrollments/${id}/extend-hold`, payload);
+        const result = await apiPost(`/api/admission/enrollments/${id}/extend-hold`, payload);
+        if (!result || result.success === false) throw new Error('Chưa xác nhận được kết quả gia hạn.');
         showToast('success', 'Gia hạn thời gian giữ chỗ thành công!');
         closeModal('extendHoldModal');
         loadEnrollments();
       } catch (err) {
-        // Handled
+        showToast('error', err.message || 'Chưa xác nhận được kết quả gia hạn. Tải lại đơn trước khi tạo yêu cầu mới.');
       } finally {
         btn.disabled = false;
         btn.textContent = 'Xác nhận gia hạn';
@@ -500,8 +511,11 @@
       }
     }
 
-    initClassesDropdown();
-    loadEnrollments();
+    admissionWhenReady(() => {
+      if (!admissionRequireStaff()) return;
+      initClassesDropdown();
+      loadEnrollments();
+    });
   </script>
 </body>
 </html>

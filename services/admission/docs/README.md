@@ -19,3 +19,7 @@
 11. [**`bi-kpi-qa.md`**](bi-kpi-qa.md) — Matrix KPI BA/BI, công thức/nguồn, API/dashboard, QA và phụ thuộc Finance.
 
 12. [**`room-booking-qa.md`**](room-booking-qa.md) — H02/H03 capacity/concurrent booking, khóa transaction và bằng chứng PostgreSQL.
+
+13. [**`payment-callback-qa.md`**](payment-callback-qa.md) — H01 evidence/replay/journal/cycle guard, migration và phụ thuộc Finance (PARTIAL).
+
+14. [**`hold-extension-qa.md`**](hold-extension-qa.md) — H06 gia hạn còn hạn, snapshot chống lặp, audit/migration, concurrency với expiry/callback và chính sách chưa chốt.

@@ -132,6 +132,16 @@ public class User extends BaseEntity {
         this.mustChangePassword = mustChangePassword;
     }
 
+    /** Xác định nhóm tài khoản nhân sự được Admin cấp. */
+    public static boolean isStaffRole(String role) {
+        return "STAFF".equals(role) || "TEACHER".equals(role);
+    }
+
+    /** Cờ đổi mật khẩu lần đầu của nhân sự, tách khỏi luồng xác minh STUDENT. */
+    public boolean requiresFirstPasswordChange() {
+        return isStaffRole(role) && Boolean.TRUE.equals(mustChangePassword);
+    }
+
     public Boolean getIsActive() {
         return isActive;
     }

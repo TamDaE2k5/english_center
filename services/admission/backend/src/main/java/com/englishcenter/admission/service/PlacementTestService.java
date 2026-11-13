@@ -21,6 +21,9 @@ public interface PlacementTestService {
      */
     TakeTestResponse startTest(Integer testSetId, StartTestRequest request);
 
+    /** Đọc lượt thi của userId với deadline gốc; trả AUTH_FORBIDDEN nếu lượt không thuộc người dùng. */
+    TakeTestResponse resumeTest(Integer attemptId, Integer userId);
+
     /**
      * Nộp bài thi, đối chiếu thời hạn lượt thi, tự động chấm điểm 3 kỹ năng
      * và tích hợp động cơ đề xuất khóa học phù hợp.

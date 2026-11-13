@@ -17,6 +17,7 @@ import com.englishcenter.admission.repository.PasswordResetTokenRepository;
 import com.englishcenter.admission.repository.RefreshTokenRepository;
 import com.englishcenter.admission.repository.UserRepository;
 import com.englishcenter.admission.security.JwtTokenProvider;
+import com.englishcenter.admission.security.SecurityUtils;
 import com.englishcenter.admission.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,12 +123,10 @@ public class AuthServiceImpl implements AuthService {
         if ("STUDENT".equals(user.getRole()) && (user.getEmailVerifiedAt() == null || Boolean.TRUE.equals(user.getMustChangePassword()))) {
             throw new BusinessException(ErrorCode.AUTH_EMAIL_UNVERIFIED);
         }
-        String accessToken = jwtTokenProvider.generateAccessToken(
-                user.getId(), user.getEmail(), user.getRole(), user.getFullName()
-        );
+        String accessToken = issueAccess(user);
 
         String jti = UUID.randomUUID().toString();
-        String refreshTokenStr = jwtTokenProvider.generateRefreshToken(user.getId(), jti);
+        String refreshTokenStr = issueRefresh(user, jti);
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUserId(user.getId());
@@ -216,6 +215,13 @@ public class AuthServiceImpl implements AuthService {
         if (user.getIsActive() != null && !user.getIsActive()) {
             throw new BusinessException(ErrorCode.AUTH_ACCOUNT_LOCKED, "Tài khoản của bạn đã bị khóa, không thể làm mới phiên");
         }
+        if (!user.requiresFirstPasswordChange() && wasIssuedForFirstPassword(tokenStr)) {
+            tokenEntity.setIsRevoked(true);
+            refreshTokenRepository.save(tokenEntity);
+            recordAuditLog(user.getId(), user.getEmail(), "REFRESH_FAILED", ipAddress, userAgent,
+                    "Phiên giới hạn đã kết thúc sau đổi mật khẩu");
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_INVALID);
+        }
 
         // 5. Thực hiện Refresh Token Rotation (Thu hồi token cũ, cấp token mới)
         if ("STUDENT".equals(user.getRole()) && (user.getEmailVerifiedAt() == null || Boolean.TRUE.equals(user.getMustChangePassword()))) {
@@ -224,12 +230,10 @@ public class AuthServiceImpl implements AuthService {
         tokenEntity.setIsRevoked(true);
         refreshTokenRepository.save(tokenEntity);
 
-        String newAccessToken = jwtTokenProvider.generateAccessToken(
-                user.getId(), user.getEmail(), user.getRole(), user.getFullName()
-        );
+        String newAccessToken = issueAccess(user);
 
         String newJti = UUID.randomUUID().toString();
-        String newRefreshTokenStr = jwtTokenProvider.generateRefreshToken(user.getId(), newJti);
+        String newRefreshTokenStr = issueRefresh(user, newJti);
 
         RefreshToken newTokenEntity = new RefreshToken();
         newTokenEntity.setUserId(user.getId());
@@ -250,8 +254,33 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    /** Giữ quyền của phiên theo trạng thái first-password lúc cấp access. */
+    private String issueAccess(User user) {
+        if (user.requiresFirstPasswordChange()) {
+            return jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole(), user.getFullName(), true);
+        }
+        return jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole(), user.getFullName());
+    }
+
+    /** Cấp refresh JWT có dấu phiên giới hạn khi nhân sự chưa đổi mật khẩu. */
+    private String issueRefresh(User user, String jti) {
+        if (user.requiresFirstPasswordChange()) {
+            return jwtTokenProvider.generateRefreshToken(user.getId(), jti, true);
+        }
+        return jwtTokenProvider.generateRefreshToken(user.getId(), jti);
+    }
+
+    /** Phiên giới hạn còn sót khi đổi mật khẩu và refresh cạnh tranh cũng không được nâng quyền. */
+    private boolean wasIssuedForFirstPassword(String token) {
+        try {
+            return Boolean.TRUE.equals(jwtTokenProvider.getPasswordChangeRequirement(token));
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.AUTH_TOKEN_INVALID);
+        }
+    }
+
     /**
-     * Thu hồi Refresh Token khi người dùng chủ động đăng xuất.
+     * Thu hồi Refresh Token chính chủ và ghi audit một lần khi chuyển sang trạng thái thu hồi.
      *
      * @param request   DTO chứa refresh token cần thu hồi
      * @param ipAddress Địa chỉ IP
@@ -260,19 +289,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void logout(LogoutRequest request, String ipAddress, String userAgent) {
+        Integer actorId = SecurityUtils.requireCurrentUserId();
         String tokenStr = request.getRefreshToken().trim();
-        Optional<RefreshToken> tokenOpt = refreshTokenRepository.findByToken(tokenStr);
-
-        if (tokenOpt.isPresent()) {
-            RefreshToken tokenEntity = tokenOpt.get();
-            tokenEntity.setIsRevoked(true);
-            refreshTokenRepository.save(tokenEntity);
-
-            recordAuditLog(tokenEntity.getUserId(), null, "LOGOUT",
-                    ipAddress, userAgent, "Đăng xuất và thu hồi Refresh Token thành công");
-
-            log.info("Người dùng ID={} đã đăng xuất và thu hồi refresh token", tokenEntity.getUserId());
+        RefreshToken token = refreshTokenRepository.findByToken(tokenStr)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_TOKEN_INVALID));
+        if (!actorId.equals(token.getUserId())) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
         }
+        if (Boolean.TRUE.equals(token.getIsRevoked())) return;
+        token.setIsRevoked(true);
+        refreshTokenRepository.save(token);
+        recordAuditLog(actorId, null, "LOGOUT",
+                ipAddress, userAgent, "Đăng xuất và thu hồi Refresh Token thành công");
+        log.info("Người dùng ID={} đã đăng xuất và thu hồi refresh token", actorId);
     }
 
     /**
@@ -354,7 +383,7 @@ public class AuthServiceImpl implements AuthService {
         // Cập nhật mật khẩu mới băm BCrypt
         String passwordHash = passwordEncoder.encode(request.getNewPassword());
         user.setPasswordHash(passwordHash);
-        user.setMustChangePassword(false);
+        if (!user.requiresFirstPasswordChange()) user.setMustChangePassword(false);
         userRepository.save(user);
 
         // Đánh dấu token đã sử dụng

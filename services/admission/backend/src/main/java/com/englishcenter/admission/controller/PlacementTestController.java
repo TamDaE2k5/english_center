@@ -6,6 +6,7 @@ import com.englishcenter.admission.service.PlacementTestService;
 import com.englishcenter.admission.service.PublicPlacementTestService;
 import com.englishcenter.admission.service.TestManagementService;
 import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -55,7 +56,8 @@ public class PlacementTestController {
             @PathVariable("id") Integer id,
             @RequestBody(required = false) StartTestRequest request) {
         TakeTestResponse response = publicPlacementTestService.startTest(id, request);
-        return ResponseEntity.ok(ApiResponse.success(response, "Bắt đầu lượt thi thành công"));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(response, "Bắt đầu lượt thi thành công"));
     }
 
     /**
@@ -69,7 +71,16 @@ public class PlacementTestController {
             @RequestParam(name = "phone", required = false) String phone) {
         StartTestRequest request = new StartTestRequest(null, email, fullName, phone);
         TakeTestResponse response = publicPlacementTestService.startTest(id, request);
-        return ResponseEntity.ok(ApiResponse.success(response, "Lấy đề thi bắt đầu làm bài thành công"));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(response, "Lấy đề thi bắt đầu làm bài thành công"));
+    }
+
+    /** Lấy lượt thi theo ID cho STUDENT chính chủ, gồm giờ server và trạng thái hiện tại. */
+    @GetMapping("/public/attempts/{id}")
+    public ResponseEntity<ApiResponse<TakeTestResponse>> resumeTest(@PathVariable("id") Integer id) {
+        TakeTestResponse response = publicPlacementTestService.resumeTest(id);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(response, "Lấy lượt thi thành công"));
     }
 
     /**

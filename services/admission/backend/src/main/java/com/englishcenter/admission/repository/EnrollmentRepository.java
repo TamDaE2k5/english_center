@@ -83,7 +83,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      */
     @Modifying
     @Query("UPDATE Enrollment e SET e.status = 'EXPIRED', e.updatedAt = :now " +
-           "WHERE e.status = 'PENDING' AND e.holdExpiresAt IS NOT NULL AND e.holdExpiresAt < :now")
+           "WHERE e.status = 'PENDING' AND e.holdExpiresAt IS NOT NULL AND e.holdExpiresAt <= :now")
     int expireOverdueEnrollments(@Param("now") LocalDateTime now);
 
     /**

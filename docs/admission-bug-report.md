@@ -1,5 +1,60 @@
 # Báo cáo QA Admission
 
+## Danh mục phòng HTTP 500 — 13/11/2026
+
+- `GET /api/admission/rooms` thiếu bộ lọc có thể trả 500 nếu là lần chạy truy vấn tìm phòng đầu tiên trong Spring context. PostgreSQL trả SQLSTATE 42883, `function lower(bytea) does not exist`. Ép kiểu tham số chi nhánh sang chuỗi trước khi ghép mẫu LIKE đã sửa ca tái hiện. [QA Rooms và bàn giao](tasks/completed/admission-rooms-http-500-2026-11-13.md)
+
+## Tài khoản nhân sự và mật khẩu ban đầu H07-B — 13/11/2026
+
+- API tạo STAFF/TEACHER từng chấp nhận thiếu dữ liệu BA. Phiên dùng mật khẩu ban đầu cũng gọi được API trực tiếp, reset email tự xóa cờ, và UI chuyển sang trang khảo thí. H07-B bổ sung validation, giới hạn quyền phiên và dẫn người dùng đến form đổi mật khẩu.
+- H07-B **PARTIAL**. BA cần xác nhận reset email có hoàn tất yêu cầu đổi mật khẩu lần đầu hay không. Trong thời gian chờ, reset email giữ cờ đang bật. [QA H07-B](tasks/completed/admission-staff-account-lifecycle-2026-11-12.md)
+
+## Vòng đời phiên Admission H07-A — 12/11/2026
+
+- Login trước đây lưu access token và bỏ refresh token. Payload thiếu dữ liệu vẫn có thể redirect. Adapter Admission kiểm tra đủ cặp token và người dùng, xoay vòng một lần khi hết hạn hoặc nhận 401, và cập nhật UI khi mất phiên.
+- Logout Admission gửi refresh token chính chủ để thu hồi, xóa local khi server lỗi và chỉ báo revoke khi server xác nhận. Hai tab có cùng bản sao phối hợp bằng Web Locks và marker không chứa token.
+- Backend bổ sung `GET auth/me` theo BA, từ chối refresh JWT làm Bearer và bảo vệ logout chính chủ. **H07-A PARTIAL** vì cơ chế lưu refresh chống XSS và phiên dùng chung nhiều tab còn phụ thuộc kiến trúc. [QA H07-A](tasks/completed/admission-session-lifecycle-2026-11-11.md)
+
+## ID tài khoản trong roster CSV H04 — 11/11/2026
+
+- Roster từng dựng `STU-{id}` từ FK `enrollments.student_id` rồi ghi dưới cột `Mã học viên`. H04 thay bằng `ID tài khoản Admission` và giá trị số của FK, giữ vị trí cột và định dạng CSV. Bảng điểm dùng mã thí sinh Admission riêng.
+- Hai endpoint CSV áp dụng quyền STAFF/ADMIN theo ma trận BA. Kiểm tra ID sai kiểu và tăng bảo vệ ô CSV bắt đầu bằng ký tự điều khiển hoặc tiền tố công thức.
+- H04 **DONE** cho lỗi dữ liệu roster. FR-OPS-01 và FR-OPS-02 **PARTIAL**. Chi tiết contract, phân quyền và kết quả tại [QA H04](tasks/completed/admission-student-csv-export-2026-11-11.md).
+
+## Countdown khảo thí H05 — 11/11/2026
+
+- `test.html` hiển thị tổng thời lượng khi nhận đề và đếm theo nhịp timer. Response chậm, tab bị tạm dừng và refresh làm lệch thời gian. Giao diện dùng deadline và giờ server, mở lại đúng lượt trong cùng tab và khóa khi về 0.
+- Hai request từng có thể cùng vào luồng chấm. Ghi `EXPIRED` khi trả lỗi cũng từng bị rollback. Backend khóa bản ghi trước khi kiểm tra giờ và trạng thái, giữ được lần chuyển `EXPIRED` khi từ chối nộp muộn.
+- H05 **PARTIAL**. Cơ chế tự chốt hết giờ và chấm bài trắng cần BA/team quyết định. Kết quả tái hiện và kiểm thử nằm trong [QA H05](tasks/completed/admission-placement-timeout-2026-11-11.md).
+
+## Gia hạn giữ chỗ quá hạn — H06, 11/11/2026
+
+| Mã | Mức độ/vị trí, nguyên nhân và cách tái hiện | Sửa/giới hạn |
+|---|---|---|
+| ADM-QA-29 / H06 | Medium, extendHold: PENDING quá deadline/job chưa chạy hoặc deadline NULL vẫn được cấp hạn từ now | Chỉ gia hạn PENDING có deadline > now sau class lock + row refresh; <=/NULL bị từ chối. Expiry UPDATE thống nhất <=. Không tự chuyển status trong transaction gia hạn bị từ chối |
+| ADM-QA-30 | Medium, API/service: gửi lại cùng body hoặc hai Staff cùng snapshot cộng giờ nhiều lần | API yêu cầu expected_hold_expires_at; compare-and-set dưới row lock, snapshot cũ409 ADM_HOLD_CONFLICT. Client cũ thiếu trường mới400; client phải cập nhật cùng bản sửa. Không tự đặt số lần tối đa |
+| ADM-QA-31 | Medium, service: không có actor vẫn gia hạn; PENDING legacy của lớp CANCELLED vẫn được gia hạn | Guard STAFF/ADMIN tại service, chặn lớp CANCELLED; audit EXTENDED cùng transaction, REJECTED sau rollback. Lỗi audit rollback deadline/notes |
+| ADM-QA-32 | Medium, frontend enrollments.html: nút vẫn hiện cho PENDING hết giờ/NULL; form không giữ precondition, API null vẫn có thể báo thành công | Guard nút/modal, gửi snapshot gốc qua retry, chống submit đang chờ, không báo thành công khi kết quả null/false |
+
+Trước sửa **5/5 PG tests mới fail đúng lỗi**, 2 Node tests mới fail. Sau sửa **200/200 Java tests pass (JDK21,87 PostgreSQL16.15, không skip),15/15 invariants,12/12 Node,Chrome7 trang/BI roles/CASH/hold snapshot pass**. Matrix test, lịch sử các lần fail fixture và giới hạn được cập nhật tại [hold-extension-qa.md](../services/admission/docs/hold-extension-qa.md). Log `C:/Users/Admin/admission-work/qa-admission-hold-20261111/`. Giữ nguyên H01 cùng checkpoint cbf5be7/H02/H03. Chỉ xử lý H06, không Finance/Student/Learning/E2E/commit/push/merge.
+
+**Chính sách PARTIAL:** FR-ENR-05 hiện quy định còn hiệu lực; task cũ lại dùng max(deadline,now), BA nêu24/48 trong khi task/API1–72. Bản sửa giữ giới hạn giờ đã có và chặn quá hạn theo FR; override khôi phục, cap số lần/tổng thời gian và NULL legacy cần người phụ trách/Tâm chốt. Không diễn giải yêu cầu chủ ý với snapshot mới là chính sách gia hạn vô hạn đã được duyệt.
+
+## Callback thanh toán/chu kỳ hóa đơn — 11/11/2026
+
+**H01: PARTIAL**, đã sửa guard Admission; chưa chứng nhận thu đủ tiền hoặc tái phát hành hóa đơn Finance thật. Baseline sạch `cbf5be7`, giữ nguyên H02/H03.
+
+| Mã/mức độ | Vị trí, tái hiện và nguyên nhân | Sửa/kiểm chứng, phần còn lại |
+|---|---|---|
+| ADM-QA-25 / High | EnrollmentServiceImpl + PaymentSuccessWebhookRequest: callback authenticated sai invoice/amount âm vẫn duyệt, thiếu đối chiếu evidence | Hai PG tests đỏ trước sửa; chặn thiếu/sai invoice, amount null/âm/0, thiếu/old/future paid_at, explicit status khác PAID. Không lấy invoiceCode từ callback. Thu thiếu so số phải thu chưa có dữ liệu authoritative để kiểm chứng |
+| ADM-QA-26 / High | ProcessedFinanceEventRepository/service: event cũ dùng enrollment mới vẫn trả theo payload; chỉ exists-check | Một PG test đỏ trước sửa. Thêm fingerprint receipt và khóa transaction PG trước lookup; exact replay chỉ đọc, altered/binding/legacy thiếu hash bị từ chối + audit. Concurrent hai lớp chỉ một binding commit |
+| ADM-QA-27 / High | createEnrollment: tái dùng đơn đóng và invoice cũ khi Finance lỗi; idempotency Finance theo cùng enrollment_id | Chặn reuse, giữ nguyên dữ liệu cũ; PG test xác nhận không thay invoice/status. **PARTIAL:** chưa hỗ trợ đăng ký lại cùng user/class bằng chu kỳ mới, cần Finance/BA chốt generation/idempotency/state history |
+| ADM-QA-28 / High | processPaymentSuccess: REJECTED/refund-pending/event mới sau APPROVED thiếu journal đối soát | Ghi receipt/note, giữ status/approved_at/method; test terminal/out-of-order pass. Receipt/duyệt/outbox nguyên tử; lỗi receipt rollback và thử lại được. Business rejection audit commit sau rollback, 12 concurrent rejections vẫn đủ audit |
+
+- **185/185 Java tests pass, JDK21;72 PostgreSQL 16.15 tests; không skip.15/15 invariants;10/10 Node;Chrome7 trang và BI roles với API fixtures pass.** Migration bổ sung Admission chạy lại thành công; `git diff --check` pass. Không thay assertion cũ để che lỗi; fixture callback được bổ sung evidence hợp lệ.
+- Chưa xác minh Finance thật: tiền thu đủ/cumulative/currency/transaction_ref; mapping numeric ID↔mã hóa đơn; PAID/partial semantics, timezone/clock skew, hóa đơn thế hệ mới; xử lý hoàn/bảo lưu/slot đầy và receipt legacy. Giữ contract TASK-ADM-45: payment-success ngầm PAID khi không có status; amount dương không chứng minh thu đủ. Không dựng endpoint/bảng hóa đơn Finance.
+- Log đỏ `qa-admission-callback-20261111/red.log` (3/3 fail), log cuối `java-final.log` (185 pass). Chi tiết contract, test matrix, migration và giới hạn tại [payment-callback-qa.md](../services/admission/docs/payment-callback-qa.md). Snapshot audit gốc giữ nguyên; không xử lý nhóm lỗi khác/không chạy E2E toàn hệ thống/không commit/push/merge.
+
 
 ## Sửa sức chứa phòng/concurrent booking — 10/11/2026
 

@@ -111,10 +111,34 @@ class ExportServiceTest {
 
         String csvContent = new String(csvBytes, StandardCharsets.UTF_8);
         assertTrue(csvContent.startsWith("\uFEFF")); // UTF-8 BOM
-        assertTrue(csvContent.contains("Mã đơn,Mã học viên,Họ và tên,Email"));
+        assertTrue(csvContent.contains("Mã đơn,ID tài khoản Admission,Họ và tên,Email"));
+        assertTrue(csvContent.contains("\r\n1,ENR-1,101,Lê Thị Hoa,hoa.le@test.com,"));
+        assertFalse(csvContent.contains("STU-101"));
         assertTrue(csvContent.contains("Lê Thị Hoa"));
         assertTrue(csvContent.contains("hoa.le@test.com"));
         assertTrue(csvContent.contains("APPROVED"));
+        verify(enrollmentRepository).findByClassIdOrderByCreatedAtAsc(10);
+        verifyNoMoreInteractions(enrollmentRepository);
+        assertEquals(101, mockEnrollment.getStudentId());
+        assertEquals("APPROVED", mockEnrollment.getStatus());
+    }
+
+    /** Mã tài khoản đến từ khóa của đơn, kể cả khi không có hồ sơ đính kèm. */
+    @Test
+    void rosterUsesEnrollmentUserIdWithoutStudentMapping() {
+        mockEnrollment.setStudent(null);
+        Enrollment missingId = new Enrollment();
+        missingId.setId(2);
+        missingId.setStatus("PENDING");
+        when(classRepository.findById(10)).thenReturn(Optional.of(mockClass));
+        when(enrollmentRepository.findByClassIdOrderByCreatedAtAsc(10))
+                .thenReturn(List.of(mockEnrollment, missingId));
+
+        String csv = new String(exportService.exportClassRoster(10), StandardCharsets.UTF_8);
+
+        assertTrue(csv.contains("\r\n1,ENR-1,101,N/A,N/A,"));
+        assertTrue(csv.contains("\r\n2,ENR-2,,N/A,N/A,"));
+        assertFalse(csv.contains("STU-"));
     }
 
     @Test
@@ -137,6 +161,8 @@ class ExportServiceTest {
         assertNotNull(csvBytes);
         String csvContent = new String(csvBytes, StandardCharsets.UTF_8);
         assertTrue(csvContent.startsWith("\uFEFF"));
+        assertTrue(csvContent.contains("Mã bài nộp,Mã thí sinh,Họ và tên,Email"));
+        assertTrue(csvContent.contains("\r\n1,SUB-100,USR-101,Lê Thị Hoa,hoa.le@test.com,"));
         assertTrue(csvContent.contains("Điểm Nghe,Điểm Đọc,Điểm Ngữ pháp,Tổng điểm"));
         assertTrue(csvContent.contains("Lê Thị Hoa"));
         assertTrue(csvContent.contains("90.0"));

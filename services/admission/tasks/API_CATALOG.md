@@ -33,17 +33,21 @@
 |:---:|:---:|---|---|---|---|---|
 | 1 | `POST` | `/api/admission/auth/login` | Public | Đăng nhập hệ thống, cấp cặp Access Token (15m) / Refresh Token (7d) | `{"email": "...", "password": "..."}` | `AUTH_INVALID_CREDENTIALS`, `AUTH_ACCOUNT_LOCKED` |
 | 2 | `POST` | `/api/admission/auth/refresh` | Public | Làm mới phiên (Refresh Token Rotation; thu hồi token cũ, cấp cặp mới) | `{"refresh_token": "..."}` | `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_EXPIRED` |
-| 3 | `POST` | `/api/admission/auth/logout` | Authenticated | Đăng xuất, đánh dấu `is_revoked = TRUE` trên `refresh_tokens` | `{"refresh_token": "..."}` | `AUTH_TOKEN_INVALID` |
+| 3 | `POST` | `/api/admission/auth/logout` | Access JWT chính chủ | Thu hồi refresh token của tài khoản hiện tại. Gửi lại cùng token đã thu hồi trả thành công và không ghi thêm LOGOUT | `{"refresh_token": "..."}` | `AUTH_UNAUTHORIZED`, `AUTH_TOKEN_INVALID`, `AUTH_FORBIDDEN` |
 | 4 | `POST` | `/api/admission/auth/forgot-password` | Public | Yêu cầu mã token đặt lại mật khẩu qua email (hạn 15 phút) | `{"email": "..."}` | N/A (Bảo mật enum) |
 | 5 | `POST` | `/api/admission/auth/reset-password` | Public | Đặt lại mật khẩu mới bằng token 15 phút hợp lệ | `{"token": "...", "new_password": "..."}` | `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_INVALID` |
-| 6 | `GET` | `/api/admission/auth/me` | Authenticated | Lấy thông tin tài khoản đang đăng nhập từ token JWT | Header `Authorization: Bearer <token>` | `AUTH_UNAUTHORIZED` |
-| 7 | `POST` | `/api/admission/auth/change-password` | Authenticated | Đổi mật khẩu chủ động của người dùng | `{"old_password": "...", "new_password": "..."}` | `AUTH_INVALID_CREDENTIALS` |
+| 6 | `GET` | `/api/admission/auth/me` | Access JWT | Trả `id`, `email`, `role`, `full_name` và `must_change_password: true` nếu nhân sự cần đổi mật khẩu ban đầu | Header `Authorization: Bearer <access_token>` | `AUTH_UNAUTHORIZED` |
+| 7 | `POST` | `/api/admission/auth/change-password` | Access JWT chính chủ | Đổi mật khẩu, thu hồi refresh cũ và hoàn tất first-password nếu đang bắt buộc | `{"current_password": "...", "new_password": "..."}` | `AUTH_INVALID_CREDENTIALS`, `ADM_VALIDATION_ERROR` |
 | 8 | `GET` | `/api/admission/users` | ADMIN | Tìm kiếm & phân trang danh sách tài khoản người dùng | `?role=TEACHER&is_active=true&page=0&size=20` | `ADM_FORBIDDEN` |
-| 9 | `POST` | `/api/admission/users` | ADMIN | Tạo tài khoản nhân sự mới (Staff / Teacher), băm BCrypt | `{"email": "...", "full_name": "...", "role": "...", "phone": "..."}` | `ADM_USER_EMAIL_EXISTS` |
+| 9 | `POST` | `/api/admission/users` | ADMIN | Tạo STAFF/TEACHER, băm mật khẩu ban đầu và đặt `must_change_password=true` | Bắt buộc `email`, `full_name`, `role`, `phone`, `gender`, `date_of_birth`, `password` | `ADM_VALIDATION_ERROR`, `ADM_USER_EMAIL_EXISTS` |
 | 10 | `GET` | `/api/admission/users/{id}` | ADMIN | Xem chi tiết hồ sơ tài khoản | Path param `id` | `ADM_USER_NOT_FOUND` |
 | 11 | `PUT` | `/api/admission/users/{id}` | ADMIN | Cập nhật thông tin hồ sơ nhân sự | `{"full_name": "...", "phone": "...", "gender": "..."}` | `ADM_USER_NOT_FOUND` |
 | 12 | `PATCH`| `/api/admission/users/{id}/status` | ADMIN | Khóa hoặc mở khóa tài khoản (`is_active = FALSE/TRUE`) | `{"is_active": false, "reason": "..."}` | `ADM_USER_NOT_FOUND` |
 | 13 | `GET` | `/api/admission/audit-logs` | ADMIN | Truy vấn nhật ký kiểm toán bảo mật có phân trang | `?action=LOGIN_FAILED&from_date=...` | `ADM_FORBIDDEN` |
+
+Refresh JWT được gửi trong body của endpoint refresh hoặc logout và bị từ chối ở vị trí Bearer. Quyền truy cập `/auth/me` và `/auth/logout` áp dụng cả cho alias tương ứng. Khi access đã hết hạn, client Admission dùng refresh để lấy cặp mới rồi gọi logout nếu rotation thành công.
+
+STAFF/TEACHER chưa đổi mật khẩu nhận `403 AUTH_PASSWORD_CHANGE_REQUIRED` khi dùng access JWT gọi API ngoài danh sách auth cần thiết. Phiên giới hạn chỉ dùng để lấy hồ sơ hiện tại, đổi mật khẩu, đăng nhập, refresh, logout và khôi phục tài khoản. Sau đổi thành công, đăng nhập lại bằng mật khẩu mới. Access JWT nhân sự cũ thiếu claim phạm vi cần làm mới hoặc đăng nhập lại. Reset qua email giữ cờ đang bật cho đến khi BA xác nhận quy tắc.
 
 ---
 
@@ -97,11 +101,14 @@
 | 36 | `POST` | `/api/admission/tests/sets/{id}/questions` | STAFF, ADMIN | Thêm câu hỏi 3 kỹ năng vào bộ đề | `{"skill_type": "LISTENING", "audio_url": "...", "correct_option": "B", ...}` | `ADM_INVALID_PAYLOAD` |
 | 37 | `PUT` | `/api/admission/tests/questions/{id}`| STAFF, ADMIN | Chỉnh sửa nội dung câu hỏi, đáp án | `{"question_text": "...", "correct_option": "C"}` | `ADM_NOT_FOUND` |
 | 38 | `DELETE`| `/api/admission/tests/questions/{id}`| STAFF, ADMIN | Xóa câu hỏi khỏi bộ đề | Path param `id` | `ADM_NOT_FOUND` |
-| 39 | `POST`| `/api/admission/tests/public/{id}/start` | Public, STUDENT | Bắt đầu lượt thi (tạo `test_attempts`, trả đề thi ĐÃ GIẤU ĐÁP ÁN ĐÚNG và `attempt_id`) | Path param `id`, body: `{"user_id": 42}` (hoặc email) | `ADM_TEST_NOT_FOUND` |
-| 40 | `POST` | `/api/admission/tests/public/submit` | Public, STUDENT | Nộp bài thi, đối chiếu `attempt_id`, server-side chấm điểm & trả khóa học khuyến nghị | `{"attempt_id": 105, "answers": [{"question_id": 1, "selected": "A"}]}` | `ADM_TEST_ALREADY_SUBMITTED`, `ADM_ATTEMPT_EXPIRED` |
+| 39 | `POST` / `GET` | `/api/admission/tests/public/{id}/start` | STUDENT đã xác minh | Tạo lượt thi, trả `attempt_id`, `attempt_token`, deadline và đề đã ẩn đáp án | Path param `id` là ID bộ đề | `ADM_TEST_NOT_FOUND`, `AUTH_EMAIL_UNVERIFIED` |
+| 39a | `GET` | `/api/admission/tests/public/attempts/{id}` | STUDENT chính chủ đã xác minh | Đọc lại đúng lượt thi, deadline gốc và trạng thái hiện tại | Path param `id` là ID lượt thi | `AUTH_FORBIDDEN` |
+| 40 | `POST` | `/api/admission/tests/public/submit` | STUDENT chính chủ hoặc token của đúng lượt | Đối chiếu quyền, trạng thái và deadline trước khi chấm trên server | `{"attempt_id": 105, "answers": [{"question_id": 1, "selected_option": "A"}]}` | `ADM_TEST_ALREADY_SUBMITTED`, `ADM_ATTEMPT_EXPIRED`, `AUTH_FORBIDDEN` |
 | 41 | `GET` | `/api/admission/tests/submissions/{id}` | Authenticated, STAFF | Xem kết quả bài thi chi tiết và điểm bóc tách 3 kỹ năng | Path param `id` | `ADM_SUBMISSION_NOT_FOUND` |
 | 42 | `GET` | `/api/admission/tests/rules` | STAFF, ADMIN | Lấy danh sách quy tắc đề xuất khóa học | `?test_set_id=1` | N/A |
 | 43 | `POST` | `/api/admission/tests/rules` | STAFF, ADMIN | Cấu hình quy tắc đề xuất theo dải điểm | `{"test_set_id": 1, "min_score": 60.0, "max_score": 79.9, "recommended_course_id": 2}` | `ADM_RULE_OVERLAP` |
+
+Response start và resume bổ sung `data.server_now` cùng quy ước ngày giờ máy chủ với `expires_at`, và `data.status` (`STARTED`, `EXPIRED`, `SUBMITTED`). Resume trả đề khi lượt còn làm được, kèm `Cache-Control: no-store`. Capability `attempt_token` do start cấp cho submit. Submit lấy mốc giờ sau khi khóa lượt, chấp nhận ở đúng deadline nếu quyền vẫn hợp lệ, trả HTTP 400 `ADM_ATTEMPT_EXPIRED` khi quá hạn và ghi nhận `EXPIRED`. Payload tiếp tục yêu cầu ít nhất một đáp án.
 
 ---
 
@@ -112,10 +119,12 @@
 | 44 | `POST` | `/api/admission/enrollments` | Public, STUDENT, STAFF | Nộp đơn tuyển sinh (Cấp slot giữ chỗ 48h `hold_expires_at`, gọi Finance sinh hóa đơn) | `{"class_id": 10, "student_id": 42, "source": "ONLINE", "enrollment_channel": "ONLINE"}` | `ADM_CLASS_FULL`, `ADM_CLASS_NOT_OPEN` |
 | 45 | `GET` | `/api/admission/enrollments` | STAFF, ADMIN | Danh sách đơn đăng ký tuyển sinh có phân trang | `?class_id=10&status=PENDING&page=0&size=20` | `ADM_FORBIDDEN` |
 | 46 | `GET` | `/api/admission/enrollments/{id}` | Authenticated, STAFF | Xem chi tiết thông tin đơn, hạn giữ chỗ 48h và `invoice_code` | Path param `id` | `ADM_ENROLLMENT_NOT_FOUND` |
-| 47 | `POST` | `/api/admission/enrollments/{id}/extend-hold` | STAFF, ADMIN | Học vụ gia hạn thời gian giữ chỗ kèm lý do | `{"extended_hours": 24, "reason": "Chờ lương đầu tháng"}` | `ADM_INVALID_STATE_TRANSITION`, `ADM_CLASS_FULL` |
+| 47 | `POST` | `/api/admission/enrollments/{id}/extend-hold` | STAFF, ADMIN | Gia hạn PENDING còn hạn, snapshot deadline phải khớp DB | `{"extended_hours": 24, "reason": "Chờ lương đầu tháng", "expected_hold_expires_at": "2026-11-12T10:30:00.123456"}` | `ADM_INVALID_STATE_TRANSITION`, `ADM_HOLD_EXPIRED`, `ADM_HOLD_CONFLICT` (409), `ADM_CLASS_FULL` |
 | 48 | `POST` | `/api/admission/enrollments/{id}/approve-manual`| STAFF, ADMIN | Duyệt đơn trực tiếp khi học viên nộp tiền mặt (kiểm tra sĩ số trần INV-ADM-01) | `{"receipt_number": "PT-01", "payment_method": "CASH", "amount_received": 4500000}` | `ADM_CLASS_FULL`, `ADM_INVALID_STATE_TRANSITION` |
 | 49 | `PATCH`| `/api/admission/enrollments/{id}/cancel` | STAFF, Owner | Hủy đơn đăng ký tuyển sinh, giải phóng slot giữ chỗ | `{"reason": "Học viên hủy lịch học"}` | `ADM_INVALID_STATE_TRANSITION` |
 | 50 | `POST` | `/api/admission/webhooks/payment-success` | Internal (Finance Service) | Webhook nhận thanh toán PAID từ Finance $\rightarrow$ Idempotent check qua `processed_finance_events` $\rightarrow$ Duyệt đơn & sync Student | `{"event_id": "EVT-...", "enrollment_id": 100, "invoice_id": 55, "amount_paid": 6500000, "paid_at": "..."}` | `ADM_CLASS_FULL` (HTTP 422), `ADM_ENROLLMENT_NOT_FOUND` |
+
+Ghi chú QA H01 (11/11/2026): ví dụ numeric invoice_id ở #50 chưa thống nhất với TASK-ADM-45 (`"INV-..."`) và schema chỉ lưu invoice_code. Runtime Admission đối chiếu mã hóa đơn theo TASK-ADM-45, hỗ trợ alias `invoice_code`, không tự ánh xạ số 55 sang mã. Yêu cầu amount dương/paid_at hợp lệ; `invoice_status` (alias `status`) nếu có phải là PAID, vắng mặt giữ semantics PAID ngầm của endpoint cũ. Replay phải giữ nguyên binding/evidence; đơn đóng/quá hạn không tái dùng làm chu kỳ mới. Mapping, số dư và generation mới vẫn cần Finance chốt. Xem [payment-callback-qa.md](../docs/payment-callback-qa.md); không coi ghi chú này là xác nhận tích hợp Finance thật hoặc thay đổi contract phía Finance.
 
 ---
 
@@ -123,8 +132,10 @@
 
 | STT | HTTP Method | Endpoint URI | Phân Quyền (RBAC) | Tóm tắt Chức năng Nghiệp vụ | Request Body / Query Params | Định Dạng File Trả Về |
 |:---:|:---:|---|---|---|---|---|
-| 51 | `GET` | `/api/admission/exports/classes/{id}/roster` | STAFF, TEACHER, ADMIN | Xuất danh sách học viên lớp học ra file | `?format=csv` (hoặc `xlsx`) | `text/csv; charset=UTF-8` |
-| 52 | `GET` | `/api/admission/exports/tests/{id}/results` | STAFF, ADMIN | Xuất bảng điểm khảo thí đầu vào | `?format=csv` (hoặc `xlsx`) | `text/csv; charset=UTF-8` |
+| 51 | `GET` | `/api/admission/exports/classes/{id}/roster` | STAFF, ADMIN | Xuất danh sách đăng ký của lớp. Cột thứ ba là `ID tài khoản Admission` | `?format=csv` | `text/csv; charset=UTF-8`, `class_{id}_roster.csv` |
+| 52 | `GET` | `/api/admission/exports/tests/{id}/results` | STAFF, ADMIN | Xuất bảng điểm khảo thí theo bộ đề | `?format=csv` | `text/csv; charset=UTF-8`, `test_set_{id}_results.csv` |
+
+Roster giữ vị trí cột thứ ba và thay `Mã học viên` cùng giá trị `STU-{id}` bằng `ID tài khoản Admission` và giá trị số từ `enrollments.student_id` (FK đến `admission.users.id`). Consumer dùng tên cột hoặc tiền tố cũ cần cập nhật. File điểm giữ `Mã thí sinh` dạng `USR-{user_id}` cho định danh thí sinh trong Admission. Cả hai file dùng UTF-8 BOM. ID đường dẫn sai kiểu hoặc không dương trả 400, ID dương không tìm thấy trả 404. Ma trận quyền theo BA v3.6 §2.2.
 
 ---
 

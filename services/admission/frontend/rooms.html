@@ -45,7 +45,7 @@
   </style>
   <link rel="stylesheet" href="/admission/css/access.css">
 </head>
-<body>
+<body data-admission-protected>
   <div id="app">
     <div id="sidebar"></div>
     <div class="main-content">
@@ -175,9 +175,9 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-session.js"></script>
   <script src="/admission/js/admission-ui.js"></script>
   <script>
-    admissionRequireStaff();
     let roomsCache = [];
     let classesCache = [];
 
@@ -367,7 +367,7 @@
       }
     }
 
-    loadRooms();
+    admissionWhenReady(() => { if (admissionRequireStaff()) loadRooms(); });
   </script>
 </body>
 </html>

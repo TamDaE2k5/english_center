@@ -30,8 +30,7 @@ class PublicPlacementServiceTest {
         User verified = new User(); verified.setId(3); verified.setRole("STUDENT"); verified.setIsActive(true);
         verified.setEmailVerifiedAt(LocalDateTime.now()); verified.setMustChangePassword(false);
         when(userRepository.findById(3)).thenReturn(Optional.of(verified));
-        TestAttempt a = new TestAttempt(); a.setUserId(3);
-        when(attempts.findById(anyInt())).thenReturn(Optional.of(a));
+        when(attempts.findUserIdById(anyInt())).thenReturn(Optional.of(3));
         service = new PublicPlacementTestService(engine, users, attempts, tokens, userRepository);
     }
     @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
@@ -54,13 +53,11 @@ class PublicPlacementServiceTest {
         assertThrows(BusinessException.class, () -> service.submitAndGrade(r)); verifyNoInteractions(engine);
     }
     @Test void authenticatedOwnerCanSubmitWithoutGuestToken() {
-        login(3); TestAttempt a = new TestAttempt(); a.setUserId(3);
-        when(attempts.findById(1)).thenReturn(Optional.of(a));
+        login(3);
         SubmitTestRequest r = request(1); service.submitAndGrade(r); verify(engine).submitAndGrade(r);
     }
     @Test void anotherAuthenticatedUserCannotSubmit() {
-        login(4); TestAttempt a = new TestAttempt(); a.setUserId(3);
-        when(attempts.findById(1)).thenReturn(Optional.of(a));
+        login(4);
         assertThrows(BusinessException.class, () -> service.submitAndGrade(request(1))); verifyNoInteractions(engine);
     }
     @Test void newGuestMustVerifyAndLoginBeforeOfficialAttempt() {

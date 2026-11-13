@@ -2,6 +2,7 @@ package com.englishcenter.admission.service.impl;
 
 import com.englishcenter.admission.common.exception.BusinessException;
 import com.englishcenter.admission.common.exception.ErrorCode;
+import com.englishcenter.admission.common.exception.TestAttemptExpiredException;
 import com.englishcenter.admission.dto.test.*;
 import com.englishcenter.admission.entity.*;
 import com.englishcenter.admission.repository.*;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -75,7 +77,7 @@ public class PlacementTestServiceImpl implements PlacementTestService {
         User studentUser = resolveCandidateUser(request);
 
         // 3. Khởi tạo bản ghi lượt thi Countdown (INV-TST-02)
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expiresAt = now.plusMinutes(testSet.getDurationMinutes());
 
         TestAttempt attempt = new TestAttempt();
@@ -89,70 +91,73 @@ public class PlacementTestServiceImpl implements PlacementTestService {
         log.info("Thí sinh ID={} đã bắt đầu lượt thi attempt_id={}, bộ đề ID={}, hết hạn lúc {}",
                 studentUser.getId(), savedAttempt.getId(), testSetId, expiresAt);
 
-        // 4. Lấy danh sách câu hỏi và ẨN HOÀN TOÀN correct_option để bảo mật đề thi
-        List<PublicQuestionResponse> publicQuestions = testQuestionRepository
-                .findByTestSetIdOrderByDisplayOrderAsc(testSetId)
-                .stream()
-                .map(PublicQuestionResponse::fromEntity)
-                .collect(Collectors.toList());
+        return takeTestResponse(savedAttempt, testSet);
+    }
 
-        return new TakeTestResponse(
-                savedAttempt.getId(),
-                testSet.getId(),
-                testSet.getTitle(),
-                testSet.getDurationMinutes(),
-                now,
-                expiresAt,
-                publicQuestions
-        );
+    /** Tải lại đề của chính chủ; lượt đã đóng chỉ trả trạng thái và thời hạn. */
+    @Override
+    @Transactional(readOnly = true)
+    public TakeTestResponse resumeTest(Integer attemptId, Integer userId) {
+        TestAttempt attempt = testAttemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_FORBIDDEN));
+        TestSet testSet = testSetRepository.findById(attempt.getTestSetId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_TEST_NOT_FOUND));
+        return takeTestResponse(attempt, testSet);
+    }
+
+    /** Tạo phản hồi đồng hồ và chỉ kèm câu hỏi đã ẩn đáp án khi lượt còn hạn. */
+    private TakeTestResponse takeTestResponse(TestAttempt attempt, TestSet testSet) {
+        String status = attempt.getStatus();
+        List<PublicQuestionResponse> questions = List.of();
+        if ("STARTED".equals(status) && !LocalDateTime.now().isAfter(attempt.getExpiresAt())) {
+            questions = testQuestionRepository.findByTestSetIdOrderByDisplayOrderAsc(testSet.getId())
+                    .stream().map(PublicQuestionResponse::fromEntity).toList();
+        }
+        LocalDateTime serverNow = LocalDateTime.now();
+        if ("STARTED".equals(status) && serverNow.isAfter(attempt.getExpiresAt())) {
+            status = "EXPIRED";
+            questions = List.of();
+        }
+        TakeTestResponse response = new TakeTestResponse(attempt.getId(), testSet.getId(), testSet.getTitle(),
+                testSet.getDurationMinutes(), attempt.getStartedAt(), attempt.getExpiresAt(), questions);
+        response.setStatus(status);
+        response.setServerNow(serverNow);
+        return response;
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = TestAttemptExpiredException.class)
     public TestResultResponse submitAndGrade(SubmitTestRequest request) {
         // Bắt buộc có lượt thi do server cấp để không thể bỏ qua thời hạn countdown.
         if (request.getAttemptId() == null) {
             throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Bắt buộc cung cấp attempt_id để nộp bài thi");
         }
-        TestAttempt attempt = null;
-        TestSet testSet = null;
-        User studentUser = null;
+        // 1. Khóa lượt trước khi đọc trạng thái; request chờ khóa phải dùng giờ server sau khi chờ.
+        TestAttempt attempt = testAttemptRepository.findLockedById(request.getAttemptId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ATTEMPT_EXPIRED,
+                        "Không tìm thấy lượt thi với ID: " + request.getAttemptId()));
         LocalDateTime now = LocalDateTime.now();
-
-        // 1. Kiểm tra tính hợp lệ của lượt thi (nếu có attempt_id)
-        if (request.getAttemptId() != null) {
-            attempt = testAttemptRepository.findById(request.getAttemptId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ADM_ATTEMPT_EXPIRED,
-                            "Không tìm thấy lượt thi với ID: " + request.getAttemptId()));
-
-            // Chống nộp bài lần 2 cùng 1 lượt thi (INV-TST-02)
-            if ("SUBMITTED".equalsIgnoreCase(attempt.getStatus())
-                    || testSubmissionRepository.existsByAttemptId(attempt.getId())) {
-                log.warn("Lượt thi ID={} đã nộp bài trước đó, từ chối nộp lại (INV-TST-02)", attempt.getId());
-                throw new BusinessException(ErrorCode.ADM_TEST_ALREADY_SUBMITTED,
-                        "Lượt thi này đã nộp bài trước đó, không thể nộp lại");
-            }
-
-            // Kiểm tra thời gian hết hạn làm bài của server
-            if (now.isAfter(attempt.getExpiresAt())) {
-                log.warn("Lượt thi ID={} đã hết thời gian (expires_at={})", attempt.getId(), attempt.getExpiresAt());
-                attempt.setStatus("EXPIRED");
-                testAttemptRepository.save(attempt);
-                throw new BusinessException(ErrorCode.ADM_ATTEMPT_EXPIRED,
-                        "Lượt thi đã hết thời gian làm bài quy định");
-            }
-
-            final Integer attemptUserId = attempt.getUserId();
-            final Integer attemptTestSetId = attempt.getTestSetId();
-
-            studentUser = userRepository.findById(attemptUserId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ADM_USER_NOT_FOUND,
-                            "Không tìm thấy thí sinh với ID: " + attemptUserId));
-
-            testSet = testSetRepository.findById(attemptTestSetId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ADM_TEST_NOT_FOUND,
-                            "Không tìm thấy bộ đề thi với ID: " + attemptTestSetId));
+        if ("SUBMITTED".equalsIgnoreCase(attempt.getStatus())
+                || testSubmissionRepository.existsByAttemptId(attempt.getId())) {
+            log.warn("Lượt thi ID={} đã nộp bài trước đó, từ chối nộp lại (INV-TST-02)", attempt.getId());
+            throw new BusinessException(ErrorCode.ADM_TEST_ALREADY_SUBMITTED);
         }
+        if (!"STARTED".equals(attempt.getStatus())) {
+            throw new BusinessException(ErrorCode.ADM_ATTEMPT_EXPIRED);
+        }
+        if (now.isAfter(attempt.getExpiresAt())) {
+            log.warn("Lượt thi ID={} đã hết thời gian (expires_at={})", attempt.getId(), attempt.getExpiresAt());
+            attempt.setStatus("EXPIRED");
+            testAttemptRepository.save(attempt);
+            throw new TestAttemptExpiredException();
+        }
+
+        User studentUser = userRepository.findById(attempt.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_USER_NOT_FOUND,
+                        "Không tìm thấy thí sinh với ID: " + attempt.getUserId()));
+        TestSet testSet = testSetRepository.findById(attempt.getTestSetId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADM_TEST_NOT_FOUND,
+                        "Không tìm thấy bộ đề thi với ID: " + attempt.getTestSetId()));
 
         // 2. Tải danh sách câu hỏi gốc và đáp án chuẩn từ DB
         List<TestQuestion> originalQuestions = testQuestionRepository.findByTestSetIdOrderByDisplayOrderAsc(testSet.getId());
@@ -214,7 +219,7 @@ public class PlacementTestServiceImpl implements PlacementTestService {
 
         // 5. Lưu kết quả bài thi vào admission.test_submissions
         TestSubmission submission = new TestSubmission();
-        submission.setAttemptId(attempt != null ? attempt.getId() : null);
+        submission.setAttemptId(attempt.getId());
         submission.setUserId(studentUser.getId());
         submission.setTestSetId(testSet.getId());
         submission.setFullName(studentUser.getFullName());
@@ -235,17 +240,15 @@ public class PlacementTestServiceImpl implements PlacementTestService {
             submission.setAnswersDetail("[]");
         }
 
-        submission.setStartedAt(attempt != null ? attempt.getStartedAt() : now);
+        submission.setStartedAt(attempt.getStartedAt());
         submission.setSubmittedAt(now);
 
         TestSubmission savedSubmission = testSubmissionRepository.save(submission);
 
         // 6. Cập nhật trạng thái lượt thi sang SUBMITTED
-        if (attempt != null) {
-            attempt.setStatus("SUBMITTED");
-            attempt.setSubmittedAt(now);
-            testAttemptRepository.save(attempt);
-        }
+        attempt.setStatus("SUBMITTED");
+        attempt.setSubmittedAt(now);
+        testAttemptRepository.save(attempt);
 
         log.info("Đã ghi nhận nộp bài thi thành công: submission_id={}, attempt_id={}, total_score={}",
                 savedSubmission.getId(), savedSubmission.getAttemptId(), totalScore);

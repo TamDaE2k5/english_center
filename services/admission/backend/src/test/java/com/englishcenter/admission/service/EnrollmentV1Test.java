@@ -30,9 +30,10 @@ class EnrollmentV1Test {
         enrollments = mock(EnrollmentRepository.class); classes = mock(ClassRepository.class);
         events = mock(ProcessedFinanceEventRepository.class); sync = mock(StudentServiceSyncHelper.class);
         service = new EnrollmentServiceImpl(enrollments, classes, events, mock(ClassService.class),
-                mock(UserService.class), mock(FinanceServiceClient.class), sync, mock(CashConfirmationService.class));
+                mock(UserService.class), mock(FinanceServiceClient.class), sync, mock(CashConfirmationService.class),
+                mock(org.springframework.transaction.PlatformTransactionManager.class), mock(HoldExtensionAuditRepository.class));
         enrollment = new Enrollment(); enrollment.setId(1); enrollment.setClassId(2);
-        enrollment.setStudentId(3); enrollment.setStatus("PENDING");
+        enrollment.setStudentId(3); enrollment.setStatus("PENDING");enrollment.setInvoiceCode("INV-V1");enrollment.setEnrolledAt(LocalDateTime.now().minusDays(3));
         enrollment.setHoldExpiresAt(LocalDateTime.now().minusSeconds(1));
         clazz = new ClassEntity(); clazz.setId(2); clazz.setMaxStudents(2); clazz.setStatus("OPEN");
         when(enrollments.findById(1)).thenReturn(Optional.of(enrollment));
@@ -50,19 +51,26 @@ class EnrollmentV1Test {
 
     /** Tiền đến muộn phải được đối soát và đánh dấu hết hạn trong cùng transaction. */
     @Test void latePaymentIsRecordedWithoutApproval() {
-        service.processPaymentSuccess(new PaymentSuccessWebhookRequest("late-v1", 1, null, null, null, null));
+        service.processPaymentSuccess(new PaymentSuccessWebhookRequest("late-v1", 1, "INV-V1", java.math.BigDecimal.TEN, LocalDateTime.now(), null));
         assertEquals("EXPIRED", enrollment.getStatus());
         assertTrue(enrollment.getNotes().contains("Thanh toán muộn"));
         verify(events).save(any(ProcessedFinanceEvent.class));
         verifyNoInteractions(sync);
     }
 
-    /** Gia hạn đơn cũ không được chiếm chỗ đã giữ cho học viên khác. */
-    @Test void cannotRestoreExpiredHoldIntoFullClass() {
-        when(enrollments.countOccupiedSlots(eq(2), any())).thenReturn(2L);
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> service.extendHold(1, new ExtendHoldRequest(24, "Gia hạn học phí")));
-        assertEquals(ErrorCode.ADM_CLASS_FULL, error.getErrorCode());
-        verify(enrollments, never()).save(any());
+    /** FR-ENR-05: đơn quá hạn bị từ chối trước bước xin slot, kể cả khi lớp còn chỗ. */
+    @Test void cannotRestoreExpiredHoldEvenWithFreeCapacity() {
+        var principal = new com.englishcenter.admission.security.UserPrincipal(3, "qa@example.test", "unused", "QA Staff", "STAFF", true,
+                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_STAFF")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        try {
+            var request = new ExtendHoldRequest(24, "Gia hạn học phí");
+            request.setExpectedHoldExpiresAt(enrollment.getHoldExpiresAt());
+            BusinessException error = assertThrows(BusinessException.class, () -> service.extendHold(1, request));
+            assertEquals(ErrorCode.ADM_HOLD_EXPIRED, error.getErrorCode());
+            verify(enrollments, never()).save(any());
+            verify(enrollments, never()).countOccupiedSlots(anyInt(), any());
+        } finally { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
     }
 }

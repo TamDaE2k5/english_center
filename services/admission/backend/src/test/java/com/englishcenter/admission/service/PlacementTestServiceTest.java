@@ -11,6 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -119,17 +121,19 @@ class PlacementTestServiceTest {
         assertFalse(pubQ.toString().contains("correctOption"));
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("Nộp bài thi trắc nghiệm và chấm điểm chính xác bóc tách 3 kỹ năng (Listening, Reading, Grammar)")
-    void submitAndGrade_Success_CalculatesThreeSkills() {
+    void submitAndGrade_Success_CalculatesThreeSkills(boolean exactlyAtDeadline) {
+        LocalDateTime acceptedAt = LocalDateTime.of(2030, 1, 1, 12, 0);
         TestAttempt attempt = new TestAttempt();
         attempt.setId(500);
         attempt.setUserId(42);
         attempt.setTestSetId(1);
         attempt.setStatus("STARTED");
-        attempt.setExpiresAt(LocalDateTime.now().plusMinutes(30)); // Chưa hết hạn
+        attempt.setExpiresAt(exactlyAtDeadline ? acceptedAt : acceptedAt.plusMinutes(30));
 
-        when(testAttemptRepository.findById(500)).thenReturn(Optional.of(attempt));
+        when(testAttemptRepository.findLockedById(500)).thenReturn(Optional.of(attempt));
         when(testSubmissionRepository.existsByAttemptId(500)).thenReturn(false);
 
         User student = new User();
@@ -186,7 +190,11 @@ class PlacementTestServiceTest {
                 )
         );
 
-        TestResultResponse result = placementTestService.submitAndGrade(submitReq);
+        TestResultResponse result;
+        try (var time = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
+            time.when(LocalDateTime::now).thenReturn(acceptedAt);
+            result = placementTestService.submitAndGrade(submitReq);
+        }
 
         assertNotNull(result);
         assertEquals(0, new BigDecimal("70.0").compareTo(result.getTotalScore())); // 30 + 40 = 70
@@ -205,7 +213,7 @@ class PlacementTestServiceTest {
         attempt.setId(501);
         attempt.setStatus("SUBMITTED"); // Đã nộp rồi!
 
-        when(testAttemptRepository.findById(501)).thenReturn(Optional.of(attempt));
+        when(testAttemptRepository.findLockedById(501)).thenReturn(Optional.of(attempt));
 
         SubmitTestRequest request = new SubmitTestRequest(501, 1, "a@b.com", "A", "090", List.of());
 
@@ -224,7 +232,7 @@ class PlacementTestServiceTest {
         attempt.setStatus("STARTED");
         attempt.setExpiresAt(LocalDateTime.now().minusMinutes(5)); // Đã quá hạn 5 phút!
 
-        when(testAttemptRepository.findById(502)).thenReturn(Optional.of(attempt));
+        when(testAttemptRepository.findLockedById(502)).thenReturn(Optional.of(attempt));
 
         SubmitTestRequest request = new SubmitTestRequest(502, 1, "a@b.com", "A", "090", List.of());
 
@@ -234,5 +242,21 @@ class PlacementTestServiceTest {
         assertEquals(ErrorCode.ADM_ATTEMPT_EXPIRED, exception.getErrorCode());
         assertEquals("EXPIRED", attempt.getStatus());
         verify(testAttemptRepository, times(1)).save(attempt);
+    }
+
+    @Test
+    void submitAndGrade_ExpiredStatusCannotBeReopenedEvenWithFutureDeadline() {
+        TestAttempt attempt = new TestAttempt();
+        attempt.setId(503);
+        attempt.setStatus("EXPIRED");
+        attempt.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        when(testAttemptRepository.findLockedById(503)).thenReturn(Optional.of(attempt));
+
+        SubmitTestRequest request = new SubmitTestRequest(503, null, null, null, null, List.of());
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> placementTestService.submitAndGrade(request));
+
+        assertEquals(ErrorCode.ADM_ATTEMPT_EXPIRED, error.getErrorCode());
+        verify(testSubmissionRepository, never()).save(any());
     }
 }

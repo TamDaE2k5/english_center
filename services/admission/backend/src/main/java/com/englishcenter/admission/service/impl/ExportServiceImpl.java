@@ -2,7 +2,6 @@ package com.englishcenter.admission.service.impl;
 
 import com.englishcenter.admission.common.exception.BusinessException;
 import com.englishcenter.admission.common.exception.ErrorCode;
-import com.englishcenter.admission.entity.ClassEntity;
 import com.englishcenter.admission.entity.Enrollment;
 import com.englishcenter.admission.entity.TestSet;
 import com.englishcenter.admission.entity.TestSubmission;
@@ -10,20 +9,22 @@ import com.englishcenter.admission.repository.ClassRepository;
 import com.englishcenter.admission.repository.EnrollmentRepository;
 import com.englishcenter.admission.repository.TestSetRepository;
 import com.englishcenter.admission.repository.TestSubmissionRepository;
-import com.englishcenter.admission.security.SecurityUtils;
 import com.englishcenter.admission.service.ExportService;
 import com.englishcenter.admission.util.CsvExportHelper;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Triển khai dịch vụ xuất danh sách học viên lớp học và điểm khảo thí ra CSV UTF-8 (TASK-ADM-50).
  */
 @Service
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 public class ExportServiceImpl implements ExportService {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -44,29 +45,20 @@ public class ExportServiceImpl implements ExportService {
     }
 
     /**
-     * Xuất danh sách học viên của lớp học ra CSV kèm kiểm tra phân quyền giáo viên phụ trách.
+     * Xuất danh sách của lớp theo ID tài khoản Admission. Lớp không tồn tại trả ADM_CLASS_NOT_FOUND.
      */
     @Override
     @Transactional(readOnly = true)
     public byte[] exportClassRoster(Integer classId) {
-        ClassEntity clazz = classRepository.findById(classId)
+        classRepository.findById(classId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADM_CLASS_NOT_FOUND, "Không tìm thấy lớp học ID: " + classId));
-
-        // Kiểm tra phân quyền: Nếu là TEACHER thì chỉ được xuất danh sách lớp mình phụ trách
-        if (SecurityUtils.isAuthenticated() && "TEACHER".equalsIgnoreCase(SecurityUtils.getCurrentUserRole())) {
-            Integer currentUserId = SecurityUtils.getCurrentUserId();
-            if (clazz.getTeacherId() == null || !clazz.getTeacherId().equals(currentUserId)) {
-                throw new BusinessException(ErrorCode.AUTH_FORBIDDEN,
-                        "Giáo viên chỉ có quyền xuất danh sách lớp học do chính mình phụ trách");
-            }
-        }
 
         List<Enrollment> enrollments = enrollmentRepository.findByClassIdOrderByCreatedAtAsc(classId);
 
         List<String> headers = List.of(
                 "STT",
                 "Mã đơn",
-                "Mã học viên",
+                "ID tài khoản Admission",
                 "Họ và tên",
                 "Email",
                 "Số điện thoại",
@@ -79,7 +71,7 @@ public class ExportServiceImpl implements ExportService {
         List<List<String>> rows = new ArrayList<>();
         int stt = 1;
         for (Enrollment e : enrollments) {
-            String studentCode = e.getStudent() != null ? String.format("STU-%d", e.getStudentId()) : "N/A";
+            String admissionUserId = Objects.toString(e.getStudentId(), "");
             String fullName = e.getStudent() != null ? e.getStudent().getFullName() : "N/A";
             String email = e.getStudent() != null ? e.getStudent().getEmail() : "N/A";
             String phone = e.getStudent() != null ? e.getStudent().getPhone() : "N/A";
@@ -89,7 +81,7 @@ public class ExportServiceImpl implements ExportService {
             List<String> row = List.of(
                     String.valueOf(stt++),
                     String.format("ENR-%d", e.getId()),
-                    studentCode,
+                    admissionUserId,
                     fullName,
                     email,
                     phone != null ? phone : "",

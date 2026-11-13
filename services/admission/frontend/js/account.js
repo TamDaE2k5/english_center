@@ -1,7 +1,19 @@
-// Token chỉ nằm trong bộ nhớ, không lưu storage hoặc console; xóa fragment ngay khi đọc.
+// Token của link email chỉ nằm trong bộ nhớ. Xóa fragment ngay khi đọc.
 let accountToken = null;
 let passwordAction = null;
 const accountMessage = document.getElementById('accountMessage');
+const accountLogout = document.getElementById('admissionAccountLogout');
+const firstPasswordMessage = 'Bạn cần đổi mật khẩu ban đầu trước khi sử dụng Admission.';
+function updateAccountSession() {
+  accountLogout.hidden = !isAuthenticated();
+  if (getCurrentUser()?.mustChangePassword && !passwordAction && document.getElementById('change').hidden) {
+    accountMessage.textContent = firstPasswordMessage;
+    accountView('change');
+  }
+}
+accountLogout.addEventListener('click', () => logout());
+accountMessage.textContent = admissionTakeNotice() || '';
+updateAccountSession();
 function accountView(id) { document.querySelectorAll('.account-form').forEach(f => { f.hidden = f.id !== id; }); }
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
   accountMessage.textContent = '';
@@ -15,6 +27,8 @@ document.querySelectorAll('.account-form').forEach(form => form.addEventListener
     if (data.new_password && (data.new_password.length < 10 || new TextEncoder().encode(data.new_password).length > 72))
       throw new Error('Mật khẩu cần tối thiểu 10 ký tự và không quá 72 byte UTF-8.');
     if (form.id === 'password' && data.confirm !== data.new_password) throw new Error('Hai mật khẩu không khớp.');
+    if (form.id === 'change' && getCurrentUser()?.mustChangePassword && data.current_password === data.new_password)
+      throw new Error('Mật khẩu mới phải khác mật khẩu hiện tại.');
     let endpoint = form.id;
     if (form.id === 'forgot') endpoint = 'forgot-password';
     if (form.id === 'change') endpoint = 'change-password';
@@ -25,13 +39,15 @@ document.querySelectorAll('.account-form').forEach(form => form.addEventListener
     const response = await apiPost('/api/admission/auth/' + endpoint, data);
     if (!response) throw new Error('Yêu cầu chưa thành công. Vui lòng kiểm tra lại.');
     if (form.id === 'login') {
-      setSession(response.data.access_token, response.data.user);
+      admissionSaveLogin(response.data);
+      form.reset();
+      if (getCurrentUser()?.mustChangePassword) return;
       window.location.href = '/admission/test.html'; return;
     }
     accountMessage.textContent = response.message || 'Đã xử lý yêu cầu. Vui lòng kiểm tra email.';
     if (form.id === 'password' || form.id === 'change') {
       accountToken = null; passwordAction = null; form.reset();
-      localStorage.removeItem('ec_token'); localStorage.removeItem('ec_user'); accountView('login');
+      admissionClearSession(); accountView('login');
     }
   } catch (error) { accountMessage.textContent = error.message || 'Không thể xử lý yêu cầu.'; }
   finally { button.disabled = false; }

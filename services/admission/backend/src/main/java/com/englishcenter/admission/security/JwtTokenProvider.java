@@ -1,5 +1,6 @@
 package com.englishcenter.admission.security;
 
+import com.englishcenter.admission.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -65,6 +66,12 @@ public class JwtTokenProvider {
      * @return Chuỗi JWT Access Token
      */
     public String generateAccessToken(Integer userId, String email, String role, String fullName) {
+        return generateAccessToken(userId, email, role, fullName, false);
+    }
+
+    /** Cấp access JWT với phạm vi phiên nhân sự tại thời điểm cấp. */
+    public String generateAccessToken(Integer userId, String email, String role, String fullName,
+                                      boolean firstPasswordChangeRequired) {
         long now = System.currentTimeMillis();
         long exp = now + (accessTokenExpirationSeconds * 1000);
 
@@ -74,6 +81,7 @@ public class JwtTokenProvider {
                 .claim("email", email)
                 .claim("role", role)
                 .claim("full_name", fullName)
+                .claim("must_change_password", User.isStaffRole(role) ? firstPasswordChangeRequired : null)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(exp))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -88,6 +96,11 @@ public class JwtTokenProvider {
      * @return Chuỗi JWT Refresh Token
      */
     public String generateRefreshToken(Integer userId, String jti) {
+        return generateRefreshToken(userId, jti, false);
+    }
+
+    /** Đánh dấu refresh của phiên giới hạn để không cấp quyền sau khi mật khẩu đã đổi. */
+    public String generateRefreshToken(Integer userId, String jti, boolean firstPasswordChangeRequired) {
         long now = System.currentTimeMillis();
         long exp = now + (refreshTokenExpirationDays * 24 * 60 * 60 * 1000);
 
@@ -95,6 +108,7 @@ public class JwtTokenProvider {
                 .setSubject(String.valueOf(userId))
                 .setId(jti != null ? jti : UUID.randomUUID().toString())
                 .claim("token_type", "REFRESH")
+                .claim("must_change_password", firstPasswordChangeRequired ? Boolean.TRUE : null)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(exp))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -140,6 +154,16 @@ public class JwtTokenProvider {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    /** Nhận diện JWT làm mới đã ký để bộ lọc từ chối nó ở vị trí access Bearer. */
+    public boolean isRefreshToken(String token) {
+        return "REFRESH".equals(extractAllClaims(token).get("token_type", String.class));
+    }
+
+    /** Đọc claim có chữ ký. JWT đời cũ có thể thiếu trường này. */
+    public Boolean getPasswordChangeRequirement(String token) {
+        return extractAllClaims(token).get("must_change_password", Boolean.class);
     }
 
     /**

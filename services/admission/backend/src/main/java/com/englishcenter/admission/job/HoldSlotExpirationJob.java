@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Tiến trình nền tự động quét và thu hồi các slot giữ chỗ 48h quá hạn (TASK-ADM-43, FR-ENR-04).
- * Chuyển các đơn PENDING có hold_expires_at < now sang trạng thái EXPIRED để giải phóng slot trống cho học viên khác.
+ * Chuyển các đơn PENDING có hold_expires_at <= now sang trạng thái EXPIRED để giải phóng slot trống cho học viên khác.
  */
 @Component
 public class HoldSlotExpirationJob {

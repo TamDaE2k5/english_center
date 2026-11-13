@@ -78,6 +78,9 @@ public class SecurityConfig {
                 // Phân quyền chi tiết cho các đường dẫn API
                 .authorizeHttpRequests(auth -> auth
                         // 1. Nhóm API công khai xác thực (Public Auth Endpoints)
+                        .requestMatchers(HttpMethod.POST, "/api/admission/auth/logout", "/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/admission/auth/change-password", "/auth/change-password").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/admission/auth/me", "/auth/me").authenticated()
                         .requestMatchers(
                                 "/api/admission/auth/login",
                                 "/api/admission/auth/register",
@@ -110,7 +113,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admission/rooms/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/enrollments/*/approve-manual").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/bi/**").hasAnyRole("ADMIN", "STAFF")
-                        .requestMatchers("/api/admission/exports/**").hasAnyRole("ADMIN", "STAFF", "TEACHER")
+                        .requestMatchers("/api/admission/exports/**").hasAnyRole("ADMIN", "STAFF")
 
                         // 6. Mọi yêu cầu còn lại bắt buộc phải đăng nhập hợp lệ
                         .anyRequest().authenticated()
