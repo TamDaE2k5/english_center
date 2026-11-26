@@ -22,10 +22,9 @@
             <div class="card">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
-                <h1 class="heading-1">Sổ Điểm Trọng Số & Đánh Giá (LRN-02)</h1>
+                <h1 class="heading-1">Sổ Điểm Trọng Số & Đánh Giá</h1>
                 <p class="text-sm" style="color:var(--color-text-secondary);">
-                    Nhập điểm mới (POST) và cập nhật điểm (PUT) tuân thủ INV-LRN-01, INV-LRN-02, INV-LRN-03, INV-LRN-06
-                </p>
+                    
                 </div>
                 <div style="display:flex; gap:8px;">
                 <a href="/learning/materials.html" class="btn btn-secondary">Kho học liệu</a>
@@ -37,11 +36,11 @@
             <div class="card-body">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: var(--space-md);">
                 <div class="form-group">
-                    <label class="label" for="gradeFilterClassId">Mã Lớp (class_id)</label>
+                    <label class="label" for="gradeFilterClassId">Mã Lớp </label>
                     <input type="number" id="gradeFilterClassId" class="form-input" value="1" min="1">
                 </div>
                 <div class="form-group">
-                    <label class="label" for="gradeFilterStudentId">Mã Học viên (student_id)</label>
+                    <label class="label" for="gradeFilterStudentId">Mã Học viên </label>
                     <input type="number" id="gradeFilterStudentId" class="form-input" placeholder="Tất cả / Của tôi">
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end;">
@@ -55,10 +54,10 @@
                     <tr>
                         <th>ID</th>
                         <th>Lớp</th>
-                        <th>Học viên (student_id)</th>
-                        <th>Đầu điểm (assessment_name)</th>
+                        <th>Học viên </th>
+                        <th>Đầu điểm </th>
                         <th>Điểm / Thang tối đa</th>
-                        <th>Trọng số (weight)</th>
+                        <th>Trọng số </th>
                         <th>Tỷ lệ (%)</th>
                         <th>Nhận xét</th>
                         <th>Thao tác</th>
@@ -89,20 +88,20 @@
         <div class="modal-body">
             <input type="hidden" id="editGradeId" value="">
             <div class="form-group">
-            <label class="label" for="inpGradeClassId">Mã Lớp (class_id) <span class="required">*</span></label>
+            <label class="label" for="inpGradeClassId">Mã Lớp  <span class="required">*</span></label>
             <input type="number" id="inpGradeClassId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
-            <label class="label" for="inpGradeStudentId">Mã Học viên (student.students.id - R-ID-1) <span class="required">*</span></label>
+            <label class="label" for="inpGradeStudentId">Mã Học viên  <span class="required">*</span></label>
             <input type="number" id="inpGradeStudentId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
-            <label class="label" for="inpAssessmentName">Tên đầu điểm (assessment_name - INV-LRN-06) <span class="required">*</span></label>
+            <label class="label" for="inpAssessmentName">Tên đầu điểm  <span class="required">*</span></label>
             <input type="text" id="inpAssessmentName" class="form-input" placeholder="VD: Quiz 1, Midterm, Final" required>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
             <div class="form-group">
-                <label class="label" for="inpScore">Điểm (score) <span class="required">*</span></label>
+                <label class="label" for="inpScore">Điểm <span class="required">*</span></label>
                 <input type="number" step="0.01" id="inpScore" class="form-input" min="0" value="85" required>
             </div>
             <div class="form-group">
