@@ -20,16 +20,25 @@
         </nav>
 
         <div class="card">
-          <div class="card-header">
+          <div class="card-header" style="flex-wrap: wrap; gap: var(--space-md);">
             <div>
               <h1 class="heading-1">Danh Sách Yêu Cầu Học Vụ</h1>
               <p class="text-secondary text-sm">Quản lý các yêu cầu bảo lưu, chuyển lớp và rút hồ sơ</p>
             </div>
-            <button class="btn btn-primary" onclick="openCreateModal()">
-              + Tạo yêu cầu mới
-            </button>
+            <div style="display: flex; gap: var(--space-sm); align-items: center;">
+              <select class="form-select" id="statusFilter" style="width: 170px;" onchange="loadRequests()">
+                <option value="">Tất cả trạng thái</option>
+                <option value="PENDING">Chờ duyệt (PENDING)</option>
+                <option value="APPROVED">Đã duyệt (APPROVED)</option>
+                <option value="REJECTED">Từ chối (REJECTED)</option>
+              </select>
+              <button class="btn btn-primary" id="btnCreateRequest" style="display: none;" onclick="openCreateModal()">
+                + Tạo yêu cầu mới
+              </button>
+            </div>
           </div>
           <div class="card-body">
+            <div id="roleNotice" style="display: none; padding: var(--space-md); border-radius: var(--radius-md); background-color: var(--color-info-light); color: var(--color-info); margin-bottom: var(--space-md);"></div>
             <div class="table-container">
               <table class="data-table">
                 <thead>
@@ -37,14 +46,15 @@
                     <th>ID</th>
                     <th>Học viên</th>
                     <th>Loại yêu cầu</th>
-                    <th>Lý do</th>
+                    <th>Lý do &amp; Chi tiết</th>
                     <th>Trạng thái</th>
+                    <th>Ghi chú duyệt</th>
                     <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="request-table-body">
                   <tr>
-                    <td colspan="6" style="text-align: center; color: var(--color-text-secondary);">
+                    <td colspan="7" style="text-align: center; color: var(--color-text-secondary);">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
@@ -62,30 +72,42 @@
     <div class="modal">
       <div class="modal-header">
         <h3 class="heading-3">Tạo Yêu Cầu Học Vụ</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <button class="modal-close" type="button" onclick="closeModal()">&times;</button>
       </div>
       <form id="requestForm">
         <div class="modal-body">
-          <div class="form-group">
-            <label class="label" for="studentId">Mã Học viên (ID) <span class="required">*</span></label>
-            <input type="number" id="studentId" class="form-input" placeholder="Nhập ID học viên (VD: 6)" required>
+          <div class="form-group" id="studentSelectGroup">
+            <label class="label" for="studentId">Học viên <span class="required">*</span></label>
+            <select id="studentId" class="form-select"></select>
           </div>
           <div class="form-group">
             <label class="label" for="requestType">Loại yêu cầu <span class="required">*</span></label>
-            <select id="requestType" class="form-input" required>
+            <select id="requestType" class="form-select" required onchange="toggleTransferFields()">
               <option value="RESERVE">Bảo lưu (RESERVE)</option>
               <option value="TRANSFER">Chuyển lớp (TRANSFER)</option>
               <option value="DROP">Rút hồ sơ (DROP)</option>
             </select>
           </div>
           <div class="form-group">
+            <label class="label" for="classId">Lớp hiện tại (tùy chọn)</label>
+            <select id="classId" class="form-select">
+              <option value="">-- Không chọn --</option>
+            </select>
+          </div>
+          <div class="form-group" id="targetClassGroup" style="display: none;">
+            <label class="label" for="targetClassId">Lớp muốn chuyển đến</label>
+            <select id="targetClassId" class="form-select">
+              <option value="">-- Chọn lớp đích --</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label class="label" for="reason">Lý do <span class="required">*</span></label>
-            <textarea id="reason" class="form-input" rows="3" placeholder="Nhập lý do chi tiết..." required></textarea>
+            <textarea id="reason" class="form-textarea" rows="3" placeholder="Nhập lý do chi tiết..." required></textarea>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-          <button type="submit" class="btn btn-primary">Gửi Yêu Cầu</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitRequest">Gửi Yêu Cầu</button>
         </div>
       </form>
     </div>
@@ -95,58 +117,142 @@
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
   <script>
-    // 1. Hàm tải danh sách yêu cầu
+    let currentUser = null;
+    let currentRole = '';
+    let canReview = false;
+    let classMap = {};
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function initPage() {
+      requireAuth();
+      currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+      currentRole = String(currentUser?.role || '').toUpperCase();
+      canReview = ['ADMIN', 'STAFF'].includes(currentRole);
+
+      if (currentRole === 'TEACHER') {
+        const notice = document.getElementById('roleNotice');
+        notice.style.display = 'block';
+        notice.textContent = 'Chức năng yêu cầu học vụ chỉ dành cho Học viên, Học vụ và Quản trị viên.';
+        document.getElementById('statusFilter').style.display = 'none';
+        document.getElementById('request-table-body').innerHTML =
+          '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary);">Không có quyền truy cập.</td></tr>';
+        return;
+      }
+
+      document.getElementById('btnCreateRequest').style.display = 'inline-flex';
+      await loadClassesDropdown();
+      if (canReview) {
+        await loadStudentsDropdown();
+      } else {
+        document.getElementById('studentSelectGroup').style.display = 'none';
+      }
+      await loadRequests();
+    }
+
+    async function loadClassesDropdown() {
+      try {
+        const res = await apiGet('/api/admission/classes');
+        const classes = (res && Array.isArray(res.data)) ? res.data : [];
+        classMap = {};
+        classes.forEach(c => { classMap[c.id] = `${c.code} - ${c.name}`; });
+
+        const opts = '<option value="">-- Chọn lớp --</option>' +
+          classes.map(c => `<option value="${c.id}">${escapeHtml(c.code)} - ${escapeHtml(c.name)}</option>`).join('');
+        document.getElementById('classId').innerHTML = opts;
+        document.getElementById('targetClassId').innerHTML = opts;
+      } catch (err) {}
+    }
+
+    async function loadStudentsDropdown() {
+      const sel = document.getElementById('studentId');
+      try {
+        const res = await apiGet('/api/student/students');
+        const list = (res && Array.isArray(res.data)) ? res.data : [];
+        sel.innerHTML = '<option value="">-- Chọn học viên --</option>' +
+          list.map(s => `<option value="${s.id}">${escapeHtml(s.student_code || '#' + s.id)} - ${escapeHtml(s.full_name)}</option>`).join('');
+      } catch (err) {
+        sel.innerHTML = '<option value="">Không tải được danh sách học viên</option>';
+      }
+    }
+
+    function toggleTransferFields() {
+      const type = document.getElementById('requestType').value;
+      document.getElementById('targetClassGroup').style.display = type === 'TRANSFER' ? 'block' : 'none';
+    }
+
     async function loadRequests() {
       const tbody = document.getElementById('request-table-body');
+      const st = document.getElementById('statusFilter').value;
       try {
-        const res = await apiGet('/api/student/status-requests');
+        const qs = st ? `?status=${encodeURIComponent(st)}` : '';
+        const res = await apiGet(`/api/student/status-requests${qs}`);
         const list = (res && res.data) ? res.data : [];
 
         if (list.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Chưa có dữ liệu yêu cầu.</td></tr>`;
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary);">Chưa có dữ liệu yêu cầu học vụ.</td></tr>';
           return;
         }
 
         tbody.innerHTML = list.map(req => {
-          // Đổi tên loại yêu cầu cho thân thiện
           let typeText = req.request_type;
           if (req.request_type === 'RESERVE') typeText = 'Bảo lưu';
           if (req.request_type === 'TRANSFER') typeText = 'Chuyển lớp';
           if (req.request_type === 'DROP') typeText = 'Rút hồ sơ';
 
-          // Màu sắc theo trạng thái
           let badgeClass = 'badge-warning';
           if (req.status === 'APPROVED') badgeClass = 'badge-success';
           if (req.status === 'REJECTED') badgeClass = 'badge-danger';
 
-          // Nút duyệt (chỉ hiện khi PENDING)
-          const actionBtn = req.status === 'PENDING' 
-            ? `<button class="btn btn-success btn-sm" onclick="approveRequest(${req.id})">Duyệt</button>` 
-            : `<span class="text-secondary">Đã xử lý</span>`;
+          const classDetail = req.request_type === 'TRANSFER' && (req.class_id || req.target_class_id)
+            ? `<div class="text-xs text-secondary" style="margin-top: 4px;">Lớp: ${escapeHtml(classMap[req.class_id] || req.class_id || '?')} -> ${escapeHtml(classMap[req.target_class_id] || req.target_class_id || '?')}</div>`
+            : (req.class_id ? `<div class="text-xs text-secondary" style="margin-top: 4px;">Lớp: ${escapeHtml(classMap[req.class_id] || req.class_id)}</div>` : '');
+
+          let actionHtml = '<span class="text-secondary text-sm">Đã xử lý</span>';
+          if (req.status === 'PENDING') {
+            actionHtml = canReview
+              ? `<div style="display: flex; gap: 6px;">
+                   <button class="btn btn-primary btn-sm" style="background-color: var(--color-success);" onclick="approveRequest(${req.id})">Duyệt</button>
+                   <button class="btn btn-danger btn-sm" onclick="rejectRequest(${req.id})">Từ chối</button>
+                 </div>`
+              : '<span class="text-secondary text-sm">Đang chờ duyệt</span>';
+          }
 
           return `
             <tr>
               <td>#${req.id}</td>
-              <td><strong>${req.student_name || 'HV #' + req.student_id}</strong></td>
-              <td>${typeText}</td>
-              <td>${req.reason}</td>
-              <td><span class="badge ${badgeClass}">${req.status}</span></td>
-              <td>${actionBtn}</td>
+              <td>
+                <strong>${escapeHtml(req.student_name || ('HV #' + req.student_id))}</strong>
+                <div class="text-xs text-secondary">${escapeHtml(req.student_code || '')}</div>
+              </td>
+              <td>${escapeHtml(typeText)}</td>
+              <td>${escapeHtml(req.reason)}${classDetail}</td>
+              <td><span class="badge ${badgeClass}">${escapeHtml(req.status)}</span></td>
+              <td>${escapeHtml(req.reviewed_note || '-')}</td>
+              <td>${actionHtml}</td>
             </tr>
           `;
         }).join('');
       } catch (err) {
         tbody.innerHTML = `
-          <tr><td colspan="6" style="text-align: center; color: var(--color-danger);">
-            Không thể tải dữ liệu từ API.
+          <tr><td colspan="7" style="text-align: center; color: var(--color-danger);">
+            ${escapeHtml(err.message || 'Không thể tải dữ liệu yêu cầu học vụ.')}
           </td></tr>
         `;
       }
     }
 
-    // 2. Mở/Đóng Modal
     function openCreateModal() {
       document.getElementById('requestForm').reset();
+      toggleTransferFields();
       document.getElementById('requestModal').classList.add('active');
     }
 
@@ -154,36 +260,65 @@
       document.getElementById('requestModal').classList.remove('active');
     }
 
-    // 3. Hàm gửi yêu cầu mới
     document.getElementById('requestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const submitBtn = document.getElementById('btnSubmitRequest');
       const payload = {
-        student_id: parseInt(document.getElementById('studentId').value),
         request_type: document.getElementById('requestType').value,
         reason: document.getElementById('reason').value.trim()
       };
+
+      if (canReview) {
+        const sid = parseInt(document.getElementById('studentId').value, 10);
+        if (!sid) {
+          showToast('error', 'Vui lòng chọn học viên.');
+          return;
+        }
+        payload.student_id = sid;
+      }
+
+      const cid = document.getElementById('classId').value;
+      const tcid = document.getElementById('targetClassId').value;
+      if (cid) payload.class_id = parseInt(cid, 10);
+      if (tcid && payload.request_type === 'TRANSFER') payload.target_class_id = parseInt(tcid, 10);
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Đang gửi...';
 
       try {
         await apiPost('/api/student/status-requests', payload);
         showToast('success', 'Đã gửi yêu cầu thành công!');
         closeModal();
         loadRequests();
-      } catch (err) {}
+      } catch (err) {
+        // api.js da hien thi toast loi
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Gửi Yêu Cầu';
+      }
     });
 
-    // 4. Hàm Duyệt yêu cầu
     async function approveRequest(id) {
       if (!confirm('Bạn có chắc chắn muốn duyệt yêu cầu này?')) return;
-      
+      const note = prompt('Ghi chú duyệt (bỏ trống nếu không cần):') || '';
       try {
-        await apiPut(`/api/student/status-requests/${id}/approve`, {});
+        await apiPut(`/api/student/status-requests/${id}/approve`, { reviewed_note: note || null });
         showToast('success', 'Đã duyệt yêu cầu và cập nhật trạng thái học viên!');
         loadRequests();
       } catch (err) {}
     }
 
-    // Khởi chạy
-    loadRequests();
+    async function rejectRequest(id) {
+      if (!confirm('Bạn có chắc chắn muốn từ chối yêu cầu này?')) return;
+      const note = prompt('Lý do từ chối (tùy chọn):') || '';
+      try {
+        await apiPut(`/api/student/status-requests/${id}/reject`, { reviewed_note: note || null });
+        showToast('success', 'Đã từ chối yêu cầu học vụ.');
+        loadRequests();
+      } catch (err) {}
+    }
+
+    initPage();
   </script>
 </body>
 </html>
