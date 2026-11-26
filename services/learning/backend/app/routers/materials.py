@@ -20,11 +20,17 @@ def list_materials(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Lấy danh sách học liệu theo lớp, loại học liệu, từ khóa và phân trang.
+
+    - Nếu người dùng là STUDENT, chỉ được xem học liệu của các lớp mình đã đăng ký APPROVED.
+    - Trả về: Cấu trúc JSON phân trang {items, total, page, size, total_pages}.
+    """
     query = db.query(Material)
 
-    # Nếu là STUDENT, kiểm tra chỉ xem học liệu của lớp mình học (nếu Admission trả về danh sách lớp)
+    # Bước 1: Cô lập học liệu theo lớp đã đăng ký nếu vai trò là STUDENT
     if current_user.role == "STUDENT":
-        enrolled_classes = get_student_enrolled_class_ids(current_user.user_id)
+        enrolled_classes = get_student_enrolled_class_ids(current_user)
         if enrolled_classes is not None:
             if class_id is not None and class_id not in enrolled_classes:
                 raise AppError(
@@ -46,14 +52,16 @@ def list_materials(
                 }
             query = query.filter(Material.class_id.in_(enrolled_classes))
 
+    # Bước 2: Áp dụng các bộ lọc tùy chọn
     if class_id is not None:
         query = query.filter(Material.class_id == class_id)
-    if material_type:
+    if material_type and material_type.strip():
         query = query.filter(Material.material_type == material_type.strip().upper())
     if search and search.strip():
         keyword = f"%{search.strip()}%"
         query = query.filter(Material.title.ilike(keyword))
 
+    # Bước 3: Đếm tổng bản ghi và phân trang theo thứ tự mới nhất
     total = query.count()
     items = (
         query.order_by(Material.uploaded_at.desc(), Material.id.desc())
@@ -85,6 +93,11 @@ def get_material_detail(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Lấy chi tiết một học liệu theo ID.
+
+    - Ngoại lệ: 404 LRN_MATERIAL_NOT_FOUND hoặc 403 LRN_FORBIDDEN_CLASS nếu STUDENT chưa ghi danh lớp đó.
+    """
     material = db.query(Material).filter(Material.id == material_id).first()
     if not material:
         raise AppError(
@@ -94,7 +107,7 @@ def get_material_detail(
         )
 
     if current_user.role == "STUDENT":
-        enrolled_classes = get_student_enrolled_class_ids(current_user.user_id)
+        enrolled_classes = get_student_enrolled_class_ids(current_user)
         if enrolled_classes is not None and material.class_id not in enrolled_classes:
             raise AppError(
                 status.HTTP_403_FORBIDDEN,
@@ -115,6 +128,11 @@ def create_material(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role("ADMIN", "STAFF", "TEACHER")),
 ):
+    """
+    Đăng tải học liệu mới cho lớp học (ADMIN, STAFF, TEACHER phụ trách lớp).
+
+    - Kiểm tra file_url khác rỗng (INV-LRN-04) và xác minh lớp/giáo viên qua Admission Service (INV-LRN-03).
+    """
     if not payload.file_url or not payload.file_url.strip():
         raise AppError(
             status.HTTP_400_BAD_REQUEST,
@@ -152,6 +170,11 @@ def delete_material(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role("ADMIN", "STAFF", "TEACHER")),
 ):
+    """
+    Xóa học liệu theo ID (ADMIN, STAFF, TEACHER phụ trách lớp).
+
+    - Ngoại lệ: 404 LRN_MATERIAL_NOT_FOUND hoặc 403 LRN_FORBIDDEN_CLASS.
+    """
     material = db.query(Material).filter(Material.id == material_id).first()
     if not material:
         raise AppError(

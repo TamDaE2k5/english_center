@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from ..clients.admission import verify_class_and_teacher
+from ..clients.admission import get_teacher_class_ids, verify_class_and_teacher
 from ..clients.student import resolve_student_id_by_user_id, verify_student_studying
 from ..database import get_db
 from ..deps import AppError, CurrentUser, get_current_user, require_role
@@ -23,9 +23,15 @@ def list_grades(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Tra cứu danh sách điểm đánh giá có phân quyền cô lập dữ liệu:
+    - STUDENT: Chỉ xem điểm của chính mình qua ánh xạ user_id -> student.students.id (INV-LRN-02).
+    - TEACHER: Chỉ xem điểm của các lớp mình phụ trách (INV-SEC-02 / INV-LRN-03).
+    - ADMIN / STAFF: Xem toàn bộ theo bộ lọc.
+    """
     query = db.query(Grade)
 
-    # INV-LRN-02: STUDENT chỉ xem điểm của chính mình; ánh xạ user_id -> student.students.id (R-ID-1)
+    # Bước 1: Cô lập dữ liệu theo vai trò STUDENT (INV-LRN-02)
     if current_user.role == "STUDENT":
         own_student_id = resolve_student_id_by_user_id(current_user)
         if student_id is not None and own_student_id is not None and student_id != own_student_id:
@@ -54,9 +60,32 @@ def list_grades(
                 "message": "Lấy danh sách điểm thành công",
             }
         query = query.filter(Grade.student_id == own_student_id)
+    elif current_user.role == "TEACHER":
+        # Bước 2: Cô lập dữ liệu theo lớp phụ trách cho TEACHER (INV-SEC-02)
+        if class_id is not None:
+            verify_class_and_teacher(class_id, current_user)
+        else:
+            teacher_class_ids = get_teacher_class_ids(current_user.user_id)
+            if teacher_class_ids is not None:
+                if not teacher_class_ids:
+                    return {
+                        "success": True,
+                        "data": {
+                            "items": [],
+                            "total": 0,
+                            "page": page,
+                            "size": size,
+                            "total_pages": 0,
+                        },
+                        "message": "Lấy danh sách điểm thành công",
+                    }
+                query = query.filter(Grade.class_id.in_(teacher_class_ids))
+        if student_id is not None:
+            query = query.filter(Grade.student_id == student_id)
     elif student_id is not None:
         query = query.filter(Grade.student_id == student_id)
 
+    # Bước 3: Lọc theo lớp và tên đầu điểm
     if class_id is not None:
         query = query.filter(Grade.class_id == class_id)
     if assessment_name and assessment_name.strip():
@@ -94,7 +123,16 @@ def create_grade(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role("ADMIN", "STAFF", "TEACHER")),
 ):
-    # 1. Kiểm tra INV-LRN-01 & weight
+    """
+    Nhập điểm đánh giá mới cho học viên (ADMIN, STAFF, TEACHER dạy lớp).
+
+    Kiểm tra tuần tự:
+    1. Thang điểm 0 <= score <= max_score và weight trong (0, 1] (INV-LRN-01).
+    2. Lớp tồn tại, chưa COMPLETED và đúng TEACHER phụ trách (INV-LRN-03 / INV-SEC-02).
+    3. Học viên tồn tại và đang STUDYING bên Student Service.
+    4. Không trùng (class_id, student_id, assessment_name) (INV-LRN-06).
+    """
+    # Bước 1: Kiểm tra INV-LRN-01 & weight
     if payload.max_score <= 0 or payload.score < 0 or payload.score > payload.max_score:
         raise AppError(
             status.HTTP_400_BAD_REQUEST,
@@ -108,13 +146,13 @@ def create_grade(
             "Trọng số weight phải nằm trong khoảng (0, 1]",
         )
 
-    # 2. Xác minh lớp tồn tại & nếu role == TEACHER phải dạy lớp này (INV-LRN-03 / INV-SEC-02)
+    # Bước 2: Xác minh lớp tồn tại & nếu role == TEACHER phải dạy lớp này (INV-LRN-03 / INV-SEC-02)
     verify_class_and_teacher(payload.class_id, current_user, forbid_completed=True)
 
-    # 3. Xác minh học viên tồn tại và đang STUDYING bên Student Service
-    verify_student_studying(payload.student_id)
+    # Bước 3: Xác minh học viên tồn tại và đang STUDYING bên Student Service
+    verify_student_studying(payload.student_id, current_user)
 
-    # 4. Kiểm tra trùng đầu điểm (INV-LRN-06)
+    # Bước 4: Kiểm tra trùng đầu điểm (INV-LRN-06)
     existing = (
         db.query(Grade)
         .filter(
@@ -167,7 +205,12 @@ def update_grade(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role("ADMIN", "STAFF", "TEACHER")),
 ):
-    # 1. Tìm bản ghi theo grade_id (UC-LRN-02.3)
+    """
+    Cập nhật điểm số, thang điểm, trọng số hoặc nhận xét theo grade_id.
+
+    - Kiểm tra tồn tại bản ghi (404 LRN_GRADE_NOT_FOUND), INV-LRN-01 và quyền TEACHER lớp (INV-LRN-03).
+    """
+    # Bước 1: Tìm bản ghi theo grade_id (UC-LRN-02.3)
     grade = db.query(Grade).filter(Grade.id == grade_id).first()
     if not grade:
         raise AppError(
@@ -176,7 +219,7 @@ def update_grade(
             f"Không tìm thấy bản ghi điểm theo ID {grade_id}",
         )
 
-    # 2. Kiểm tra INV-LRN-01 & weight
+    # Bước 2: Kiểm tra INV-LRN-01 & weight
     target_max = (
         payload.max_score
         if payload.max_score is not None
@@ -195,10 +238,10 @@ def update_grade(
             "Trọng số weight phải nằm trong khoảng (0, 1]",
         )
 
-    # 3. Xác minh lớp & giáo viên phụ trách lớp (INV-LRN-03)
+    # Bước 3: Xác minh lớp & giáo viên phụ trách lớp (INV-LRN-03)
     verify_class_and_teacher(grade.class_id, current_user, forbid_completed=True)
 
-    # 4. Cập nhật bản ghi trong transaction
+    # Bước 4: Cập nhật bản ghi trong transaction
     grade.score = payload.score
     grade.max_score = target_max
     if "weight" in payload.model_fields_set:

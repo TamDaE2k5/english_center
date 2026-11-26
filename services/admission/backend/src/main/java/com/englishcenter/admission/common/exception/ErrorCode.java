@@ -20,6 +20,7 @@ public enum ErrorCode {
     AUTH_ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị khóa, vui lòng liên hệ quản trị viên"),
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện chức năng này"),
     AUTH_EMAIL_UNVERIFIED(HttpStatus.FORBIDDEN, "Vui lòng xác minh email và thiết lập mật khẩu trước khi tiếp tục"),
+    AUTH_PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "Vui lòng đổi mật khẩu ban đầu trước khi tiếp tục"),
     AUTH_EMAIL_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Chưa thể gửi email. Vui lòng thử lại sau"),
 
     // ==========================================
@@ -59,6 +60,7 @@ public enum ErrorCode {
     ADM_CASH_CONFLICT(HttpStatus.CONFLICT, "Chứng từ hoặc yêu cầu tiền mặt đã tồn tại với dữ liệu khác; cần đối soát"),
     ADM_HOLD_EXPIRED(HttpStatus.BAD_REQUEST, "Thời hạn giữ chỗ 48h của đơn đăng ký đã hết hạn"),
     ADM_INVALID_STATE_TRANSITION(HttpStatus.BAD_REQUEST, "Chuyển trạng thái đơn không hợp lệ theo quy trình nghiệp vụ"),
+    ADM_HOLD_CONFLICT(HttpStatus.CONFLICT, "Hạn giữ chỗ đã thay đổi; tải lại đơn trước khi gửi yêu cầu mới"),
 
     // ==========================================
     // 7. Nhóm Khảo Thí Đầu Vào (ADM_TEST_*)

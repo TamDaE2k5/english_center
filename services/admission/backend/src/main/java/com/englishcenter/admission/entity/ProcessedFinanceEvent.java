@@ -31,6 +31,11 @@ public class ProcessedFinanceEvent extends BaseEntity {
     @Column(name = "processed_at", nullable = false)
     private LocalDateTime processedAt = LocalDateTime.now();
 
+    @Column(name="payload_hash",length=64)
+    private String payloadHash;
+    public String getPayloadHash(){return payloadHash;}
+    public void setPayloadHash(String value){payloadHash=value;}
+
     public ProcessedFinanceEvent() {
     }
 

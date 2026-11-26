@@ -248,7 +248,10 @@ class AuthServiceTest {
 
         when(refreshTokenRepository.findByToken(tokenStr)).thenReturn(Optional.of(token));
 
-        authService.logout(req, "127.0.0.1", "Browser");
+        try (var security = mockStatic(com.englishcenter.admission.security.SecurityUtils.class)) {
+            security.when(com.englishcenter.admission.security.SecurityUtils::requireCurrentUserId).thenReturn(9);
+            authService.logout(req, "127.0.0.1", "Browser");
+        }
 
         assertTrue(token.getIsRevoked());
         verify(refreshTokenRepository).save(token);

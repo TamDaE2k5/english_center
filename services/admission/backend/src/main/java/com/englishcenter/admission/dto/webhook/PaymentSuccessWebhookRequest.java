@@ -28,6 +28,27 @@ public class PaymentSuccessWebhookRequest {
 
     private String transactionRef;
 
+    @JsonAlias({"status"})
+    private String invoiceStatus;
+
+    public String getInvoiceStatus() { return invoiceStatus; }
+    public void setInvoiceStatus(String value) { invoiceStatus = value; }
+
+    /** Canonical evidence để replay phải giữ nguyên binding, amount, thời gian và chứng từ. */
+    public String fingerprint() {
+        try {
+            String[] values = {eventId, String.valueOf(parseNumericEnrollmentId()), invoiceId,
+                    amountPaid.stripTrailingZeros().toPlainString(), paidAt.toString(),
+                    transactionRef == null ? "" : transactionRef, invoiceStatus == null ? "PAID" : invoiceStatus};
+            StringBuilder canonical = new StringBuilder();
+            for (String value : values) canonical.append(value.length()).append(':').append(value);
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
     public PaymentSuccessWebhookRequest() {
     }
 
@@ -66,24 +87,14 @@ public class PaymentSuccessWebhookRequest {
         if (enrollmentId == null) {
             return null;
         }
-        if (enrollmentId instanceof Number number) {
-            return number.intValue();
+        String value = enrollmentId.toString();
+        if (!value.matches("(?:[1-9][0-9]*|ENR-(?:[0-9]{4}-)?[0-9]+)")) {
+            throw new IllegalArgumentException("Mã đơn không hợp lệ");
         }
-        String str = enrollmentId.toString().trim();
-        try {
-            return Integer.parseInt(str);
-        } catch (NumberFormatException e) {
-            // Trường hợp có định dạng ENR-yyyy-XXXX hoặc ENR-XXXX
-            String clean = str.replaceAll("[^0-9]", " ");
-            String[] tokens = clean.trim().split("\\s+");
-            if (tokens.length > 0) {
-                String lastToken = tokens[tokens.length - 1];
-                if (!lastToken.isEmpty()) {
-                    return Integer.parseInt(lastToken);
-                }
-            }
-            throw new IllegalArgumentException("Không thể nhận diện mã đơn tuyển sinh từ: " + str);
-        }
+        String last = value.substring(value.lastIndexOf('-') + 1);
+        int id = Integer.parseInt(last);
+        if (id <= 0) throw new IllegalArgumentException("Mã đơn phải dương");
+        return id;
     }
 
     public String getInvoiceId() {

@@ -144,6 +144,9 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Chỉ được phép tạo tài khoản có vai trò STAFF hoặc TEACHER qua API này");
         }
 
+        if (request.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Mật khẩu ban đầu không được vượt quá 72 byte UTF-8");
+        }
         String passwordHash = passwordEncoder.encode(request.getPassword());
 
         User user = new User();

@@ -45,7 +45,8 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
     boolean existsByCode(String code);
 
     /**
-     * Tìm kiếm và lọc danh sách phòng học theo các tiêu chí tùy chọn.
+     * Tìm kiếm phòng theo bộ lọc tùy chọn. Ép kiểu tham số chi nhánh trước CONCAT
+     * để PostgreSQL chọn phép nối chuỗi khi Hibernate bind NULL.
      *
      * @param branchName Tên cơ sở (tìm kiếm gần đúng, có thể null)
      * @param isActive Trạng thái hoạt động (có thể null)
@@ -53,7 +54,7 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
      * @return Danh sách phòng học thỏa mãn điều kiện
      */
     @Query("SELECT r FROM Room r WHERE " +
-           "(:branchName IS NULL OR LOWER(r.branchName) LIKE LOWER(CONCAT('%', :branchName, '%'))) AND " +
+           "(:branchName IS NULL OR LOWER(r.branchName) LIKE LOWER(CONCAT('%', CAST(:branchName AS String), '%'))) AND " +
            "(:isActive IS NULL OR r.isActive = :isActive) AND " +
            "(:minCapacity IS NULL OR r.capacity >= :minCapacity) " +
            "ORDER BY r.code ASC")

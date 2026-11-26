@@ -3,6 +3,7 @@ package com.englishcenter.admission.dto.user;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -15,6 +16,7 @@ public class CreateUserRequest {
 
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Định dạng email không hợp lệ")
+    @Size(max = 255, message = "Email không được vượt quá 255 ký tự")
     @JsonProperty("email")
     private String email;
 
@@ -33,14 +35,17 @@ public class CreateUserRequest {
     @JsonProperty("full_name")
     private String fullName;
 
+    @NotBlank(message = "Số điện thoại không được để trống")
     @Size(max = 50, message = "Số điện thoại không được vượt quá 50 ký tự")
     @JsonProperty("phone")
     private String phone;
 
+    @NotBlank(message = "Giới tính không được để trống")
     @Pattern(regexp = "^(MALE|FEMALE|OTHER)$", message = "Giới tính phải là MALE, FEMALE hoặc OTHER")
     @JsonProperty("gender")
     private String gender;
 
+    @NotNull(message = "Ngày sinh không được để trống")
     @JsonProperty("date_of_birth")
     private LocalDate dateOfBirth;
 

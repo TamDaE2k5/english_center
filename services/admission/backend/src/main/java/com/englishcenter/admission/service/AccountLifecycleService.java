@@ -81,6 +81,9 @@ public class AccountLifecycleService {
     public void changePassword(String current, String next) {
         validatePassword(next); User user = lockUser(SecurityUtils.requireCurrentUserId()); requireActive(user);
         if (!passwords.matches(current, user.getPasswordHash())) throw new BusinessException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        if (user.requiresFirstPasswordChange() && current.equals(next)) {
+            throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
         user.setPasswordHash(passwords.encode(next)); user.setMustChangePassword(false); users.save(user);
         tokens.invalidateAllByUserId(user.getId()); refresh.revokeAllByUserId(user.getId()); audit(user, "PASSWORD_CHANGED");
     }
@@ -90,7 +93,10 @@ public class AccountLifecycleService {
         validatePassword(password); PasswordResetToken token = lockValid(raw, purpose); User user = lockUser(token.getUserId());
         requireActive(user);
         if ("STUDENT".equals(user.getRole()) && user.getEmailVerifiedAt() == null) throw new BusinessException(ErrorCode.AUTH_EMAIL_UNVERIFIED);
-        user.setPasswordHash(passwords.encode(password)); user.setMustChangePassword(false); users.save(user);
+        user.setPasswordHash(passwords.encode(password));
+        // Khôi phục qua email chưa được BA xác nhận là hoàn tất đổi mật khẩu lần đầu của nhân sự.
+        if (!user.requiresFirstPasswordChange()) user.setMustChangePassword(false);
+        users.save(user);
         tokens.invalidateAllByUserId(user.getId()); token.setIsUsed(true); tokens.save(token);
         refresh.revokeAllByUserId(user.getId()); audit(user, "PASSWORD_CHANGED");
     }

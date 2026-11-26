@@ -20,6 +20,9 @@ public class ExtendHoldRequest {
     @Size(min = 5, message = "Lý do gia hạn phải có tối thiểu 5 ký tự để đối soát học vụ")
     private String reason;
 
+    @NotNull(message = "Cần hạn giữ chỗ đang hiển thị để chống gia hạn lặp; vui lòng tải lại đơn")
+    private java.time.LocalDateTime expectedHoldExpiresAt;
+
     public ExtendHoldRequest() {
     }
 
@@ -43,4 +46,8 @@ public class ExtendHoldRequest {
     public void setReason(String reason) {
         this.reason = reason;
     }
+
+    /** Deadline gốc client đã đọc; chỉ cập nhật khi vẫn khớp DB, không phải deadline mới do client quyết định. */
+    public java.time.LocalDateTime getExpectedHoldExpiresAt() { return expectedHoldExpiresAt; }
+    public void setExpectedHoldExpiresAt(java.time.LocalDateTime value) { expectedHoldExpiresAt = value; }
 }

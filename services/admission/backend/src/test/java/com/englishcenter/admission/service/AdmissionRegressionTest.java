@@ -38,7 +38,8 @@ class AdmissionRegressionTest {
         classes = mock(ClassRepository.class);
         enrollmentService = new EnrollmentServiceImpl(enrollments, classes,
                 mock(ProcessedFinanceEventRepository.class), mock(ClassService.class),
-                mock(UserService.class), mock(FinanceServiceClient.class), mock(StudentServiceSyncHelper.class), mock(CashConfirmationService.class));
+                mock(UserService.class), mock(FinanceServiceClient.class), mock(StudentServiceSyncHelper.class), mock(CashConfirmationService.class),
+                mock(org.springframework.transaction.PlatformTransactionManager.class), mock(HoldExtensionAuditRepository.class));
         sets = mock(TestSetRepository.class);
         questions = mock(TestQuestionRepository.class);
         attempts = mock(TestAttemptRepository.class);
@@ -103,7 +104,7 @@ class AdmissionRegressionTest {
         TestAttempt a = new TestAttempt();
         a.setId(1); a.setUserId(3); a.setTestSetId(2); a.setStatus("STARTED");
         a.setStartedAt(LocalDateTime.now()); a.setExpiresAt(LocalDateTime.now().plusMinutes(10));
-        when(attempts.findById(1)).thenReturn(Optional.of(a));
+        when(attempts.findLockedById(1)).thenReturn(Optional.of(a));
         User u = new User(); u.setId(3);
         when(users.findById(3)).thenReturn(Optional.of(u));
         TestSet s = new TestSet(); s.setId(2);

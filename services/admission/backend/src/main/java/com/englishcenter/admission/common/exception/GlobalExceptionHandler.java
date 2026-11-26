@@ -9,9 +9,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -67,6 +71,36 @@ public class GlobalExceptionHandler {
         log.warn("Truy cập bị từ chối: {}", ex.getMessage());
         ErrorDetail errorDetail = new ErrorDetail(ErrorCode.AUTH_FORBIDDEN.name(), ErrorCode.AUTH_FORBIDDEN.getDefaultMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(errorDetail));
+    }
+
+    /**
+     * Bắt lỗi không tìm thấy đường dẫn API (404 Not Found)
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotFoundException(NoResourceFoundException ex) {
+        log.warn("Không tìm thấy tài nguyên: {}", ex.getResourcePath());
+        ErrorDetail errorDetail = new ErrorDetail(ErrorCode.ADM_NOT_FOUND.name(), ErrorCode.ADM_NOT_FOUND.getDefaultMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(errorDetail));
+    }
+
+    /**
+     * Bắt lỗi sai phương thức HTTP (405 Method Not Allowed)
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("Phương thức HTTP không được hỗ trợ: {}", ex.getMethod());
+        ErrorDetail errorDetail = new ErrorDetail(ErrorCode.ADM_VALIDATION_ERROR.name(), "Phương thức HTTP không được hỗ trợ cho endpoint này");
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(ApiResponse.error(errorDetail));
+    }
+
+    /**
+     * Bắt lỗi thiếu tham số truy vấn hoặc sai kiểu tham số trên URL (400 Bad Request)
+     */
+    @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiResponse<Void>> handleBadRequestParams(Exception ex) {
+        log.warn("Tham số request không hợp lệ: {}", ex.getMessage());
+        ErrorDetail errorDetail = new ErrorDetail(ErrorCode.ADM_VALIDATION_ERROR.name(), "Tham số yêu cầu không hợp lệ");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(errorDetail));
     }
 
     /**

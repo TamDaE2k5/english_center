@@ -2,6 +2,7 @@ package com.englishcenter.admission.util;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Tiện ích hỗ trợ xuất dữ liệu ra định dạng CSV chuẩn RFC 4180 (TASK-ADM-50).
@@ -12,6 +13,7 @@ public final class CsvExportHelper {
     private static final String UTF8_BOM = "\uFEFF";
     private static final String CSV_DELIMITER = ",";
     private static final String CSV_NEWLINE = "\r\n";
+    private static final Pattern FORMULA_PREFIX = Pattern.compile("(?U)^\\s*[=+@＝＋－＠-]");
 
     private CsvExportHelper() {
         // Ngăn chặn khởi tạo lớp tiện ích
@@ -72,7 +74,7 @@ public final class CsvExportHelper {
             return "";
         }
         // Excel có thể thực thi công thức từ tên/email do người dùng nhập, kể cả có whitespace đầu.
-        if (field.matches("(?s)^\\s*[=+@-].*") || field.startsWith("\t") || field.startsWith("\r")) {
+        if (FORMULA_PREFIX.matcher(field).find() || field.startsWith("\t") || field.startsWith("\r") || field.startsWith("\n")) {
             field = "'" + field;
         }
         boolean containsSpecialChar = field.contains(",") || field.contains("\"") || field.contains("\n") || field.contains("\r");

@@ -78,6 +78,9 @@ public class SecurityConfig {
                 // Phân quyền chi tiết cho các đường dẫn API
                 .authorizeHttpRequests(auth -> auth
                         // 1. Nhóm API công khai xác thực (Public Auth Endpoints)
+                        .requestMatchers(HttpMethod.POST, "/api/admission/auth/logout", "/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/admission/auth/change-password", "/auth/change-password").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/admission/auth/me", "/auth/me").authenticated()
                         .requestMatchers(
                                 "/api/admission/auth/login",
                                 "/api/admission/auth/register",
@@ -90,9 +93,10 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // 2. Nhóm API tra cứu công khai cho học viên & khách truy cập (Public Read)
+                        .requestMatchers(HttpMethod.GET, "/api/admission/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admission/courses/**", "/courses/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admission/classes/**", "/classes/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/admission/enrollments").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/admission/enrollments").authenticated()
                         .requestMatchers("/api/admission/tests/public/**").permitAll()
 
                         // 3. Nhóm Webhook và Giao tiếp Nội bộ (Webhook & Internal East-West Calls)
@@ -100,8 +104,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/admission/internal/**").permitAll()
                         .requestMatchers("/error").permitAll()
 
-                        // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only)
+                        // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only) và tự xem/cập nhật hồ sơ chính chủ
                         .requestMatchers(HttpMethod.GET, "/api/admission/users/teachers").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers(HttpMethod.GET, "/api/admission/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admission/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/admission/users/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/admission/users/*").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/admission/users/*").authenticated()
                         .requestMatchers("/api/admission/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/audit-logs/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/bi/security-engagement").hasRole("ADMIN")
@@ -110,7 +119,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admission/rooms/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/enrollments/*/approve-manual").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admission/bi/**").hasAnyRole("ADMIN", "STAFF")
-                        .requestMatchers("/api/admission/exports/**").hasAnyRole("ADMIN", "STAFF", "TEACHER")
+                        .requestMatchers("/api/admission/exports/**").hasAnyRole("ADMIN", "STAFF")
 
                         // 6. Mọi yêu cầu còn lại bắt buộc phải đăng nhập hợp lệ
                         .anyRequest().authenticated()

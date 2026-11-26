@@ -1,18 +1,22 @@
 package com.englishcenter.admission.repository;
 
 import com.englishcenter.admission.entity.AuthAuditLog;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Repository thao tác bảng admission.auth_audit_logs ghi vết kiểm toán bảo mật và phát hiện brute-force.
  */
 @Repository
-public interface AuthAuditLogRepository extends JpaRepository<AuthAuditLog, Integer> {
+public interface AuthAuditLogRepository extends JpaRepository<AuthAuditLog, Integer>, JpaSpecificationExecutor<AuthAuditLog> {
 
     /**
      * Lấy danh sách nhật ký bảo mật theo người dùng, sắp xếp giảm dần theo thời gian.
@@ -61,17 +65,29 @@ public interface AuthAuditLogRepository extends JpaRepository<AuthAuditLog, Inte
      * @param pageable Tham số phân trang
      * @return Trang nhật ký kiểm toán khớp điều kiện
      */
-    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuthAuditLog a WHERE " +
-            "(:userId IS NULL OR a.userId = :userId) AND " +
-            "(:action IS NULL OR a.action = :action) AND " +
-            "(:fromDate IS NULL OR a.createdAt >= :fromDate) AND " +
-            "(:toDate IS NULL OR a.createdAt <= :toDate)")
-    Page<AuthAuditLog> searchAuditLogs(
-            @org.springframework.data.repository.query.Param("userId") Integer userId,
-            @org.springframework.data.repository.query.Param("action") String action,
-            @org.springframework.data.repository.query.Param("fromDate") LocalDateTime fromDate,
-            @org.springframework.data.repository.query.Param("toDate") LocalDateTime toDate,
-            Pageable pageable);
+    default Page<AuthAuditLog> searchAuditLogs(
+            Integer userId,
+            String action,
+            LocalDateTime fromDate,
+            LocalDateTime toDate,
+            Pageable pageable) {
+        return findAll((root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (userId != null) {
+                predicates.add(cb.equal(root.get("userId"), userId));
+            }
+            if (action != null && !action.isBlank()) {
+                predicates.add(cb.equal(root.get("action"), action));
+            }
+            if (fromDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate));
+            }
+            if (toDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), toDate));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
+    }
 
     /**
      * Đếm số lượng người dùng duy nhất đăng nhập thành công từ mốc thời gian (DAU / MAU, TASK-ADM-53).
