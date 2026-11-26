@@ -36,7 +36,9 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -484,5 +486,35 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         Integer currentUserId = SecurityUtils.requireCurrentUserId();
         List<Enrollment> list = enrollmentRepository.findByStudentIdOrderByCreatedAtDesc(currentUserId);
         return list.stream().map(EnrollmentResponse::fromEntity).toList();
+    }
+
+    /**
+     * Tra cứu đơn đăng ký cho API nội bộ liên service theo student_id, class_id và status.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getInternalEnrollments(Integer studentId, Integer classId, String status) {
+        String normalizedStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+        return enrollmentRepository.findInternalEnrollments(studentId, classId, normalizedStatus)
+                .stream()
+                .map(EnrollmentResponse::fromEntity)
+                .toList();
+    }
+
+    /**
+     * Kiểm tra học viên (user_id) có đơn APPROVED trong lớp (class_id) hay không.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> checkStudentEnrollment(Integer userId, Integer classId) {
+        Optional<Enrollment> opt = enrollmentRepository.findByStudentIdAndClassId(userId, classId);
+        boolean enrolled = opt.isPresent() && "APPROVED".equalsIgnoreCase(opt.get().getStatus());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("enrolled", enrolled);
+        result.put("status", opt.map(Enrollment::getStatus).orElse(null));
+        result.put("enrollment_id", opt.map(Enrollment::getId).orElse(null));
+        result.put("user_id", userId);
+        result.put("class_id", classId);
+        return result;
     }
 }

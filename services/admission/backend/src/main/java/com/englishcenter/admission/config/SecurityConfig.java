@@ -93,9 +93,10 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // 2. Nhóm API tra cứu công khai cho học viên & khách truy cập (Public Read)
+                        .requestMatchers(HttpMethod.GET, "/api/admission/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admission/courses/**", "/courses/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admission/classes/**", "/classes/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/admission/enrollments").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/admission/enrollments").authenticated()
                         .requestMatchers("/api/admission/tests/public/**").permitAll()
 
                         // 3. Nhóm Webhook và Giao tiếp Nội bộ (Webhook & Internal East-West Calls)
@@ -103,8 +104,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/admission/internal/**").permitAll()
                         .requestMatchers("/error").permitAll()
 
-                        // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only)
+                        // 4. Nhóm API dành riêng cho Quản trị viên (ADMIN only) và tự xem/cập nhật hồ sơ chính chủ
                         .requestMatchers(HttpMethod.GET, "/api/admission/users/teachers").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers(HttpMethod.GET, "/api/admission/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admission/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/admission/users/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/admission/users/*").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/admission/users/*").authenticated()
                         .requestMatchers("/api/admission/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/audit-logs/**").hasRole("ADMIN")
                         .requestMatchers("/api/admission/bi/security-engagement").hasRole("ADMIN")

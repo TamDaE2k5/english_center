@@ -146,7 +146,7 @@
             </div>
             <div class="form-group">
               <label class="label" for="classShift">Ca học chuẩn <span class="required">*</span></label>
-              <select id="classShift" class="form-select" required onchange="handleShiftChange()">
+              <select id="classShift" class="form-select" required>
                 <option value="08:00-09:30">Ca 1: 08:00 - 09:30</option>
                 <option value="09:45-11:15">Ca 2: 09:45 - 11:15</option>
                 <option value="14:00-15:30">Ca 3: 14:00 - 15:30</option>
@@ -309,7 +309,7 @@
                 <span class="badge ${statusBadgeClass}">${statusText}</span>
               </td>
               <td>
-                <button class="btn btn-ghost btn-sm" onclick="exportRoster(${cls.id})" title="Xuất danh sách học viên">
+                <button class="btn btn-ghost btn-sm admission-write" onclick="exportRoster(${cls.id})" title="Xuất danh sách học viên">
                   📥 Xuất DS
                 </button>
               </td>

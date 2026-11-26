@@ -1,15 +1,20 @@
 package com.englishcenter.admission.repository;
 
 import com.englishcenter.admission.entity.Enrollment;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,7 +23,7 @@ import java.util.Optional;
  * Quản lý cơ chế giữ chỗ 48h, bảo vệ sĩ số trần INV-ADM-01 và kiểm soát luồng trạng thái đơn.
  */
 @Repository
-public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>, EnrollmentStateRepository {
+public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>, EnrollmentStateRepository, JpaSpecificationExecutor<Enrollment> {
     /** Ghi yêu cầu đối soát hoàn phí bền vững, một đơn chỉ tạo một yêu cầu khi hủy lớp. */
     @Modifying
     @Query(value="INSERT INTO admission.class_cancellation_requests(enrollment_id,class_id,invoice_code,reason,requested_by) VALUES (:enrollment,:clazz,:invoice,:reason,:actor) ON CONFLICT(enrollment_id) DO NOTHING", nativeQuery=true)
@@ -111,12 +116,43 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      * @param pageable Phân trang
      * @return Trang kết quả đơn đăng ký
      */
-    @Query("SELECT e FROM Enrollment e LEFT JOIN FETCH e.student LEFT JOIN FETCH e.clazz WHERE " +
-           "(:classId IS NULL OR e.classId = :classId) AND " +
-           "(:status IS NULL OR e.status = :status)")
-    Page<Enrollment> searchEnrollments(@Param("classId") Integer classId,
-                                       @Param("status") String status,
-                                       Pageable pageable);
+    default Page<Enrollment> searchEnrollments(Integer classId, String status, Pageable pageable) {
+        return findAll((root, query, cb) -> {
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                root.fetch("student", JoinType.LEFT);
+                root.fetch("clazz", JoinType.LEFT);
+            }
+            List<Predicate> predicates = new ArrayList<>();
+            if (classId != null) {
+                predicates.add(cb.equal(root.get("classId"), classId));
+            }
+            if (status != null && !status.isBlank()) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
+    }
+
+    /**
+     * Tra cứu danh sách đơn tuyển sinh cho API nội bộ theo student_id, class_id và status.
+     */
+    default List<Enrollment> findInternalEnrollments(Integer studentId, Integer classId, String status) {
+        return findAll((root, query, cb) -> {
+            root.fetch("student", JoinType.LEFT);
+            root.fetch("clazz", JoinType.LEFT);
+            List<Predicate> predicates = new ArrayList<>();
+            if (studentId != null) {
+                predicates.add(cb.equal(root.get("studentId"), studentId));
+            }
+            if (classId != null) {
+                predicates.add(cb.equal(root.get("classId"), classId));
+            }
+            if (status != null && !status.isBlank()) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, Sort.by(Sort.Direction.DESC, "id"));
+    }
 
     /**
      * Lấy danh sách toàn bộ đơn đăng ký của một lớp học (phục vụ xuất danh sách CSV).
