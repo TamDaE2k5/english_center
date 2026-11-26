@@ -1,6 +1,8 @@
 package com.englishcenter.admission.controller;
 
 import com.englishcenter.admission.common.dto.ApiResponse;
+import com.englishcenter.admission.common.exception.BusinessException;
+import com.englishcenter.admission.common.exception.ErrorCode;
 import com.englishcenter.admission.dto.auth.ForgotPasswordRequest;
 import com.englishcenter.admission.dto.auth.LoginRequest;
 import com.englishcenter.admission.dto.auth.LoginResponse;
@@ -8,8 +10,10 @@ import com.englishcenter.admission.dto.auth.LogoutRequest;
 import com.englishcenter.admission.dto.auth.RefreshTokenRequest;
 import com.englishcenter.admission.dto.auth.RefreshTokenResponse;
 import com.englishcenter.admission.dto.auth.ResetPasswordRequest;
+import com.englishcenter.admission.security.SecurityUtils;
 import com.englishcenter.admission.service.AuthService;
 import com.englishcenter.admission.service.AccountLifecycleService;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -125,6 +129,20 @@ public class AuthController {
         authService.logout(request, ipAddress, userAgent);
         return ResponseEntity.ok(ApiResponse.success(null, "Đăng xuất thành công"));
     }
+
+    /** Trả đúng hồ sơ tối thiểu của principal đã xác thực, hoặc AUTH_UNAUTHORIZED. */
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<CurrentAccount>> me() {
+        var user = SecurityUtils.getCurrentUserPrincipal()
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_UNAUTHORIZED));
+        return ResponseEntity.ok(ApiResponse.success(
+                new CurrentAccount(user.getId(), user.getEmail(), user.getRole(), user.getFullName(),
+                        user.requiresFirstPasswordChange() ? Boolean.TRUE : null)));
+    }
+
+    /** Hồ sơ dùng để khôi phục hiển thị phiên Admission theo contract BA. */
+    public record CurrentAccount(Integer id, String email, String role, String fullName,
+                                 @JsonInclude(JsonInclude.Include.NON_NULL) Boolean mustChangePassword) {}
 
     /**
      * Yêu cầu gửi liên kết đặt lại mật khẩu qua email (thời hạn 15 phút).

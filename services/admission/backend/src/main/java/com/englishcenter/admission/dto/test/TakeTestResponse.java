@@ -21,6 +21,8 @@ public class TakeTestResponse {
     private Integer durationMinutes;
     private LocalDateTime startedAt;
     private LocalDateTime expiresAt;
+    private LocalDateTime serverNow;
+    private String status;
     private List<PublicQuestionResponse> questions;
 
     public TakeTestResponse() {
@@ -84,6 +86,24 @@ public class TakeTestResponse {
 
     public void setExpiresAt(LocalDateTime expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    /** Giờ máy chủ tại lúc chuẩn bị trả lượt thi, cùng quy ước với expires_at. */
+    public LocalDateTime getServerNow() {
+        return serverNow;
+    }
+
+    public void setServerNow(LocalDateTime serverNow) {
+        this.serverNow = serverNow;
+    }
+
+    /** Trạng thái lượt thi tại thời điểm server_now. */
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public List<PublicQuestionResponse> getQuestions() {

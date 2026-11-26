@@ -1,5 +1,5 @@
 import os
-import random
+import uuid
 from datetime import datetime
 from typing import Optional, Tuple
 import requests
@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from auth import FinanceException, INTERNAL_SECRET_KEY, get_current_user, require_roles
+from auth import FinanceException, INTERNAL_SECRET_KEY, require_roles
 from database import get_db
 from schemas import (
     ClassCancellationRequest,
@@ -18,20 +18,21 @@ from schemas import (
     RefundVerifyRequest,
 )
 
-
 router = APIRouter(prefix="/api/finance", tags=["Refunds"])
 
 STUDENT_SERVICE_URL = os.getenv("STUDENT_SERVICE_URL", "http://student-service:8082")
 
 
 def _fetch_attendance_snapshot(student_id: int, class_id: Optional[int]) -> Tuple[int, int]:
-
+    """
+    Lấy số buổi đã học từ Student Service (nếu khả dụng), fallback an toàn về (24, 1).
+    """
     if not class_id:
         return 24, 0
     try:
         res = requests.get(
             f"{STUDENT_SERVICE_URL}/api/student/internal/attendance/summary",
-            params={"student_id": student_id, "class_id": class_id},
+            params={"student_id": student_id, "user_id": student_id, "class_id": class_id},
             headers={"X-Internal-Secret": INTERNAL_SECRET_KEY},
             timeout=3,
         )
@@ -52,8 +53,12 @@ def list_refund_requests(
     status_filter: Optional[str] = None,
     student_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "STUDENT"])),
 ):
+    """
+    Lấy danh sách yêu cầu hoàn tiền 3 cấp (ADMIN, STAFF, STUDENT).
+    Học viên chỉ được xem các yêu cầu hoàn tiền của chính mình.
+    """
     conditions = []
     params = {}
     if user["role"] == "STUDENT":
@@ -65,7 +70,7 @@ def list_refund_requests(
 
     if status_filter:
         conditions.append("status = :status")
-        params["status"] = status_filter.upper()
+        params["status"] = status_filter.strip().upper()
 
     where_sql = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     rows = db.execute(
@@ -84,6 +89,8 @@ def create_refund_request(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    """Khởi tạo yêu cầu hoàn tiền Cấp 1 (INV-FIN-07: kiểm tra ngưỡng buổi học và thực thu)."""
+    # Bước 1: Tìm hóa đơn cần hoàn tiền theo invoice_id / invoice_code / enrollment_id
     inv = None
     if payload.invoice_id is not None:
         inv = db.execute(
@@ -108,6 +115,13 @@ def create_refund_request(
             message="Không tìm thấy hóa đơn từ invoice_id / invoice_code / enrollment_id",
         )
 
+    if inv["status"] in ("CANCELLED", "REFUNDED"):
+        raise FinanceException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FIN_INVOICE_IMMUTABLE",
+            message=f"Không thể tạo yêu cầu hoàn tiền cho hóa đơn ở trạng thái {inv['status']}",
+        )
+
     invoice_id = int(inv["id"])
     paid_snapshot = float(inv["paid_amount"])
     if paid_snapshot <= 0:
@@ -117,7 +131,31 @@ def create_refund_request(
             message="Hóa đơn chưa có khoản thực thu nào để hoàn tiền",
         )
 
-    student_id = payload.student_id or int(inv["student_id"])
+    # Bước 2: Ngăn tạo trùng yêu cầu hoàn tiền đang hoạt động trên cùng hóa đơn
+    active_ref = db.execute(
+        text("""
+            SELECT id, refund_code, status FROM finance.refund_requests
+            WHERE invoice_id = :invoice_id AND status != 'REJECTED'
+            LIMIT 1
+        """),
+        {"invoice_id": invoice_id},
+    ).mappings().first()
+    if active_ref:
+        raise FinanceException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FIN_REFUND_ALREADY_EXISTS",
+            message=f"Hóa đơn #{invoice_id} đã có yêu cầu hoàn tiền {active_ref['refund_code']} ({active_ref['status']})",
+        )
+
+    student_id = int(inv["student_id"])
+    if payload.student_id is not None and payload.student_id != student_id:
+        raise FinanceException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="FIN_REFUND_STUDENT_MISMATCH",
+            message="student_id không khớp với chủ sở hữu hóa đơn",
+        )
+
+    # Bước 3: Kiểm tra điều kiện số buổi học thực tế <= max_allowed_sessions (INV-FIN-07)
     if payload.total_sessions is not None and payload.attended_sessions is not None:
         total_sessions = payload.total_sessions
         attended_sessions = payload.attended_sessions
@@ -135,10 +173,11 @@ def create_refund_request(
             ),
         )
 
+    # Bước 4: Tính số tiền đề nghị hoàn và khởi tạo trạng thái PENDING_ACCOUNTANT
     refundable_pct = payload.refundable_percent
     deduction = round(float(payload.deduction_amount), 2)
     requested_refund = max(0.0, round(paid_snapshot * (refundable_pct / 100.0) - deduction, 2))
-    refund_code = f"REF-{datetime.now().year}-{random.randint(1000, 9999)}"
+    refund_code = f"REF-{datetime.utcnow().year}-{uuid.uuid4().hex[:6].upper()}"
     staff_id = user.get("user_id") or 2
 
     row = db.execute(
@@ -191,6 +230,11 @@ def handle_class_cancellation_reconciliation(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    """
+    Đối soát hủy lớp thiếu sĩ số từ Admission Service:
+    - Nếu paid_amount = 0: hủy hóa đơn và các kỳ đóng.
+    - Nếu paid_amount > 0: tạo yêu cầu hoàn tiền 100% (idempotent).
+    """
     inv = None
     if payload.invoice_id is not None:
         inv = db.execute(
@@ -242,7 +286,11 @@ def handle_class_cancellation_reconciliation(
         }
 
     existing_ref = db.execute(
-        text("SELECT * FROM finance.refund_requests WHERE invoice_id = :invoice_id ORDER BY id DESC LIMIT 1"),
+        text("""
+            SELECT * FROM finance.refund_requests
+            WHERE invoice_id = :invoice_id AND status != 'REJECTED'
+            ORDER BY id DESC LIMIT 1
+        """),
         {"invoice_id": invoice_id},
     ).mappings().first()
     if existing_ref:
@@ -261,7 +309,7 @@ def handle_class_cancellation_reconciliation(
             },
         }
 
-    refund_code = f"REF-CANCEL-{invoice_id}-{payload.enrollment_id}"
+    refund_code = f"REF-CANCEL-{invoice_id}-{payload.enrollment_id}-{uuid.uuid4().hex[:4].upper()}"
     staff_id = payload.requested_by_staff_id or user.get("user_id") or 2
     ref_row = db.execute(
         text("""
@@ -305,7 +353,6 @@ def handle_class_cancellation_reconciliation(
     }
 
 
-
 @router.put("/refunds/{refund_id}/verify")
 def verify_refund_request(
     refund_id: int,
@@ -313,6 +360,7 @@ def verify_refund_request(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Cấp 2: Kế toán xác minh công nợ và buổi học (PENDING_ACCOUNTANT -> PENDING_DIRECTOR)."""
     ref_row = db.execute(
         text("SELECT * FROM finance.refund_requests WHERE id = :id FOR UPDATE"),
         {"id": refund_id},
@@ -363,6 +411,7 @@ def approve_refund_request(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN"])),
 ):
+    """Cấp 3: Giám đốc (ADMIN) phê duyệt hoặc từ chối yêu cầu hoàn tiền (PENDING_DIRECTOR -> APPROVED/REJECTED)."""
     ref_row = db.execute(
         text("SELECT * FROM finance.refund_requests WHERE id = :id FOR UPDATE"),
         {"id": refund_id},
@@ -387,6 +436,14 @@ def approve_refund_request(
         if payload.approved_refund_amount is not None
         else float(ref_row["requested_refund_amount"])
     ) if payload.is_approved else 0.0
+
+    paid_snapshot = float(ref_row["paid_amount_snapshot"])
+    if payload.is_approved and approved_amount > paid_snapshot:
+        raise FinanceException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="FIN_REFUND_EXCEEDS_PAID",
+            message=f"Số tiền duyệt hoàn ({approved_amount:,.0f} VND) không được vượt quá số thực thu ({paid_snapshot:,.0f} VND)",
+        )
 
     updated = db.execute(
         text("""
@@ -423,6 +480,7 @@ def complete_refund_request(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Hoàn tất giải ngân hoàn tiền (APPROVED -> COMPLETED) và cập nhật hóa đơn sang REFUNDED."""
     ref_row = db.execute(
         text("SELECT * FROM finance.refund_requests WHERE id = :id FOR UPDATE"),
         {"id": refund_id},

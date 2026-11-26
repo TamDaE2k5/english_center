@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admission BI</title>
 <link rel="stylesheet" href="/shared/css/variables.css"><link rel="stylesheet" href="/shared/css/base.css"><link rel="stylesheet" href="/shared/css/components.css"><link rel="stylesheet" href="/shared/css/layout.css">
+<link rel="stylesheet" href="/admission/css/access.css">
 <style>.bi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--space-md)}.bi-card{padding:var(--space-lg);margin-bottom:var(--space-lg);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface)}.bi-value{font-size:var(--font-xl);font-weight:700}.bi-filters{display:flex;flex-wrap:wrap;gap:var(--space-md);align-items:end}.bi-filters label{display:grid;gap:var(--space-xs)}.bi-bar{height:8px;background:var(--color-primary);max-width:100%}.bi-note{color:var(--color-text-secondary);font-size:var(--font-sm)}.bi-table{overflow-x:auto}table{width:100%;text-align:left}td,th{padding:var(--space-sm)}#biError{color:var(--color-danger)}</style></head>
-<body><div class="app-shell"><div id="sidebar"></div><main class="main-content"><div id="header"></div><div class="page-content">
+<body data-admission-protected><div class="app-shell"><div id="sidebar"></div><main class="main-content"><div id="header"></div><div class="page-content">
 <h1>Báo cáo Admission</h1><p class="bi-note">Snapshot trạng thái hiện tại · Asia/Ho_Chi_Minh · không phải nghiệm thu V1 toàn hệ thống.</p>
 <form id="biFilters" class="bi-card bi-filters">
 <label>Kỳ<select id="dateRangePreset" class="form-select"><option value="30days">30 ngày</option><option value="7days">7 ngày</option><option value="month">Tháng này</option><option value="quarter">Quý này</option><option value="custom">Tùy chọn</option></select></label>
@@ -22,9 +23,8 @@
 <div class="bi-grid"><div>Logged-in DAU<div id="valDau" class="bi-value">N/A</div></div><div>Logged-in MAU<div id="valMau" class="bi-value">N/A</div></div><div>Login thất bại / tổng login<div id="valFailedRate" class="bi-value">N/A</div></div></div><p id="totalAttemptsSummary"></p>
 <h3>Đăng nhập theo ngày/vai trò</h3><div id="dailyActivity"></div><h3>Đăng nhập theo tháng/vai trò trong kỳ</h3><div id="monthlyActivity"></div><h3>IP có LOGIN_FAILED nhiều nhất trong kỳ</h3><div id="suspiciousIps"></div><h3>Tài khoản có hơn 5 lần sai liên tiếp trong 10 phút tại as_of</h3><p class="bi-note">Tín hiệu báo cáo từ audit; không tự thay đổi chính sách khóa tài khoản của Auth.</p><div id="consecutiveFailures"></div></section>
 </div></main></div>
-<script src="/shared/js/auth.js"></script><script src="/shared/js/api.js"></script><script src="/shared/js/layout.js"></script><script src="/admission/js/admission-ui.js"></script>
+<script src="/shared/js/auth.js"></script><script src="/shared/js/api.js"></script><script src="/shared/js/layout.js"></script><script src="/admission/js/admission-session.js"></script><script src="/admission/js/admission-ui.js"></script>
 <script>
-admissionRequireStaff();
 let biGeneration=0;
 const biEl=id=>document.getElementById(id);
 function biPercent(value){return value==null?'N/A':Number(value).toFixed(2)+'%';}
@@ -46,6 +46,17 @@ async function loadDashboard(){const generation=++biGeneration;biEl('biError').t
  const jobs=[['funnel',`/api/admission/bi/funnel?${query}`,renderFunnel],['courses',`/api/admission/bi/courses-revenue?${query}`,renderRevenue]];
  if(admissionRole()==='ADMIN'){biEl('securityCard').hidden=false;const sq=new URLSearchParams();for(const k of ['from_date','to_date'])if(query.has(k))sq.set(k,query.get(k));if(biEl('filterRole').value)sq.set('role',biEl('filterRole').value);jobs.push(['security',`/api/admission/bi/security-engagement?${sq}`,renderSecurity]);}else biEl('securityCard').hidden=true;
  await Promise.all(jobs.map(async([name,url,render])=>{try{const r=await apiGet(url);if(!r?.data||r.success===false)throw new Error('Không nhận được dữ liệu BI');if(generation===biGeneration)render(r.data);}catch(error){if(generation===biGeneration)biEl('biError').textContent+=`${name}: ${error.message||'Không tải được báo cáo'}. `;}}));if(generation===biGeneration)btn.disabled=false;}
-document.addEventListener('DOMContentLoaded',async()=>{handlePresetChange();try{const r=await apiGet('/api/admission/courses');biEl('filterCourse').innerHTML='<option value="">Tất cả</option>'+(r?.data||[]).map(c=>`<option value="${Number(c.id)}">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</option>`).join('');}catch(e){biEl('biError').textContent='Không tải được bộ lọc khóa học.';}await loadDashboard();});
+document.addEventListener('DOMContentLoaded', () => admissionWhenReady(async () => {
+ if (!admissionRequireStaff()) return;
+ handlePresetChange();
+ try {
+  const r = await apiGet('/api/admission/courses');
+  biEl('filterCourse').innerHTML = '<option value="">Tất cả</option>' +
+   (r?.data || []).map(c => `<option value="${Number(c.id)}">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</option>`).join('');
+ } catch {
+  biEl('biError').textContent = 'Không tải được bộ lọc khóa học.';
+ }
+ await loadDashboard();
+}));
 biEl('biFilters').addEventListener('submit',e=>{e.preventDefault();loadDashboard();});biEl('dateRangePreset').addEventListener('change',()=>{handlePresetChange();});biEl('filterRole').addEventListener('change',()=>loadDashboard());
 </script></body></html>

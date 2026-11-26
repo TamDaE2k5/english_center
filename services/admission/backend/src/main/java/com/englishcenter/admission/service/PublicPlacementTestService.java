@@ -41,20 +41,27 @@ public class PublicPlacementTestService {
         return response;
     }
 
+    /** Cho chính chủ đã xác minh tải lại lượt thi theo ID, giữ nguyên deadline. */
+    @Transactional(readOnly = true)
+    public TakeTestResponse resumeTest(Integer attemptId) {
+        Integer owner = SecurityUtils.getCurrentUserId();
+        if (owner == null) throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+        requireVerified(owner);
+        return engine.resumeTest(attemptId, owner);
+    }
+
     /** Nộp bài chỉ khi có principal chính chủ hoặc token được cấp riêng cho đúng lượt thi. */
-    @Transactional
+    @Transactional(noRollbackFor = TestAttemptExpiredException.class)
     public TestResultResponse submitAndGrade(SubmitTestRequest request) {
         if (request.getAttemptId() == null) {
             throw new BusinessException(ErrorCode.ADM_VALIDATION_ERROR, "Bắt buộc cung cấp attempt_id");
         }
         Integer owner = SecurityUtils.getCurrentUserId();
-        boolean allowed = owner != null && attempts.findById(request.getAttemptId())
-                .map(a -> owner.equals(a.getUserId())).orElse(false);
-        if (!allowed && !tokens.permits(request.getAttemptToken(), request.getAttemptId())) {
+        Integer attemptOwner = attempts.findUserIdById(request.getAttemptId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_FORBIDDEN));
+        if (!attemptOwner.equals(owner) && !tokens.permits(request.getAttemptToken(), request.getAttemptId())) {
             throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, "Bạn không có quyền nộp lượt thi này");
         }
-        Integer attemptOwner = attempts.findById(request.getAttemptId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_FORBIDDEN)).getUserId();
         requireVerified(attemptOwner);
         return engine.submitAndGrade(request);
     }

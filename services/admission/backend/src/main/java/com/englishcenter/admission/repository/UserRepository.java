@@ -1,18 +1,22 @@
 package com.englishcenter.admission.repository;
 
 import com.englishcenter.admission.entity.User;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Repository truy vấn dữ liệu thực thể User trong bảng admission.users.
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, Integer>, AccountUserStateRepository {
+public interface UserRepository extends JpaRepository<User, Integer>, AccountUserStateRepository, JpaSpecificationExecutor<User> {
 
     /**
      * Tìm kiếm người dùng theo địa chỉ email.
@@ -61,10 +65,20 @@ public interface UserRepository extends JpaRepository<User, Integer>, AccountUse
      * @param pageable Tham số phân trang
      * @return Trang danh sách người dùng khớp điều kiện
      */
-    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE " +
-            "(:role IS NULL OR u.role = :role) AND " +
-            "(:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    Page<User> searchUsers(@org.springframework.data.repository.query.Param("role") String role,
-                           @org.springframework.data.repository.query.Param("keyword") String keyword,
-                           Pageable pageable);
+    default Page<User> searchUsers(String role, String keyword, Pageable pageable) {
+        return findAll((root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (role != null && !role.isBlank()) {
+                predicates.add(cb.equal(root.get("role"), role));
+            }
+            if (keyword != null && !keyword.isBlank()) {
+                String pattern = "%" + keyword.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("email")), pattern),
+                        cb.like(cb.lower(root.get("fullName")), pattern)
+                ));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
+    }
 }

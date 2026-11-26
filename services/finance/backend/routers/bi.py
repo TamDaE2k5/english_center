@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ def get_bi_cash_revenue(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Báo cáo BI doanh thu thực thu theo tháng từ view finance.vw_bi_cash_revenue_monthly."""
     rows = db.execute(
         text("SELECT * FROM finance.vw_bi_cash_revenue_monthly ORDER BY report_month DESC")
     ).mappings().all()
@@ -27,6 +29,7 @@ def get_bi_voucher_campaigns(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Báo cáo BI hiệu quả các chiến dịch Voucher từ view finance.vw_bi_voucher_campaigns."""
     rows = db.execute(
         text("SELECT * FROM finance.vw_bi_voucher_campaigns ORDER BY voucher_id ASC")
     ).mappings().all()
@@ -41,6 +44,7 @@ def get_bi_refund_summary(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Báo cáo tổng hợp số dư ví bảo lưu và tình trạng xử lý yêu cầu hoàn tiền."""
     wallet_stats = db.execute(
         text("""
             SELECT
@@ -78,11 +82,13 @@ def get_bi_refund_summary(
 
 @router.get("/admission-metrics")
 def get_bi_admission_metrics(
-    course_id: int = None,
+    course_id: Optional[int] = None,
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    """Chỉ số dư nợ chờ thu (pipeline) và doanh thu thực thu (realized) theo khóa học."""
     course_filter = "AND course_id = :course_id" if course_id is not None else ""
+    where_course = "WHERE course_id = :course_id" if course_id is not None else ""
     params = {"course_id": course_id} if course_id is not None else {}
 
     pipeline_row = db.execute(
@@ -107,16 +113,18 @@ def get_bi_admission_metrics(
     ).mappings().first()
 
     by_course_rows = db.execute(
-        text("""
+        text(f"""
             SELECT
                 course_id,
                 COUNT(id) AS total_invoices,
                 COALESCE(SUM(remaining_amount) FILTER (WHERE status IN ('PENDING', 'UNPAID', 'PARTIAL')), 0) AS pipeline_revenue,
                 COALESCE(SUM(paid_amount) FILTER (WHERE status IN ('PAID', 'PARTIAL')), 0) AS realized_revenue
             FROM finance.invoices
+            {where_course}
             GROUP BY course_id
             ORDER BY course_id ASC
-        """)
+        """),
+        params,
     ).mappings().all()
 
     return {
@@ -130,4 +138,3 @@ def get_bi_admission_metrics(
             "courses_breakdown": [dict(r) for r in by_course_rows],
         },
     }
-

@@ -146,7 +146,7 @@
             </div>
             <div class="form-group">
               <label class="label" for="classShift">Ca học chuẩn <span class="required">*</span></label>
-              <select id="classShift" class="form-select" required onchange="handleShiftChange()">
+              <select id="classShift" class="form-select" required>
                 <option value="08:00-09:30">Ca 1: 08:00 - 09:30</option>
                 <option value="09:45-11:15">Ca 2: 09:45 - 11:15</option>
                 <option value="14:00-15:30">Ca 3: 14:00 - 15:30</option>
@@ -191,6 +191,7 @@
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
+  <script src="/admission/js/admission-session.js"></script>
   <script src="/admission/js/admission-ui.js"></script>
   <script>
     let roomsCache = [];
@@ -308,7 +309,7 @@
                 <span class="badge ${statusBadgeClass}">${statusText}</span>
               </td>
               <td>
-                <button class="btn btn-ghost btn-sm" onclick="exportRoster(${cls.id})" title="Xuất danh sách học viên">
+                <button class="btn btn-ghost btn-sm admission-write" onclick="exportRoster(${cls.id})" title="Xuất danh sách học viên">
                   📥 Xuất DS
                 </button>
               </td>
@@ -386,7 +387,6 @@
 
     async function exportRoster(classId) {
       try {
-        const token = getToken();
         await admissionDownload(`/api/admission/exports/classes/${classId}/roster?format=csv`, `class-${classId}.csv`);
         showToast('info', 'Đang tải xuống danh sách học viên...');
       } catch (err) {
@@ -394,8 +394,10 @@
       }
     }
 
-    initSelects();
-    loadClasses();
+    admissionWhenReady(() => {
+      initSelects();
+      loadClasses();
+    });
   </script>
 </body>
 </html>

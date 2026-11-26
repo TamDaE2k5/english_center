@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Giao diện dịch vụ quản lý Tuyển sinh, Giữ chỗ 48h và Xét duyệt (Phase 4: TASK-ADM-40 -> TASK-ADM-47).
@@ -104,4 +105,23 @@ public interface EnrollmentService {
      * @return Danh sách đơn đăng ký của chính học viên
      */
     List<EnrollmentResponse> getMyEnrollments();
+
+    /**
+     * Tra cứu đơn đăng ký phục vụ API nội bộ liên service (không phụ thuộc SecurityContext người dùng).
+     *
+     * @param studentId ID tài khoản học viên (tùy chọn)
+     * @param classId   ID lớp học (tùy chọn)
+     * @param status    Trạng thái đơn (tùy chọn)
+     * @return Danh sách EnrollmentResponse khớp bộ lọc
+     */
+    List<EnrollmentResponse> getInternalEnrollments(Integer studentId, Integer classId, String status);
+
+    /**
+     * Kiểm tra học viên có đơn APPROVED trong lớp học hay không (phục vụ Learning Service).
+     *
+     * @param userId  ID tài khoản học viên (admission.users.id)
+     * @param classId ID lớp học
+     * @return Map chứa enrolled (boolean), status, user_id, class_id
+     */
+    Map<String, Object> checkStudentEnrollment(Integer userId, Integer classId);
 }

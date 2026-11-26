@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from auth import FinanceException, INTERNAL_SECRET_KEY, get_current_user, require_roles
+from auth import FinanceException, INTERNAL_SECRET_KEY, require_roles
 from database import get_db
 from routers.vouchers import calculate_voucher_discount
 from schemas import InvoiceAutoGenerateRequest, InvoiceCreate
@@ -17,6 +17,14 @@ ADMISSION_SERVICE_URL = os.getenv("ADMISSION_SERVICE_URL", "http://admission-ser
 
 
 def _fetch_course_tuition(db: Session, course_id: int) -> Tuple[float, str]:
+    """
+    Tra cứu học phí niêm yết của khóa học từ bảng finance.tuition_fees,
+    fallback gọi REST API sang Admission Service nếu chưa đồng bộ vào bảng biểu phí.
+
+    :param db: Phiên làm việc SQLAlchemy
+    :param course_id: ID khóa học
+    :return: Tuple (số tiền học phí, tên khóa học)
+    """
     tf_row = db.execute(
         text("SELECT amount, course_name FROM finance.tuition_fees WHERE course_id = :course_id AND is_active = TRUE"),
         {"course_id": course_id},
@@ -24,25 +32,39 @@ def _fetch_course_tuition(db: Session, course_id: int) -> Tuple[float, str]:
     if tf_row and float(tf_row["amount"]) > 0:
         return float(tf_row["amount"]), tf_row["course_name"] or f"Khóa học #{course_id}"
 
-    try:
-        res = requests.get(
-            f"{ADMISSION_SERVICE_URL}/api/admission/internal/courses/{course_id}",
-            headers={"X-Internal-Secret": INTERNAL_SECRET_KEY},
-            timeout=3,
-        )
-        if res.status_code == 200:
-            body = res.json()
-            course_data = body.get("data", body)
-            if isinstance(course_data, dict) and course_data.get("tuition_amount") is not None:
-                return float(course_data["tuition_amount"]), course_data.get("name", f"Khóa học #{course_id}")
-    except Exception:
-        pass
+    for endpoint in (
+        f"{ADMISSION_SERVICE_URL}/api/admission/internal/courses/{course_id}",
+        f"{ADMISSION_SERVICE_URL}/api/admission/courses/{course_id}",
+    ):
+        try:
+            res = requests.get(
+                endpoint,
+                headers={"X-Internal-Secret": INTERNAL_SECRET_KEY},
+                timeout=3,
+            )
+            if res.status_code == 200:
+                body = res.json()
+                course_data = body.get("data", body)
+                if isinstance(course_data, dict) and course_data.get("tuition_amount") is not None:
+                    tuition = float(course_data["tuition_amount"])
+                    if tuition > 0:
+                        return tuition, course_data.get("name", f"Khóa học #{course_id}")
+        except Exception:
+            pass
 
     return 6500000.0, f"Khóa học #{course_id}"
 
 
 def _apply_voucher_with_lock(db: Session, voucher_code: Optional[str], amount: float) -> Tuple[Optional[int], float]:
-    if not voucher_code:
+    """
+    Khóa bi quan bản ghi Voucher (SELECT ... FOR UPDATE), kiểm tra điều kiện và tăng current_uses (INV-FIN-04).
+
+    :param db: Phiên làm việc SQLAlchemy
+    :param voucher_code: Mã voucher cần áp dụng (có thể None)
+    :param amount: Tổng tiền gốc trước giảm giá
+    :return: Tuple (voucher_id, số tiền được giảm)
+    """
+    if not voucher_code or not voucher_code.strip():
         return None, 0.0
     code_upper = voucher_code.strip().upper()
     v_row = db.execute(
@@ -75,7 +97,10 @@ def _create_items_and_installments(
     items: Optional[list] = None,
     installments_count: int = 1,
 ) -> List[Dict]:
-
+    """
+    Khởi tạo các dòng khoản mục hóa đơn (invoice_items) và lịch đóng học phí nhiều đợt (installments).
+    Đảm bảo tổng amount_due của các kỳ bằng đúng final_amount của hóa đơn.
+    """
     if items:
         for item in items:
             line_total = round(float(item.quantity) * float(item.unit_price), 2)
@@ -154,9 +179,18 @@ def auto_generate_invoice(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    """
+    Tự động sinh hóa đơn học phí (hỗ trợ idempotency theo enrollment_id).
+    Được gọi nội bộ bởi Admission Service hoặc từ giao diện Học vụ/Kế toán.
+    """
+    # Bước 1: Kiểm tra idempotency nếu có enrollment_id
     if payload.enrollment_id is not None:
         existing = db.execute(
-            text("SELECT * FROM finance.invoices WHERE enrollment_id = :enrollment_id ORDER BY id DESC LIMIT 1"),
+            text("""
+                SELECT * FROM finance.invoices
+                WHERE enrollment_id = :enrollment_id AND status != 'CANCELLED'
+                ORDER BY id DESC LIMIT 1
+            """),
             {"enrollment_id": payload.enrollment_id},
         ).mappings().first()
         if existing:
@@ -174,12 +208,29 @@ def auto_generate_invoice(
                 },
             }
 
+    # Bước 2: Xác định học phí gốc và tên khóa học
     course_tuition, course_name = _fetch_course_tuition(db, payload.course_id)
-    amount = payload.amount if payload.amount is not None else course_tuition
+    if payload.amount is not None:
+        amount = round(float(payload.amount), 2)
+    elif payload.items:
+        items_total = round(sum(float(i.quantity) * float(i.unit_price) for i in payload.items), 2)
+        amount = items_total if items_total > 0 else course_tuition
+    else:
+        amount = course_tuition
+
+    if amount <= 0:
+        raise FinanceException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="FIN_INVALID_AMOUNT",
+            message="Số tiền hóa đơn phải lớn hơn 0 (INV-FIN-01)",
+        )
+
+    # Bước 3: Áp dụng voucher (nếu có) với khóa bi quan và tính số tiền phải thu
     voucher_id, discount_applied = _apply_voucher_with_lock(db, payload.voucher_code, amount)
     final_amount = round(max(0.0, amount - discount_applied), 2)
     due_date = payload.due_date or (date.today() + timedelta(days=2))
 
+    # Bước 4: Ghi nhận hóa đơn, khoản mục và lịch đóng nhiều đợt
     inv_row = db.execute(
         text("""
             INSERT INTO finance.invoices
@@ -237,20 +288,23 @@ def create_invoice(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    """Tạo mới hóa đơn học phí thủ công (ADMIN, STAFF, INTERNAL)."""
     voucher_id, discount_applied = _apply_voucher_with_lock(db, inv.voucher_code, inv.amount)
     final_amount = round(max(0.0, inv.amount - discount_applied), 2)
     due_date = inv.due_date or (date.today() + timedelta(days=7))
+    _, course_name = _fetch_course_tuition(db, inv.course_id)
 
-    if inv.invoice_code:
+    custom_code = inv.invoice_code.strip() if inv.invoice_code and inv.invoice_code.strip() else None
+    if custom_code:
         dup = db.execute(
             text("SELECT id FROM finance.invoices WHERE invoice_code = :code"),
-            {"code": inv.invoice_code},
+            {"code": custom_code},
         ).mappings().first()
         if dup:
             raise FinanceException(
                 status_code=status.HTTP_409_CONFLICT,
                 code="FIN_INVOICE_CODE_EXISTS",
-                message=f"Mã hóa đơn {inv.invoice_code} đã tồn tại",
+                message=f"Mã hóa đơn {custom_code} đã tồn tại",
             )
         inv_row = db.execute(
             text("""
@@ -263,7 +317,7 @@ def create_invoice(
                 RETURNING *
             """),
             {
-                "invoice_code": inv.invoice_code,
+                "invoice_code": custom_code,
                 "student_id": inv.student_id,
                 "course_id": inv.course_id,
                 "enrollment_id": inv.enrollment_id,
@@ -306,7 +360,7 @@ def create_invoice(
         invoice_id=inv_row["id"],
         invoice_code=inv_row["invoice_code"],
         course_id=inv.course_id,
-        course_name=f"Khóa học #{inv.course_id}",
+        course_name=course_name,
         amount=inv.amount,
         final_amount=final_amount,
         due_date=due_date,
@@ -329,8 +383,12 @@ def get_invoices(
     status_filter: Optional[str] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "STUDENT"])),
 ):
+    """
+    Tra cứu danh sách hóa đơn (ADMIN, STAFF, STUDENT).
+    Học viên chỉ được xem hóa đơn của chính mình (INV-SEC-01).
+    """
     effective_status = status or status_filter
     conditions = []
     params = {}
@@ -352,7 +410,7 @@ def get_invoices(
 
     if effective_status:
         conditions.append("status = :status")
-        params["status"] = effective_status.upper()
+        params["status"] = effective_status.strip().upper()
 
     where_sql = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     rows = db.execute(
@@ -373,6 +431,7 @@ def lookup_internal_invoice(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF", "INTERNAL"])),
 ):
+    """API nội bộ giúp Admission tra cứu hóa đơn theo invoice_id / invoice_code / enrollment_id."""
     inv = None
     if invoice_id is not None:
         inv = db.execute(
@@ -406,13 +465,13 @@ def lookup_internal_invoice(
     }
 
 
-
 @router.get("/invoices/{invoice_id}")
 def get_invoice_detail(
     invoice_id: int,
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "STUDENT"])),
 ):
+    """Xem chi tiết hóa đơn, các khoản mục, kỳ thanh toán và lịch sử phiếu thu."""
     inv = db.execute(
         text("SELECT * FROM finance.invoices WHERE id = :id"),
         {"id": invoice_id},

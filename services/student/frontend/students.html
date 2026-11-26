@@ -20,32 +20,44 @@
         </nav>
 
         <div class="card">
-          <div class="card-header">
+          <div class="card-header" style="flex-wrap: wrap; gap: var(--space-md);">
             <div>
-              <h1 class="heading-1">Danh Sách Học Viên</h1>
-              <p class="text-secondary text-sm">Hồ sơ thông tin cá nhân và quá trình học tập tại trung tâm</p>
+              <h1 class="heading-1" id="pageTitle">Danh Sách Học Viên</h1>
+              <p class="text-secondary text-sm" id="pageSubtitle">Hồ sơ thông tin cá nhân và trạng thái học vụ tại trung tâm</p>
             </div>
-            <button class="btn btn-primary" onclick="openCreateModal()">
-              + Thêm học viên mới
-            </button>
+            <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
+              <input type="text" id="searchInput" class="form-input" style="width: 220px; display: none;" placeholder="Tìm tên, email, mã HV...">
+              <select id="statusFilter" class="form-select" style="width: 160px; display: none;" onchange="loadStudents()">
+                <option value="">Tất cả trạng thái</option>
+                <option value="STUDYING">Đang học (STUDYING)</option>
+                <option value="RESERVED">Bảo lưu (RESERVED)</option>
+                <option value="DROPPED">Đã nghỉ (DROPPED)</option>
+                <option value="GRADUATED">Tốt nghiệp (GRADUATED)</option>
+              </select>
+              <button class="btn btn-primary" id="btnCreateStudent" style="display: none;" onclick="openCreateModal()">
+                + Thêm học viên mới
+              </button>
+            </div>
           </div>
           <div class="card-body">
+            <div id="roleNotice" style="display: none; padding: var(--space-md); border-radius: var(--radius-md); background-color: var(--color-info-light); color: var(--color-info); margin-bottom: var(--space-md);"></div>
             <div class="table-container">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>Mã HV</th>
                     <th>Họ và tên</th>
                     <th>Email</th>
                     <th>Số điện thoại</th>
                     <th>Ngày sinh</th>
                     <th>Địa chỉ</th>
                     <th>Trạng thái</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="student-table-body">
                   <tr>
-                    <td colspan="7" style="text-align: center; color: var(--color-text-secondary);">
+                    <td colspan="8" style="text-align: center; color: var(--color-text-secondary);">
                       Đang tải danh sách học viên...
                     </td>
                   </tr>
@@ -58,14 +70,15 @@
     </div>
   </div>
 
-  <!-- Modal Thêm Học Viên -->
+  <!-- Modal Thêm / Cập Nhật Học Viên -->
   <div class="modal-overlay" id="studentModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="heading-3">Thêm Học Viên Mới</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3 class="heading-3" id="modalTitle">Thêm Học Viên Mới</h3>
+        <button class="modal-close" type="button" onclick="closeModal()">&times;</button>
       </div>
       <form id="studentForm">
+        <input type="hidden" id="editingStudentId">
         <div class="modal-body">
           <div class="form-group">
             <label class="label" for="fullName">Họ và tên <span class="required">*</span></label>
@@ -89,10 +102,19 @@
             <label class="label" for="address">Địa chỉ thường trú</label>
             <input type="text" id="address" class="form-input" placeholder="Số nhà, Quận/Huyện, Tỉnh/TP">
           </div>
+          <div class="form-group" id="statusGroup" style="display: none;">
+            <label class="label" for="studentStatus">Trạng thái học vụ</label>
+            <select id="studentStatus" class="form-select">
+              <option value="STUDYING">Đang học (STUDYING)</option>
+              <option value="RESERVED">Bảo lưu (RESERVED)</option>
+              <option value="DROPPED">Đã nghỉ (DROPPED)</option>
+              <option value="GRADUATED">Tốt nghiệp (GRADUATED)</option>
+            </select>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-          <button type="submit" class="btn btn-primary">Lưu hồ sơ</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitStudent">Lưu hồ sơ</button>
         </div>
       </form>
     </div>
@@ -102,36 +124,95 @@
   <script src="/shared/js/api.js"></script>
   <script src="/shared/js/layout.js"></script>
   <script>
+    let currentStudents = [];
+    let currentUser = null;
+    let currentRole = '';
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getStatusBadge(st) {
+      if (st === 'STUDYING') return '<span class="badge badge-success">Đang học</span>';
+      if (st === 'RESERVED') return '<span class="badge badge-warning">Bảo lưu</span>';
+      if (st === 'DROPPED') return '<span class="badge badge-danger">Đã nghỉ</span>';
+      if (st === 'GRADUATED') return '<span class="badge badge-info">Tốt nghiệp</span>';
+      return `<span class="badge badge-info">${escapeHtml(st)}</span>`;
+    }
+
+    function initPage() {
+      requireAuth();
+      currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+      currentRole = String(currentUser?.role || '').toUpperCase();
+
+      if (currentRole === 'ADMIN' || currentRole === 'STAFF') {
+        document.getElementById('searchInput').style.display = 'block';
+        document.getElementById('statusFilter').style.display = 'block';
+        document.getElementById('btnCreateStudent').style.display = 'inline-flex';
+      } else if (currentRole === 'STUDENT') {
+        document.getElementById('pageTitle').textContent = 'Hồ Sơ Cá Nhân Của Tôi';
+        document.getElementById('pageSubtitle').textContent = 'Xem và cập nhật thông tin liên hệ cá nhân';
+      } else if (currentRole === 'TEACHER') {
+        const notice = document.getElementById('roleNotice');
+        notice.style.display = 'block';
+        notice.innerHTML = 'Giảng viên vui lòng xem danh sách học viên theo từng lớp tại trang <a href="/student/attendance.html" style="color: var(--color-primary); text-decoration: underline;">Điểm danh buổi học</a>.';
+        document.getElementById('student-table-body').innerHTML =
+          '<tr><td colspan="8" style="text-align: center; color: var(--color-text-secondary);">Hồ sơ tổng hợp chỉ dành cho Học vụ / Quản trị viên.</td></tr>';
+        return;
+      }
+
+      let searchTimer = null;
+      document.getElementById('searchInput').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadStudents, 300);
+      });
+
+      loadStudents();
+    }
+
     async function loadStudents() {
       const tbody = document.getElementById('student-table-body');
       try {
-        const res = await apiGet('/api/student/students');
+        const params = new URLSearchParams();
+        const kw = document.getElementById('searchInput').value.trim();
+        const st = document.getElementById('statusFilter').value;
+        if (kw && (currentRole === 'ADMIN' || currentRole === 'STAFF')) params.set('search', kw);
+        if (st && (currentRole === 'ADMIN' || currentRole === 'STAFF')) params.set('status', st);
+
+        const qs = params.toString();
+        const res = await apiGet(`/api/student/students${qs ? '?' + qs : ''}`);
         const list = (res && res.data) ? res.data : [];
+        currentStudents = list;
 
         if (list.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Chưa có dữ liệu học viên.</td></tr>`;
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--color-text-secondary);">Chưa có dữ liệu hồ sơ học viên.</td></tr>';
           return;
         }
 
         tbody.innerHTML = list.map(s => `
           <tr>
-            <td>#${s.id}</td>
-            <td><strong>${s.full_name}</strong></td>
-            <td>${s.email}</td>
-            <td>${s.phone || '-'}</td>
-            <td>${formatDate(s.date_of_birth)}</td>
-            <td>${s.address || '-'}</td>
+            <td><strong>${escapeHtml(s.student_code || ('#' + s.id))}</strong></td>
+            <td><strong>${escapeHtml(s.full_name)}</strong></td>
+            <td>${escapeHtml(s.email)}</td>
+            <td>${escapeHtml(s.phone || '-')}</td>
+            <td>${s.date_of_birth ? escapeHtml(formatDate(s.date_of_birth)) : '-'}</td>
+            <td>${escapeHtml(s.address || '-')}</td>
+            <td>${getStatusBadge(s.status)}</td>
             <td>
-              <span class="badge ${s.status === 'STUDYING' ? 'badge-success' : 'badge-warning'}">
-                ${s.status === 'STUDYING' ? 'Đang học' : s.status}
-              </span>
+              <button class="btn btn-secondary btn-sm" onclick="openEditModal(${s.id})">Sửa</button>
             </td>
           </tr>
         `).join('');
       } catch (err) {
         tbody.innerHTML = `
-          <tr><td colspan="7" style="text-align: center; color: var(--color-danger);">
-            Không thể tải dữ liệu từ API Student (:8082). Vui lòng kiểm tra container.
+          <tr><td colspan="8" style="text-align: center; color: var(--color-danger);">
+            ${escapeHtml(err.message || 'Không thể tải dữ liệu từ API Student.')}
           </td></tr>
         `;
       }
@@ -139,6 +220,30 @@
 
     function openCreateModal() {
       document.getElementById('studentForm').reset();
+      document.getElementById('editingStudentId').value = '';
+      document.getElementById('modalTitle').textContent = 'Thêm Học Viên Mới';
+      document.getElementById('email').disabled = false;
+      document.getElementById('statusGroup').style.display = 'block';
+      document.getElementById('studentStatus').value = 'STUDYING';
+      document.getElementById('studentModal').classList.add('active');
+    }
+
+    function openEditModal(studentId) {
+      const student = currentStudents.find(item => item.id === studentId);
+      if (!student) return;
+
+      document.getElementById('editingStudentId').value = String(student.id);
+      document.getElementById('modalTitle').textContent = `Cập Nhật Hồ Sơ (${student.student_code || '#' + student.id})`;
+      document.getElementById('fullName').value = student.full_name || '';
+      document.getElementById('email').value = student.email || '';
+      document.getElementById('phone').value = student.phone || '';
+      document.getElementById('dob').value = student.date_of_birth || '';
+      document.getElementById('address').value = student.address || '';
+      document.getElementById('studentStatus').value = student.status || 'STUDYING';
+
+      const isAdminOrStaff = currentRole === 'ADMIN' || currentRole === 'STAFF';
+      document.getElementById('email').disabled = !isAdminOrStaff;
+      document.getElementById('statusGroup').style.display = isAdminOrStaff ? 'block' : 'none';
       document.getElementById('studentModal').classList.add('active');
     }
 
@@ -148,24 +253,44 @@
 
     document.getElementById('studentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const editingId = document.getElementById('editingStudentId').value;
+      const submitBtn = document.getElementById('btnSubmitStudent');
+      const isAdminOrStaff = currentRole === 'ADMIN' || currentRole === 'STAFF';
+
       const payload = {
         full_name: document.getElementById('fullName').value.trim(),
-        email: document.getElementById('email').value.trim(),
         phone: document.getElementById('phone').value.trim() || null,
         date_of_birth: document.getElementById('dob').value || null,
-        address: document.getElementById('address').value.trim() || null,
-        status: 'STUDYING'
+        address: document.getElementById('address').value.trim() || null
       };
 
+      if (!editingId || isAdminOrStaff) {
+        payload.email = document.getElementById('email').value.trim();
+        payload.status = document.getElementById('studentStatus').value;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Đang lưu...';
+
       try {
-        await apiPost('/api/student/students', payload);
-        showToast('success', 'Đã thêm học viên mới!');
+        if (editingId) {
+          await apiPut(`/api/student/students/${editingId}`, payload);
+          showToast('success', 'Đã cập nhật hồ sơ học viên!');
+        } else {
+          await apiPost('/api/student/students', payload);
+          showToast('success', 'Đã thêm học viên mới!');
+        }
         closeModal();
         loadStudents();
-      } catch (e) {}
+      } catch (err) {
+        // api.js da hien thi toast loi chi tiet
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Lưu hồ sơ';
+      }
     });
 
-    loadStudents();
+    initPage();
   </script>
 </body>
 </html>

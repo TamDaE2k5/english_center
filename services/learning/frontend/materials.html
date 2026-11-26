@@ -24,13 +24,13 @@
                 <div>
                 <h1 class="heading-1">Kho Học liệu Số theo Lớp</h1>
                 <p class="text-sm" style="color: var(--color-text-secondary);">
-                    
+                    Tài liệu, slide bài giảng, video và bài tập theo từng lớp học (LRN-01)
                 </p>
                 </div>
                 <div style="display:flex; gap:8px;">
                 <a href="/learning/grades.html" class="btn btn-secondary">Sổ điểm</a>
                 <a href="/learning/reports.html" class="btn btn-secondary">Báo cáo Pass/Fail</a>
-                <button class="btn btn-primary" onclick="openMaterialModal()">+ Đăng tải học liệu</button>
+                <button id="btnOpenMaterialModal" class="btn btn-primary" onclick="openMaterialModal()">+ Đăng tải học liệu</button>
                 </div>
             </div>
 
@@ -38,7 +38,7 @@
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: var(--space-md);">
                 <div class="form-group" style="min-width: 150px;">
                     <label class="label" for="filterClassId">Mã Lớp</label>
-                    <input type="number" id="filterClassId" class="form-input" value="1" min="1">
+                    <input type="number" id="filterClassId" class="form-input" value="" min="1" placeholder="Tất cả lớp">
                 </div>
                 <div class="form-group" style="min-width: 180px;">
                     <label class="label" for="filterType">Loại học liệu</label>
@@ -70,7 +70,7 @@
                         <th>File / Đường dẫn</th>
                         <th>Dung lượng</th>
                         <th>Cập nhật</th>
-                        <th>Thao tác</th>
+                        <th id="matActionHeader">Thao tác</th>
                     </tr>
                     </thead>
                     <tbody id="materialsTableBody">
@@ -132,7 +132,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeMaterialModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="submitCreateMaterial()">Lưu học liệu</button>
+            <button id="btnSubmitMaterial" class="btn btn-primary" onclick="submitCreateMaterial()">Lưu học liệu</button>
         </div>
         </div>
     </div>

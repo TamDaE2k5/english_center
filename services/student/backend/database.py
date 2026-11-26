@@ -1,44 +1,53 @@
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
+"""
+database.py - Cau hinh ket noi PostgreSQL va vong doi Session cho Student Service.
+Tuan thu INV-SYS-02: chi truy cap schema 'student' (kem 'public' cho cac ham he thong).
+"""
 
-# Tải các biến môi trường từ file .env (nếu có)
+import os
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+# Tai bien moi truong tu file .env neu ton tai
 load_dotenv()
 
-# =====================================================================
-# CẤU HÌNH KẾT NỐI DATABASE
-# - os.getenv("TÊN_BIẾN", "giá_trị_mặc_định")
-# - Nếu chạy trong Docker: Docker sẽ tự động truyền DB_HOST="postgres"
-# - Nếu chạy trên máy (Uvicorn): Nó sẽ dùng giá trị mặc định là "localhost"
-# =====================================================================
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres_secret_password")
-DB_HOST = os.getenv("DB_HOST", "localhost") 
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "english_center")
 
-DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+def _build_database_url() -> str:
+    """
+    Xay dung chuoi ket noi SQLAlchemy tu bien moi truong DATABASE_URL hoac DB_*.
+    """
+    env_url = os.getenv("DATABASE_URL")
+    if env_url:
+        if env_url.startswith("postgresql://"):
+            return env_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return env_url
 
-# =====================================================================
-# KHỞI TẠO ENGINE
-# - Tham số connect_args giúp tự động tìm kiếm trong schema 'student' trước
-# =====================================================================
+    db_user = os.getenv("DB_USER", "postgres")
+    db_password = os.getenv("DB_PASSWORD", "postgres_secret_password")
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME", "english_center")
+    return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+
+DATABASE_URL = _build_database_url()
+
+# Khoi tao SQLAlchemy Engine voi search_path uu tien schema 'student'
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"options": "-csearch_path=student,public"}
+    connect_args={"options": "-csearch_path=student,public"},
+    pool_pre_ping=True,
 )
 
-# Tạo session để làm việc với DB
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base class cho các Model (để định nghĩa bảng)
 Base = declarative_base()
 
-# =====================================================================
-# HÀM DEPENDENCY: Dùng để mở/đóng kết nối DB trong mỗi API request
-# =====================================================================
+
 def get_db():
+    """
+    Dependency cung cap SQLAlchemy Session cho moi HTTP request va dam bao dong sau khi xu ly.
+    """
     db = SessionLocal()
     try:
         yield db

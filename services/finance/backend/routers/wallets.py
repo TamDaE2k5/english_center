@@ -2,15 +2,24 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from auth import FinanceException, get_current_user, require_roles, verify_internal_secret
+from auth import FinanceException, require_roles, verify_internal_secret
 from database import get_db
-from routers.payments import _record_payment_transaction
+from routers.payments import _notify_admission_payment_success, _record_payment_transaction
 from schemas import WalletReserveRequest
 
 router = APIRouter(prefix="/api/finance", tags=["Student Wallets"])
 
 
-def _get_or_create_wallet(db: Session, student_id: int, lock: bool = False) -> dict:
+def _get_or_create_wallet(db: Session, student_id: int, lock: bool = False, auto_commit: bool = True) -> dict:
+    """
+    Lấy ví bảo lưu của học viên hoặc tự động khởi tạo ví mới với số dư 0 (is_withdrawable = FALSE).
+
+    :param db: Phiên làm việc SQLAlchemy
+    :param student_id: ID người dùng học viên (admission.users.id theo quy ước R-ID-1)
+    :param lock: Có khóa bi quan SELECT ... FOR UPDATE hay không
+    :param auto_commit: Có commit ngay khi tạo ví mới hay chỉ flush trong transaction hiện tại
+    :return: Dict thông tin bản ghi student_wallets
+    """
     lock_clause = "FOR UPDATE" if lock else ""
     w_row = db.execute(
         text(f"SELECT * FROM finance.student_wallets WHERE student_id = :student_id {lock_clause}"),
@@ -28,7 +37,10 @@ def _get_or_create_wallet(db: Session, student_id: int, lock: bool = False) -> d
         """),
         {"student_id": student_id},
     ).mappings().first()
-    db.commit()
+    if auto_commit:
+        db.commit()
+    else:
+        db.flush()
     return dict(new_row)
 
 
@@ -38,6 +50,7 @@ def get_internal_wallet(
     db: Session = Depends(get_db),
     _authorized: bool = Depends(verify_internal_secret),
 ):
+    """API nội bộ tra cứu số dư ví bảo lưu của học viên (yêu cầu X-Internal-Secret hoặc ADMIN/STAFF)."""
     wallet = _get_or_create_wallet(db, student_id, lock=False)
     return {
         "success": True,
@@ -55,8 +68,12 @@ def get_internal_wallet(
 def get_student_wallet(
     student_id: int,
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "STUDENT"])),
 ):
+    """
+    Tra cứu thông tin ví bảo lưu và lịch sử giao dịch của học viên (ADMIN, STAFF, STUDENT).
+    Học viên chỉ được tra cứu ví của chính mình (INV-SEC-01).
+    """
     if user["role"] == "STUDENT" and user["user_id"] != student_id:
         raise FinanceException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -90,7 +107,11 @@ def process_wallet_transaction(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
-    wallet = _get_or_create_wallet(db, student_id, lock=True)
+    """
+    Thực hiện giao dịch ví bảo lưu: cộng tiền bảo lưu (RESERVATION_CREDIT),
+    cấn trừ học phí (TUITION_OFFSET) hoặc điều chỉnh (ADJUSTMENT) trong cùng 1 transaction nguyên tử.
+    """
+    wallet = _get_or_create_wallet(db, student_id, lock=True, auto_commit=False)
     if wallet["status"] != "ACTIVE":
         raise FinanceException(
             status_code=status.HTTP_409_CONFLICT,
@@ -101,9 +122,43 @@ def process_wallet_transaction(
     current_balance = float(wallet["balance"])
     amount = round(float(payload.amount), 2)
 
-    if payload.tx_type == "RESERVATION_CREDIT":
-        new_balance = round(current_balance + amount, 2)
-    elif payload.tx_type == "TUITION_OFFSET":
+    # Bước 1: Kiểm tra nghiệp vụ trước khi trừ ví nếu là TUITION_OFFSET
+    if payload.tx_type == "TUITION_OFFSET":
+        if not payload.related_invoice_id:
+            raise FinanceException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                code="FIN_INVOICE_REQUIRED",
+                message="Giao dịch cấn trừ học phí (TUITION_OFFSET) bắt buộc phải có related_invoice_id",
+            )
+        inv = db.execute(
+            text("SELECT * FROM finance.invoices WHERE id = :id FOR UPDATE"),
+            {"id": payload.related_invoice_id},
+        ).mappings().first()
+        if not inv:
+            raise FinanceException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="FIN_INVOICE_NOT_FOUND",
+                message=f"Không tìm thấy hóa đơn #{payload.related_invoice_id}",
+            )
+        if int(inv["student_id"]) != student_id:
+            raise FinanceException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                code="FIN_WALLET_INVOICE_MISMATCH",
+                message="Hóa đơn không thuộc học viên sở hữu ví bảo lưu này",
+            )
+        remaining = round(float(inv["final_amount"]) - float(inv["paid_amount"]), 2)
+        if inv["status"] in ("CANCELLED", "REFUNDED") or remaining <= 0:
+            raise FinanceException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="FIN_INVOICE_NOT_PAYABLE",
+                message=f"Hóa đơn #{payload.related_invoice_id} không ở trạng thái có thể cấn trừ",
+            )
+        if amount > remaining:
+            raise FinanceException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                code="FIN_WALLET_OFFSET_EXCEEDS_REMAINING",
+                message=f"Số tiền cấn trừ ({amount:,.0f} VND) vượt quá dư nợ hóa đơn ({remaining:,.0f} VND)",
+            )
         if current_balance < amount:
             raise FinanceException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -114,6 +169,7 @@ def process_wallet_transaction(
     else:
         new_balance = round(current_balance + amount, 2)
 
+    # Bước 2: Cập nhật số dư ví (giữ nguyên bất biến is_withdrawable = FALSE)
     updated_wallet = db.execute(
         text("""
             UPDATE finance.student_wallets
@@ -124,6 +180,7 @@ def process_wallet_transaction(
         {"balance": new_balance, "id": wallet["id"]},
     ).mappings().first()
 
+    # Bước 3: Ghi sổ cái giao dịch ví
     staff_id = payload.created_by_staff_id or user.get("user_id") or 2
     tx_row = db.execute(
         text("""
@@ -143,16 +200,26 @@ def process_wallet_transaction(
         },
     ).mappings().first()
 
-    db.commit()
-
+    # Bước 4: Nếu là TUITION_OFFSET thì gạch nợ hóa đơn trong cùng transaction trước khi commit
+    paid_inv_to_notify = None
+    paid_pay_to_notify = None
     if payload.tx_type == "TUITION_OFFSET" and payload.related_invoice_id:
-        _record_payment_transaction(
+        pay_res, inv_res, _ = _record_payment_transaction(
             db=db,
             invoice_id=payload.related_invoice_id,
             amount=amount,
             payment_method="WALLET_OFFSET",
             received_by_staff_id=staff_id,
+            commit=False,
         )
+        if inv_res.get("status") == "PAID":
+            paid_inv_to_notify = inv_res
+            paid_pay_to_notify = pay_res
+
+    db.commit()
+
+    if paid_inv_to_notify and paid_pay_to_notify:
+        _notify_admission_payment_success(paid_inv_to_notify, paid_pay_to_notify)
 
     return {
         "success": True,
