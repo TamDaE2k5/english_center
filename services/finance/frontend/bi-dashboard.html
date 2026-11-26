@@ -16,7 +16,7 @@
       <div id="header"></div>
       <div class="content">
         <nav class="breadcrumb">
-          <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Dashboard BI Tài chính</span>
+          <a href="/">Tổng quan</a> / <a href="/finance/invoices.html">Tài chính</a> / <span>Dashboard BI Tài chính</span>
         </nav>
 
         <!-- 4 KPI Cards -->
@@ -123,8 +123,15 @@
     async function loadFinanceDashboard() {
       const gen = ++biGeneration;
       const errEl = document.getElementById('biError');
+      const btn = document.getElementById('btnReloadBi');
       errEl.textContent = '';
 
+      if (!financeCanManage()) {
+        errEl.textContent = 'Chỉ Quản trị viên (ADMIN) hoặc Học vụ/Kế toán (STAFF) mới được xem Dashboard BI Tài chính.';
+        return;
+      }
+
+      setButtonLoading(btn, true, 'Làm mới báo cáo');
       try {
         const [cashRes, voucherRes, summaryRes, admMetricsRes] = await Promise.all([
           apiGet('/api/finance/bi/cash-revenue'),
@@ -174,10 +181,14 @@
         if (gen === biGeneration) {
           errEl.textContent = e.message || 'Không tải được báo cáo BI Tài chính.';
         }
+      } finally {
+        setButtonLoading(btn, false, 'Làm mới báo cáo');
       }
     }
 
-    loadFinanceDashboard();
+    if (financeGuardAuth()) {
+      loadFinanceDashboard();
+    }
   </script>
 </body>
 </html>

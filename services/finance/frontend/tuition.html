@@ -26,9 +26,14 @@
               <h1 class="heading-1">Biểu Phí Khóa Học & Đào Tạo (FIN-F01)</h1>
               <p class="text-secondary text-sm">Chính sách học phí tiêu chuẩn áp dụng cho các khóa học trong hệ thống</p>
             </div>
-            <button class="btn btn-primary" onclick="openTuitionModal()">
-              + Thiết lập biểu phí
-            </button>
+            <div style="display: flex; gap: var(--space-sm);">
+              <button class="btn btn-secondary" id="btnValidateVoucherTop" onclick="openValidateVoucherModal()">
+                Kiểm tra mã Voucher
+              </button>
+              <button class="btn btn-primary" id="btnAddTuition" onclick="openTuitionModal()">
+                + Thiết lập biểu phí
+              </button>
+            </div>
           </div>
           <div class="card-body">
             <div class="table-container">
@@ -54,7 +59,7 @@
         </div>
 
         <!-- Bảng 2: Chiến dịch Voucher -->
-        <div class="card">
+        <div class="card" id="vouchersSection">
           <div class="card-header">
             <div>
               <h2 class="heading-2">Chiến Dịch Mã Giảm Giá Voucher (FIN-F01 & FIN-F02)</h2>
@@ -64,7 +69,7 @@
               <button class="btn btn-secondary" onclick="openValidateVoucherModal()">
                 Kiểm tra mã Voucher
               </button>
-              <button class="btn btn-primary" onclick="openVoucherModal()">
+              <button class="btn btn-primary" id="btnAddVoucher" onclick="openVoucherModal()">
                 + Tạo chiến dịch Voucher
               </button>
             </div>
@@ -108,7 +113,7 @@
           <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">Course ID *</label>
-              <input type="number" id="tfCourseId" class="form-input" value="1" required>
+              <input type="number" id="tfCourseId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
               <label class="label">Tên khóa học *</label>
@@ -118,7 +123,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">Học phí niêm yết (VND) *</label>
-              <input type="number" id="tfAmount" class="form-input" value="6500000" step="100000" required>
+              <input type="number" id="tfAmount" class="form-input" value="6500000" min="0" step="100000" required>
             </div>
             <div class="form-group">
               <label class="label">Chiết khấu mặc định (%)</label>
@@ -132,7 +137,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('tuitionModal')">Đóng</button>
-          <button type="submit" class="btn btn-primary">Lưu biểu phí</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitTuition">Lưu biểu phí</button>
         </div>
       </form>
     </div>
@@ -174,7 +179,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">Đơn tối thiểu (VND)</label>
-              <input type="number" id="vMinOrder" class="form-input" value="3000000" step="100000">
+              <input type="number" id="vMinOrder" class="form-input" value="3000000" min="0" step="100000">
             </div>
             <div class="form-group">
               <label class="label">Hạn sử dụng *</label>
@@ -184,7 +189,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('voucherModal')">Đóng</button>
-          <button type="submit" class="btn btn-primary">Tạo Voucher</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitVoucher">Tạo Voucher</button>
         </div>
       </form>
     </div>
@@ -205,13 +210,13 @@
           </div>
           <div class="form-group">
             <label class="label">Học phí gốc dự kiến (VND) *</label>
-            <input type="number" id="valOrderAmount" class="form-input" value="6500000" step="100000" required>
+            <input type="number" id="valOrderAmount" class="form-input" value="6500000" min="0" step="100000" required>
           </div>
-          <div id="validateResult" style="margin-top: var(--space-md); padding: var(--space-md); background: var(--color-bg-secondary, #f8fafc); border-radius: 8px; display: none;"></div>
+          <div id="validateResult" style="margin-top: var(--space-md); padding: var(--space-md); background: var(--color-bg); border-radius: 8px; display: none;"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('validateModal')">Đóng</button>
-          <button type="submit" class="btn btn-primary">Kiểm tra ngay</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitValidate">Kiểm tra ngay</button>
         </div>
       </form>
     </div>
@@ -237,6 +242,18 @@
     function openValidateVoucherModal() {
       document.getElementById('validateResult').style.display = 'none';
       document.getElementById('validateModal').classList.add('active');
+    }
+
+    function applyTuitionRoleUI() {
+      const canManage = financeCanManage();
+      const role = financeRole();
+      if (!canManage) {
+        document.getElementById('btnAddTuition').style.display = 'none';
+        document.getElementById('vouchersSection').style.display = 'none';
+      }
+      if (!canManage && role !== 'STUDENT') {
+        document.getElementById('btnValidateVoucherTop').style.display = 'none';
+      }
     }
 
     async function loadTuitionFees() {
@@ -293,9 +310,10 @@
       }
     }
 
-
     document.getElementById('tuitionForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = document.getElementById('btnSubmitTuition');
+      setButtonLoading(btn, true, 'Lưu biểu phí');
       try {
         await apiPost('/api/finance/tuition-fees', {
           course_id: parseInt(document.getElementById('tfCourseId').value, 10),
@@ -307,11 +325,16 @@
         showToast('success', 'Đã lưu cấu hình biểu phí!');
         closeModal('tuitionModal');
         loadTuitionFees();
-      } catch (err) {}
+      } catch (err) {
+      } finally {
+        setButtonLoading(btn, false, 'Lưu biểu phí');
+      }
     });
 
     document.getElementById('voucherForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = document.getElementById('btnSubmitVoucher');
+      setButtonLoading(btn, true, 'Tạo Voucher');
       try {
         await apiPost('/api/finance/vouchers', {
           code: document.getElementById('vCode').value.trim(),
@@ -325,12 +348,17 @@
         showToast('success', 'Tạo chiến dịch Voucher thành công!');
         closeModal('voucherModal');
         loadVouchers();
-      } catch (err) {}
+      } catch (err) {
+      } finally {
+        setButtonLoading(btn, false, 'Tạo Voucher');
+      }
     });
 
     document.getElementById('validateForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const box = document.getElementById('validateResult');
+      const btn = document.getElementById('btnSubmitValidate');
+      setButtonLoading(btn, true, 'Kiểm tra ngay');
       try {
         const res = await apiPost('/api/finance/vouchers/validate', {
           code: document.getElementById('valCode').value.trim(),
@@ -339,18 +367,23 @@
         if (res && res.data) {
           box.style.display = 'block';
           box.innerHTML = `
-            <div><strong>Chiến dịch:</strong> ${res.data.campaign_name}</div>
-            <div><strong>Số tiền được giảm:</strong> <span style="color: var(--color-success, #16a34a); font-weight: 700;">-${formatCurrency(res.data.discount_applied)}</span></div>
+            <div><strong>Chiến dịch:</strong> ${escapeHtml(res.data.campaign_name)}</div>
+            <div><strong>Số tiền được giảm:</strong> <span style="color: var(--color-success); font-weight: 700;">-${formatCurrency(res.data.discount_applied)}</span></div>
             <div><strong>Học phí còn phải đóng:</strong> <span style="color: var(--color-primary); font-weight: 700;">${formatCurrency(res.data.final_amount)}</span></div>
           `;
         }
       } catch (err) {
         box.style.display = 'none';
+      } finally {
+        setButtonLoading(btn, false, 'Kiểm tra ngay');
       }
     });
 
+    applyTuitionRoleUI();
     loadTuitionFees();
-    loadVouchers();
+    if (financeCanManage()) {
+      loadVouchers();
+    }
   </script>
 </body>
 </html>

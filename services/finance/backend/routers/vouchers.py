@@ -1,18 +1,28 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from auth import FinanceException, get_current_user, require_roles
+from auth import FinanceException, require_roles
 from database import get_db
 from schemas import TuitionFeeCreate, VoucherCreate, VoucherValidateRequest
 
 router = APIRouter(prefix="/api/finance", tags=["Tuition & Vouchers"])
 
 
+def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Chuẩn hóa datetime có hoặc không có múi giờ về naive UTC để so sánh an toàn với PostgreSQL TIMESTAMP."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 @router.get("/tuition-fees")
 def get_tuition_fees(db: Session = Depends(get_db)):
+    """Lấy danh mục biểu phí chuẩn theo khóa học (công khai cho tra cứu học phí)."""
     rows = db.execute(
         text("SELECT * FROM finance.tuition_fees ORDER BY course_id ASC")
     ).mappings().all()
@@ -28,6 +38,7 @@ def upsert_tuition_fee(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Tạo mới hoặc cập nhật biểu phí cho một khóa học (ADMIN, STAFF)."""
     query = text("""
         INSERT INTO finance.tuition_fees
             (course_id, course_name, amount, base_amount, currency, discount_pct, note, description, is_active)
@@ -59,6 +70,7 @@ def get_vouchers(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Lấy danh sách chiến dịch Voucher (ADMIN, STAFF)."""
     if is_active is not None:
         rows = db.execute(
             text("SELECT * FROM finance.vouchers WHERE is_active = :is_active ORDER BY id DESC"),
@@ -80,6 +92,7 @@ def create_voucher(
     db: Session = Depends(get_db),
     user: dict = Depends(require_roles(["ADMIN", "STAFF"])),
 ):
+    """Tạo chiến dịch mã giảm giá Voucher mới (ADMIN, STAFF)."""
     code_upper = payload.code.strip().upper()
     existing = db.execute(
         text("SELECT id FROM finance.vouchers WHERE code = :code"),
@@ -92,14 +105,17 @@ def create_voucher(
             message=f"Mã voucher {code_upper} đã tồn tại",
         )
 
-    valid_from = payload.valid_from or datetime.now()
-    if payload.expires_at <= valid_from:
+    # Bước 1: Chuẩn hóa thời gian về naive UTC để khớp cột TIMESTAMP của PostgreSQL
+    valid_from = _to_naive_utc(payload.valid_from) or datetime.utcnow()
+    expires_at = _to_naive_utc(payload.expires_at)
+    if expires_at <= valid_from:
         raise FinanceException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code="FIN_VOUCHER_INVALID_DATES",
             message="Thời điểm hết hạn (expires_at) phải lớn hơn thời điểm bắt đầu (valid_from)",
         )
 
+    # Bước 2: Lưu bản ghi chiến dịch Voucher vào CSDL
     query = text("""
         INSERT INTO finance.vouchers
             (code, campaign_name, discount_percent, discount_amount, min_order_value,
@@ -120,7 +136,7 @@ def create_voucher(
             "max_discount_amount": payload.max_discount_amount,
             "max_uses": payload.max_uses,
             "valid_from": valid_from,
-            "expires_at": payload.expires_at,
+            "expires_at": expires_at,
             "is_active": payload.is_active,
         },
     ).mappings().first()
@@ -133,20 +149,40 @@ def create_voucher(
 
 
 def calculate_voucher_discount(voucher_row: dict, order_amount: float) -> float:
+    """
+    Kiểm tra toàn bộ điều kiện hiệu lực Voucher và tính số tiền được giảm.
+
+    :param voucher_row: Dữ liệu bản ghi Voucher từ DB
+    :param order_amount: Giá trị gốc của đơn hàng/hóa đơn
+    :return: Số tiền được chiết khấu (không vượt quá order_amount)
+    :raises FinanceException: 422 nếu voucher bị tắt, chưa bắt đầu, hết hạn, hết lượt hoặc chưa đạt đơn tối thiểu
+    """
+    # Bước 1: Kiểm tra trạng thái kích hoạt
     if not voucher_row["is_active"]:
         raise FinanceException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code="FIN_VOUCHER_INACTIVE",
             message="Mã voucher đã ngừng hoạt động",
         )
-    now = datetime.now()
-    expires_at = voucher_row["expires_at"]
-    if expires_at and expires_at.replace(tzinfo=None) < now:
+
+    # Bước 2: Kiểm tra cửa sổ thời gian hiệu lực (valid_from <= now <= expires_at) theo UTC
+    now = datetime.utcnow()
+    valid_from = _to_naive_utc(voucher_row.get("valid_from"))
+    if valid_from and valid_from > now:
+        raise FinanceException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="FIN_VOUCHER_NOT_STARTED",
+            message="Mã voucher chưa đến thời gian áp dụng",
+        )
+    expires_at = _to_naive_utc(voucher_row.get("expires_at"))
+    if expires_at and expires_at < now:
         raise FinanceException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code="FIN_VOUCHER_EXPIRED",
             message="Mã voucher đã hết hạn sử dụng",
         )
+
+    # Bước 3: Kiểm tra hạn mức lượt sử dụng và giá trị đơn tối thiểu
     if voucher_row["current_uses"] >= voucher_row["max_uses"]:
         raise FinanceException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -161,6 +197,7 @@ def calculate_voucher_discount(voucher_row: dict, order_amount: float) -> float:
             message=f"Giá trị đơn hàng tối thiểu để áp dụng voucher là {min_order:,.0f} VND",
         )
 
+    # Bước 4: Tính số tiền giảm theo phần trăm (có trần tối đa) hoặc giảm tiền mặt cố định
     discount_pct = int(voucher_row["discount_percent"] or 0)
     discount_amt = float(voucher_row["discount_amount"] or 0)
     if discount_pct > 0:
@@ -178,8 +215,9 @@ def calculate_voucher_discount(voucher_row: dict, order_amount: float) -> float:
 def validate_voucher(
     payload: VoucherValidateRequest,
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_roles(["ADMIN", "STAFF", "STUDENT"])),
 ):
+    """Kiểm tra tính hợp lệ của Voucher và tính số tiền giảm dự kiến (ADMIN, STAFF, STUDENT)."""
     code_upper = payload.code.strip().upper()
     row = db.execute(
         text("SELECT * FROM finance.vouchers WHERE code = :code"),
@@ -193,7 +231,7 @@ def validate_voucher(
         )
 
     discount_applied = calculate_voucher_discount(dict(row), payload.order_amount)
-    final_amount = max(0.0, payload.order_amount - discount_applied)
+    final_amount = max(0.0, round(payload.order_amount - discount_applied, 2))
     return {
         "success": True,
         "message": "Mã voucher hợp lệ",

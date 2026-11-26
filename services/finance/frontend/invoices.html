@@ -19,18 +19,27 @@
           <a href="/">Tổng quan</a> / <span>Tài chính</span> / <span>Hóa đơn, VietQR, Ví Bảo lưu & Hoàn tiền</span>
         </nav>
 
+        <div id="financeAccessWarning" class="card" style="display: none; margin-bottom: var(--space-lg); border-left: 4px solid var(--color-danger);">
+          <div class="card-body" style="color: var(--color-danger);">
+            Bạn không có quyền truy cập phân hệ Tài chính. Vui lòng đăng nhập bằng tài khoản Quản trị, Học vụ hoặc Học viên.
+          </div>
+        </div>
+
         <!-- Bảng 1: Quản lý Hóa đơn & Thu học phí -->
-        <div class="card" style="margin-bottom: var(--space-lg);">
+        <div class="card" id="invoicesSection" style="margin-bottom: var(--space-lg);">
           <div class="card-header">
             <div>
               <h1 class="heading-1">Quản Lý Hóa Đơn & Thu Học Phí (FIN-F03 → FIN-F06)</h1>
               <p class="text-secondary text-sm">Hỗ trợ sinh hóa đơn tự động, áp mã Voucher, chia đợt trả góp, thu tiền mặt và đối soát VietQR</p>
             </div>
-            <div style="display: flex; gap: var(--space-sm);">
+            <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
+              <a href="/finance/bi-dashboard.html" class="btn btn-secondary" id="btnBiDashboard">
+                Dashboard BI
+              </a>
               <button class="btn btn-secondary" onclick="openWalletModal()">
                 Tra cứu Ví Bảo lưu
               </button>
-              <button class="btn btn-primary" onclick="openCreateModal()">
+              <button class="btn btn-primary" id="btnCreateInvoice" onclick="openCreateModal()">
                 + Sinh hóa đơn học phí
               </button>
             </div>
@@ -63,13 +72,13 @@
         </div>
 
         <!-- Bảng 2: Quản lý Yêu cầu Hoàn tiền 3 cấp -->
-        <div class="card" style="margin-bottom: var(--space-lg);">
+        <div class="card" id="refundsSection" style="margin-bottom: var(--space-lg);">
           <div class="card-header">
             <div>
               <h2 class="heading-2">Quy Trình Phê Duyệt Hoàn Tiền 3 Cấp (FIN-F08 / INV-FIN-07)</h2>
               <p class="text-secondary text-sm">Cấp 1: Tư vấn viên tạo → Cấp 2: Kế toán xác minh buổi học → Cấp 3: Giám đốc duyệt → Giải ngân</p>
             </div>
-            <button class="btn btn-primary" onclick="openRefundModal()">
+            <button class="btn btn-primary" id="btnCreateRefund" onclick="openRefundModal()">
               + Tạo yêu cầu hoàn tiền
             </button>
           </div>
@@ -98,7 +107,7 @@
         </div>
 
         <!-- Bảng 3: Báo cáo BI Tài chính -->
-        <div class="card">
+        <div class="card" id="biSection">
           <div class="card-header">
             <div>
               <h2 class="heading-2">Báo Cáo BI Doanh Thu Thực Thu Theo Tháng (FIN-F09)</h2>
@@ -143,17 +152,17 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">ID Học viên (user_id) *</label>
-              <input type="number" id="studentId" class="form-input" value="4" required>
+              <input type="number" id="studentId" class="form-input" value="5" min="1" required>
             </div>
             <div class="form-group">
               <label class="label">ID Khóa học (course_id) *</label>
-              <input type="number" id="courseId" class="form-input" value="2" required>
+              <input type="number" id="courseId" class="form-input" value="2" min="1" required>
             </div>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">Số tiền gốc (VND) *</label>
-              <input type="number" id="amount" class="form-input" value="6500000" step="50000" required>
+              <input type="number" id="amount" class="form-input" value="6500000" min="1000" step="50000" required>
             </div>
             <div class="form-group">
               <label class="label">Mã Voucher (tùy chọn)</label>
@@ -163,7 +172,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">Số đợt đóng (Installments)</label>
-              <input type="number" id="installmentsCount" class="form-input" value="1" min="1" max="6">
+              <input type="number" id="installmentsCount" class="form-input" value="1" min="1" max="12">
             </div>
             <div class="form-group">
               <label class="label">Hạn thanh toán đợt 1</label>
@@ -173,7 +182,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('invoiceModal')">Đóng</button>
-          <button type="submit" class="btn btn-primary">Sinh hóa đơn</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitInvoice">Sinh hóa đơn</button>
         </div>
       </form>
     </div>
@@ -205,10 +214,10 @@
       </div>
       <div class="modal-body">
         <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-md);">
-          <input type="number" id="walletStudentId" class="form-input" value="4" placeholder="Nhập ID Học viên">
+          <input type="number" id="walletStudentId" class="form-input" value="5" min="1" placeholder="Nhập ID Học viên">
           <button type="button" class="btn btn-secondary" onclick="loadWalletInfo()">Tra cứu</button>
         </div>
-        <div id="walletInfoBox" style="padding: var(--space-md); background: #f8fafc; border-radius: 8px; margin-bottom: var(--space-md);"></div>
+        <div id="walletInfoBox" style="padding: var(--space-md); background: var(--color-bg); border-radius: 8px; margin-bottom: var(--space-md);"></div>
         <form id="walletForm">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
@@ -220,18 +229,18 @@
             </div>
             <div class="form-group">
               <label class="label">Số tiền (VND) *</label>
-              <input type="number" id="walletAmount" class="form-input" value="2000000" step="100000" required>
+              <input type="number" id="walletAmount" class="form-input" value="2000000" min="1000" step="100000" required>
             </div>
           </div>
           <div class="form-group">
-            <label class="label">ID Hóa đơn liên quan (nếu cấn trừ)</label>
-            <input type="number" id="walletInvoiceId" class="form-input" placeholder="Nhập ID hóa đơn">
+            <label class="label">ID Hóa đơn liên quan (bắt buộc nếu cấn trừ)</label>
+            <input type="number" id="walletInvoiceId" class="form-input" min="1" placeholder="Nhập ID hóa đơn">
           </div>
           <div class="form-group">
             <label class="label">Lý do *</label>
             <input type="text" id="walletReason" class="form-input" value="Bảo lưu học phí theo đơn được duyệt" required>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">Thực hiện giao dịch ví</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitWallet" style="width: 100%;">Thực hiện giao dịch ví</button>
         </form>
       </div>
     </div>
@@ -249,7 +258,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
             <div class="form-group">
               <label class="label">ID Hóa đơn (đã thu tiền) *</label>
-              <input type="number" id="refInvoiceId" class="form-input" value="1" required>
+              <input type="number" id="refInvoiceId" class="form-input" value="1" min="1" required>
             </div>
             <div class="form-group">
               <label class="label">Số buổi đã học (tối đa 3 buổi) *</label>
@@ -263,7 +272,7 @@
             </div>
             <div class="form-group">
               <label class="label">Khấu trừ tài liệu (VND)</label>
-              <input type="number" id="refDeduction" class="form-input" value="200000" step="50000">
+              <input type="number" id="refDeduction" class="form-input" value="200000" min="0" step="50000">
             </div>
           </div>
           <div class="form-group">
@@ -277,7 +286,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('refundModal')">Đóng</button>
-          <button type="submit" class="btn btn-primary">Gửi yêu cầu Cấp 1</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitRefund">Gửi yêu cầu Cấp 1</button>
         </div>
       </form>
     </div>
@@ -298,6 +307,12 @@
       document.getElementById('invoiceModal').classList.add('active');
     }
     function openWalletModal() {
+      const uid = financeUserId();
+      if (!financeCanManage() && uid) {
+        const inp = document.getElementById('walletStudentId');
+        inp.value = String(uid);
+        inp.disabled = true;
+      }
       document.getElementById('walletModal').classList.add('active');
       loadWalletInfo();
     }
@@ -305,8 +320,32 @@
       document.getElementById('refundModal').classList.add('active');
     }
 
+    function applyRoleVisibility() {
+      const role = financeRole();
+      const canManage = financeCanManage();
+      const isStudent = role === 'STUDENT';
+
+      if (!canManage && !isStudent) {
+        document.getElementById('financeAccessWarning').style.display = 'block';
+        document.getElementById('invoicesSection').style.display = 'none';
+        document.getElementById('refundsSection').style.display = 'none';
+        document.getElementById('biSection').style.display = 'none';
+        return false;
+      }
+
+      if (!canManage) {
+        document.getElementById('btnCreateInvoice').style.display = 'none';
+        document.getElementById('btnBiDashboard').style.display = 'none';
+        document.getElementById('btnCreateRefund').style.display = 'none';
+        document.getElementById('walletForm').style.display = 'none';
+        document.getElementById('biSection').style.display = 'none';
+      }
+      return true;
+    }
+
     async function loadInvoices() {
       const tbody = document.getElementById('invoices-tbody');
+      const canManage = financeCanManage();
       try {
         const res = await apiGet('/api/finance/invoices');
         const list = (res && res.data) ? res.data : [];
@@ -327,7 +366,7 @@
               <td>Học viên #${escapeHtml(inv.student_id)}</td>
               <td>
                 <div>${formatCurrency(inv.amount)}</div>
-                ${inv.discount_applied > 0 ? `<small style="color: #16a34a;">-${formatCurrency(inv.discount_applied)}</small>` : ''}
+                ${inv.discount_applied > 0 ? `<small style="color: var(--color-success);">-${formatCurrency(inv.discount_applied)}</small>` : ''}
               </td>
               <td><strong style="color: var(--color-primary);">${formatCurrency(inv.final_amount)}</strong></td>
               <td>
@@ -339,10 +378,10 @@
               <td>
                 ${canPay ? `
                   <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                    <button class="btn btn-primary btn-sm" onclick="payCash(${Number(inv.id)}, ${Number(inv.remaining_amount)})">Thu TM</button>
+                    ${canManage ? `<button class="btn btn-primary btn-sm" onclick="payCash(${Number(inv.id)}, ${Number(inv.remaining_amount)})">Thu TM</button>` : ''}
                     <button class="btn btn-secondary btn-sm" onclick="showVietQR(${Number(inv.id)})">VietQR</button>
                   </div>
-                ` : `<span class="text-xs text-secondary">Đã tất toán</span>`}
+                ` : `<span class="text-xs text-secondary">${escapeHtml(inv.status === 'PAID' ? 'Đã tất toán' : inv.status)}</span>`}
               </td>
             </tr>
           `;
@@ -356,9 +395,9 @@
       }
     }
 
-
     document.getElementById('invoiceForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = document.getElementById('btnSubmitInvoice');
       const payload = {
         student_id: parseInt(document.getElementById('studentId').value, 10),
         course_id: parseInt(document.getElementById('courseId').value, 10),
@@ -368,19 +407,26 @@
         due_date: document.getElementById('dueDate').value || null
       };
 
+      setButtonLoading(btn, true, 'Sinh hóa đơn');
       try {
         await apiPost('/api/finance/invoices/auto-generate', payload);
         showToast('success', 'Đã sinh hóa đơn học phí và chia kỳ trả góp!');
         closeModal('invoiceModal');
         loadInvoices();
-      } catch (e) {}
+      } catch (e) {
+      } finally {
+        setButtonLoading(btn, false, 'Sinh hóa đơn');
+      }
     });
 
     async function payCash(invoiceId, remainingAmount) {
       const inputAmt = prompt(`Nhập số tiền mặt thực thu tại quầy (Còn phải thu: ${formatCurrency(remainingAmount)}):`, remainingAmount);
-      if (!inputAmt) return;
+      if (inputAmt === null || !inputAmt.trim()) return;
       const amount = parseFloat(inputAmt);
-      if (isNaN(amount) || amount <= 0) return;
+      if (isNaN(amount) || amount <= 0) {
+        showToast('error', 'Số tiền thu phải lớn hơn 0');
+        return;
+      }
 
       try {
         await apiPost('/api/finance/payments/cash', {
@@ -390,7 +436,7 @@
         });
         showToast('success', 'Đã ghi nhận phiếu thu tiền mặt!');
         loadInvoices();
-        loadBI();
+        if (financeCanManage()) loadBI();
       } catch (e) {}
     }
 
@@ -398,22 +444,25 @@
       document.getElementById('vietqrModal').classList.add('active');
       const body = document.getElementById('vietqrBody');
       body.innerHTML = 'Đang tạo mã VietQR...';
+      currentVietQrData = null;
       try {
         const res = await apiGet(`/api/finance/invoices/${invoiceId}/vietqr`);
         currentVietQrData = res.data;
         body.innerHTML = `
-          <div style="margin-bottom: 8px;"><strong>Mã tham chiếu kỳ đóng:</strong> <code>${currentVietQrData.payment_ref_code}</code></div>
+          <div style="margin-bottom: 8px;"><strong>Mã tham chiếu kỳ đóng:</strong> <code>${escapeHtml(currentVietQrData.payment_ref_code)}</code></div>
           <div style="margin-bottom: 8px;"><strong>Số tiền cần chuyển:</strong> <span style="color: var(--color-primary); font-weight: 700;">${formatCurrency(currentVietQrData.amount_due)}</span></div>
-          <div style="margin-bottom: 12px;"><strong>Nội dung CK:</strong> <code>${currentVietQrData.transfer_content}</code></div>
-          <img src="${currentVietQrData.qr_image_url}" alt="VietQR" style="max-width: 240px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px;">
+          <div style="margin-bottom: 12px;"><strong>Nội dung CK:</strong> <code>${escapeHtml(currentVietQrData.transfer_content)}</code></div>
+          <img src="${escapeHtml(currentVietQrData.qr_image_url)}" alt="VietQR" style="max-width: 240px; border: 1px solid var(--color-border, #e2e8f0); border-radius: 8px; padding: 8px;">
         `;
       } catch (e) {
-        body.innerHTML = 'Không tạo được mã VietQR.';
+        body.innerHTML = '<div style="color: var(--color-danger);">Không tạo được mã VietQR.</div>';
       }
     }
 
     document.getElementById('btnSimulateWebhook').addEventListener('click', async () => {
       if (!currentVietQrData) return;
+      const btn = document.getElementById('btnSimulateWebhook');
+      setButtonLoading(btn, true, 'Giả lập Webhook Ngân hàng');
       try {
         await apiPost('/api/finance/webhooks/vietqr', {
           bank_transaction_id: 'FT' + Date.now(),
@@ -424,29 +473,36 @@
         showToast('success', 'Webhook VietQR đã đối soát và gạch nợ thành công!');
         closeModal('vietqrModal');
         loadInvoices();
-        loadBI();
-      } catch (e) {}
+        if (financeCanManage()) loadBI();
+      } catch (e) {
+      } finally {
+        setButtonLoading(btn, false, 'Giả lập Webhook Ngân hàng');
+      }
     });
 
     async function loadWalletInfo() {
-      const studentId = parseInt(document.getElementById('walletStudentId').value || '4', 10);
+      const uid = financeUserId();
+      const rawId = parseInt(document.getElementById('walletStudentId').value || '5', 10);
+      const studentId = (!financeCanManage() && uid) ? uid : rawId;
       const box = document.getElementById('walletInfoBox');
       try {
         const res = await apiGet(`/api/finance/wallets/${studentId}`);
         const w = res.data;
         box.innerHTML = `
-          <div><strong>Học viên #${w.student_id}</strong> | Trạng thái: <span class="badge badge-success">${w.status}</span></div>
-          <div style="margin-top: 4px;">Số dư bảo lưu hiện tại: <strong style="color: var(--color-primary); font-size: 1.1rem;">${formatCurrency(w.balance)}</strong> (Không rút tiền mặt: <code>is_withdrawable=${w.is_withdrawable}</code>)</div>
+          <div><strong>Học viên #${escapeHtml(w.student_id)}</strong> | Trạng thái: <span class="badge ${w.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}">${escapeHtml(w.status)}</span></div>
+          <div style="margin-top: 4px;">Số dư bảo lưu hiện tại: <strong style="color: var(--color-primary); font-size: 1.1rem;">${formatCurrency(w.balance)}</strong> (Không rút tiền mặt: <code>is_withdrawable=${escapeHtml(w.is_withdrawable)}</code>)</div>
         `;
       } catch (e) {
-        box.innerHTML = 'Không tải được thông tin ví.';
+        box.innerHTML = '<span style="color: var(--color-danger);">Không tải được thông tin ví.</span>';
       }
     }
 
     document.getElementById('walletForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const studentId = parseInt(document.getElementById('walletStudentId').value || '4', 10);
+      const btn = document.getElementById('btnSubmitWallet');
+      const studentId = parseInt(document.getElementById('walletStudentId').value || '5', 10);
       const relInv = document.getElementById('walletInvoiceId').value;
+      setButtonLoading(btn, true, 'Thực hiện giao dịch ví');
       try {
         await apiPost(`/api/finance/wallets/${studentId}/reserve`, {
           tx_type: document.getElementById('walletTxType').value,
@@ -457,11 +513,16 @@
         showToast('success', 'Giao dịch ví bảo lưu thành công!');
         loadWalletInfo();
         loadInvoices();
-      } catch (err) {}
+      } catch (err) {
+      } finally {
+        setButtonLoading(btn, false, 'Thực hiện giao dịch ví');
+      }
     });
 
     async function loadRefunds() {
       const tbody = document.getElementById('refunds-tbody');
+      const canManage = financeCanManage();
+      const isAdmin = financeIsAdmin();
       try {
         const res = await apiGet('/api/finance/refunds');
         const list = (res && res.data) ? res.data : [];
@@ -470,22 +531,27 @@
           return;
         }
         tbody.innerHTML = list.map(r => {
-          let actionBtn = '<span class="text-xs text-secondary">Hoàn tất</span>';
-          if (r.status === 'PENDING_ACCOUNTANT') {
-            actionBtn = `<button class="btn btn-secondary btn-sm" onclick="verifyRefund(${r.id})">Cấp 2: Kế toán xác minh</button>`;
-          } else if (r.status === 'PENDING_DIRECTOR') {
-            actionBtn = `<button class="btn btn-primary btn-sm" onclick="approveRefund(${r.id}, ${r.requested_refund_amount})">Cấp 3: Giám đốc duyệt</button>`;
-          } else if (r.status === 'APPROVED') {
-            actionBtn = `<button class="btn btn-primary btn-sm" onclick="completeRefund(${r.id})">Chi hoàn tiền (UNC)</button>`;
+          let actionBtn = `<span class="text-xs text-secondary">${escapeHtml(r.status === 'COMPLETED' ? 'Hoàn tất' : r.status)}</span>`;
+          if (canManage && r.status === 'PENDING_ACCOUNTANT') {
+            actionBtn = `<button class="btn btn-secondary btn-sm" onclick="verifyRefund(${Number(r.id)})">Cấp 2: Kế toán xác minh</button>`;
+          } else if (isAdmin && r.status === 'PENDING_DIRECTOR') {
+            actionBtn = `<button class="btn btn-primary btn-sm" onclick="approveRefund(${Number(r.id)}, ${Number(r.requested_refund_amount)})">Cấp 3: Giám đốc duyệt</button>`;
+          } else if (canManage && r.status === 'PENDING_DIRECTOR') {
+            actionBtn = `<span class="text-xs text-secondary">Chờ Giám đốc duyệt</span>`;
+          } else if (canManage && r.status === 'APPROVED') {
+            actionBtn = `<button class="btn btn-primary btn-sm" onclick="completeRefund(${Number(r.id)})">Chi hoàn tiền (UNC)</button>`;
           }
+          const badgeClass = r.status === 'COMPLETED' || r.status === 'APPROVED'
+            ? 'badge-success'
+            : (r.status === 'REJECTED' ? 'badge-danger' : 'badge-warning');
           return `
             <tr>
-              <td><code>${r.refund_code}</code></td>
-              <td>HĐ #${r.invoice_id} (HV #${r.student_id})</td>
-              <td>${r.attended_sessions}/${r.total_sessions} buổi</td>
+              <td><code>${escapeHtml(r.refund_code)}</code></td>
+              <td>HĐ #${escapeHtml(r.invoice_id)} (HV #${escapeHtml(r.student_id)})</td>
+              <td>${escapeHtml(r.attended_sessions)}/${escapeHtml(r.total_sessions)} buổi</td>
               <td><strong>${formatCurrency(r.requested_refund_amount)}</strong></td>
               <td>${r.approved_refund_amount != null ? formatCurrency(r.approved_refund_amount) : '-'}</td>
-              <td><span class="badge badge-warning">${r.status}</span></td>
+              <td><span class="badge ${badgeClass}">${escapeHtml(r.status)}</span></td>
               <td>${actionBtn}</td>
             </tr>
           `;
@@ -497,6 +563,8 @@
 
     document.getElementById('refundForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = document.getElementById('btnSubmitRefund');
+      setButtonLoading(btn, true, 'Gửi yêu cầu Cấp 1');
       try {
         await apiPost('/api/finance/refunds', {
           invoice_id: parseInt(document.getElementById('refInvoiceId').value, 10),
@@ -510,7 +578,10 @@
         showToast('success', 'Đã tạo yêu cầu hoàn tiền Cấp 1!');
         closeModal('refundModal');
         loadRefunds();
-      } catch (err) {}
+      } catch (err) {
+      } finally {
+        setButtonLoading(btn, false, 'Gửi yêu cầu Cấp 1');
+      }
     });
 
     async function verifyRefund(id) {
@@ -543,7 +614,7 @@
         showToast('success', 'Đã hoàn tất giải ngân hoàn tiền!');
         loadRefunds();
         loadInvoices();
-        loadBI();
+        if (financeCanManage()) loadBI();
       } catch (e) {}
     }
 
@@ -558,11 +629,11 @@
         }
         tbody.innerHTML = list.map(row => `
           <tr>
-            <td><strong>${formatDate(row.report_month)}</strong></td>
+            <td><strong>${escapeHtml(formatDate(row.report_month))}</strong></td>
             <td>${formatCurrency(row.cash_at_counter)}</td>
             <td>${formatCurrency(row.vietqr_transfer)}</td>
             <td><strong>${formatCurrency(row.gross_cash_in)}</strong></td>
-            <td style="color: var(--color-danger);">${formatCurrency(row.total_refunded)} (${row.refund_count} đơn)</td>
+            <td style="color: var(--color-danger);">${formatCurrency(row.total_refunded)} (${escapeHtml(row.refund_count)} đơn)</td>
             <td><strong style="color: var(--color-primary);">${formatCurrency(row.net_cash_revenue)}</strong></td>
           </tr>
         `).join('');
@@ -571,9 +642,13 @@
       }
     }
 
-    loadInvoices();
-    loadRefunds();
-    loadBI();
+    if (financeGuardAuth() && applyRoleVisibility()) {
+      loadInvoices();
+      loadRefunds();
+      if (financeCanManage()) {
+        loadBI();
+      }
+    }
   </script>
 </body>
 </html>
