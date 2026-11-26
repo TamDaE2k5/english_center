@@ -9,6 +9,8 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 class AppError(Exception):
+    """Ngoại lệ nghiệp vụ chuẩn hóa để handler trả về JSON {success: false, error: {code, message}}."""
+
     def __init__(self, status_code: int, code: str, message: str):
         self.status_code = status_code
         self.code = code
@@ -18,16 +20,26 @@ class AppError(Exception):
 
 @dataclass
 class CurrentUser:
+    """Thông tin người dùng trích xuất từ JWT access token."""
+
     user_id: int
     email: str
     role: str
     full_name: Optional[str] = None
     student_id: Optional[int] = None
+    raw_token: Optional[str] = None
 
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> CurrentUser:
+    """
+    Xác thực JWT Bearer token từ header Authorization.
+
+    - Đầu vào: HTTPAuthorizationCredentials do FastAPI HTTPBearer trích xuất.
+    - Trả về: Đối tượng CurrentUser chứa user_id, email, role, full_name, student_id, raw_token.
+    - Ngoại lệ: 401 AUTH_UNAUTHORIZED / AUTH_TOKEN_EXPIRED / AUTH_INVALID_TOKEN.
+    """
     if not credentials or credentials.scheme.lower() != "bearer":
         raise AppError(
             status.HTTP_401_UNAUTHORIZED,
@@ -55,6 +67,7 @@ def get_current_user(
             "Token xác thực không hợp lệ",
         )
 
+    # Ưu tiên lấy user_id từ sub hoặc user_id trong payload JWT của Admission Service
     raw_uid = payload.get("sub") if payload.get("sub") is not None else payload.get("user_id")
     try:
         user_id = int(raw_uid)
@@ -75,10 +88,16 @@ def get_current_user(
         role=role,
         full_name=payload.get("name") or payload.get("full_name"),
         student_id=student_id,
+        raw_token=token,
     )
 
 
 def require_role(*allowed_roles: str):
+    """
+    Tạo FastAPI dependency kiểm tra vai trò người dùng nằm trong danh sách allowed_roles.
+
+    - Ngoại lệ: 403 LRN_FORBIDDEN_CLASS nếu vai trò không được phép.
+    """
     allowed = {r.upper() for r in allowed_roles}
 
     def dependency(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
@@ -96,6 +115,7 @@ def require_role(*allowed_roles: str):
 def verify_internal_secret(
     x_internal_secret: Optional[str] = Header(default=None, alias="X-Internal-Secret"),
 ):
+    """Kiểm tra header X-Internal-Secret cho giao tiếp nội bộ giữa các microservice."""
     if not x_internal_secret or x_internal_secret != settings.INTERNAL_SECRET_KEY:
         raise AppError(
             status.HTTP_403_FORBIDDEN,

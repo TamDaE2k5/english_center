@@ -1,8 +1,8 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
-from ..clients.admission import verify_class_and_teacher
+from ..clients.admission import get_teacher_class_ids, verify_class_and_teacher
 from ..clients.student import resolve_student_id_by_user_id
 from ..database import get_db
 from ..deps import AppError, CurrentUser, get_current_user, require_role
@@ -16,6 +16,12 @@ def get_class_summary_report(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role("ADMIN", "STAFF", "TEACHER")),
 ):
+    """
+    Lấy báo cáo tổng kết tỷ lệ Pass/Fail của lớp từ learning.v_class_pass_rate
+    kèm danh sách điểm trung bình chuẩn hóa thang 100% từ learning.v_student_grade_summary.
+
+    - Nếu TEACHER không phụ trách class_id -> 403 LRN_FORBIDDEN_CLASS.
+    """
     if current_user.role == "TEACHER":
         verify_class_and_teacher(class_id, current_user)
 
@@ -88,7 +94,15 @@ def get_student_summary_report(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    # INV-LRN-02: Nếu là STUDENT, chỉ được xem kết quả tổng kết của chính mình
+    """
+    Lấy kết quả tổng kết chuẩn hóa thang 100% theo học viên và/hoặc lớp.
+
+    - STUDENT: Chỉ xem kết quả của chính mình (INV-LRN-02).
+    - TEACHER: Chỉ xem kết quả trong các lớp mình phụ trách (INV-SEC-02).
+    """
+    allowed_teacher_classes: Optional[list[int]] = None
+
+    # Bước 1: Kiểm tra phân quyền cô lập dữ liệu theo vai trò
     if current_user.role == "STUDENT":
         own_student_id = resolve_student_id_by_user_id(current_user)
         if student_id is not None and own_student_id is not None and student_id != own_student_id:
@@ -111,10 +125,22 @@ def get_student_summary_report(
             }
         target_student_id = own_student_id
     else:
-        if current_user.role == "TEACHER" and class_id is not None:
-            verify_class_and_teacher(class_id, current_user)
+        if current_user.role == "TEACHER":
+            if class_id is not None:
+                verify_class_and_teacher(class_id, current_user)
+            else:
+                teacher_class_ids = get_teacher_class_ids(current_user.user_id)
+                if teacher_class_ids is not None:
+                    if not teacher_class_ids:
+                        return {
+                            "success": True,
+                            "data": [],
+                            "message": "Lấy kết quả tổng kết học viên thành công",
+                        }
+                    allowed_teacher_classes = sorted(teacher_class_ids)
         target_student_id = student_id
 
+    # Bước 2: Truy vấn view learning.v_student_grade_summary với tham số ràng buộc an toàn
     sql = """
         SELECT class_id, student_id, total_assessments,
                 weighted_avg_score, average_percentage, result
@@ -128,9 +154,16 @@ def get_student_summary_report(
     if class_id is not None:
         sql += " AND class_id = :class_id"
         params["class_id"] = class_id
+    elif allowed_teacher_classes is not None:
+        sql += " AND class_id IN :teacher_classes"
+        params["teacher_classes"] = allowed_teacher_classes
 
     sql += " ORDER BY class_id ASC, student_id ASC"
-    rows = db.execute(text(sql), params).mappings().all()
+    stmt = text(sql)
+    if allowed_teacher_classes is not None:
+        stmt = stmt.bindparams(bindparam("teacher_classes", expanding=True))
+
+    rows = db.execute(stmt, params).mappings().all()
 
     summaries = [
         {

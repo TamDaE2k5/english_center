@@ -37,43 +37,43 @@
                 <div style="display:flex; gap:12px; flex-wrap:wrap;">
                 <div class="form-group">
                     <label class="label" for="repClassId">Mã Lớp (class_id)</label>
-                    <input type="number" id="repClassId" class="form-input" value="1" min="1">
+                    <input type="number" id="repClassId" class="form-input" value="1" min="1" placeholder="Tất cả lớp">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="repStudentGroup">
                     <label class="label" for="repStudentId">Mã Học viên (student_id - tùy chọn)</label>
-                    <input type="number" id="repStudentId" class="form-input" placeholder="Để trống nếu xem cả lớp">
+                    <input type="number" id="repStudentId" class="form-input" min="1" placeholder="Để trống nếu xem cả lớp">
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end; gap:8px;">
-                    <button class="btn btn-primary" onclick="loadClassSummary()">Xem Báo cáo Lớp</button>
-                    <button class="btn btn-secondary" onclick="loadStudentSummary()">Tra cứu Cá nhân</button>
+                    <button id="btnClassSummary" class="btn btn-primary" onclick="loadClassSummary()">Xem Báo cáo Lớp</button>
+                    <button id="btnStudentSummary" class="btn btn-secondary" onclick="loadStudentSummary()">Tra cứu Cá nhân</button>
                 </div>
                 </div>
             </div>
             </div>
 
-            <!-- KPI Cards từ v_class_pass_rate -->
+            <!-- KPI Cards từ v_class_pass_rate / tổng kết -->
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: var(--space-lg);">
             <div class="card">
                 <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">SĨ SỐ CÓ ĐIỂM (total_students)</div>
+                <div id="kpiTotalLabel" class="text-xs" style="color:var(--color-text-secondary);">SĨ SỐ CÓ ĐIỂM (total_students)</div>
                 <div id="kpiTotalStudents" class="heading-1">0</div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">SỐ HỌC VIÊN ĐẠT (pass_count)</div>
+                <div id="kpiPassLabel" class="text-xs" style="color:var(--color-text-secondary);">SỐ LƯỢNG ĐẠT (pass_count)</div>
                 <div id="kpiPassCount" class="heading-1" style="color:var(--color-success);">0</div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">SỐ HỌC VIÊN TRƯỢT (fail_count)</div>
+                <div id="kpiFailLabel" class="text-xs" style="color:var(--color-text-secondary);">SỐ LƯỢNG TRƯỢT (fail_count)</div>
                 <div id="kpiFailCount" class="heading-1" style="color:var(--color-danger);">0</div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
-                <div class="text-xs" style="color:var(--color-text-secondary);">TỶ LỆ ĐẠT (pass_rate_percentage)</div>
+                <div id="kpiRateLabel" class="text-xs" style="color:var(--color-text-secondary);">TỶ LỆ ĐẠT (pass_rate_percentage)</div>
                 <div id="kpiPassRate" class="heading-1" style="color:var(--color-primary);">0%</div>
                 </div>
             </div>

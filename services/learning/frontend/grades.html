@@ -30,7 +30,7 @@
                 <div style="display:flex; gap:8px;">
                 <a href="/learning/materials.html" class="btn btn-secondary">Kho học liệu</a>
                 <a href="/learning/reports.html" class="btn btn-secondary">Xem Báo cáo Tổng kết</a>
-                <button class="btn btn-primary" onclick="openCreateGradeModal()">+ Nhập điểm mới</button>
+                <button id="btnOpenCreateGradeModal" class="btn btn-primary" onclick="openCreateGradeModal()">+ Nhập điểm mới</button>
                 </div>
             </div>
 
@@ -38,11 +38,11 @@
                 <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom: var(--space-md);">
                 <div class="form-group">
                     <label class="label" for="gradeFilterClassId">Mã Lớp (class_id)</label>
-                    <input type="number" id="gradeFilterClassId" class="form-input" value="1" min="1">
+                    <input type="number" id="gradeFilterClassId" class="form-input" value="" min="1" placeholder="Tất cả lớp">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="gradeFilterStudentGroup">
                     <label class="label" for="gradeFilterStudentId">Mã Học viên (student_id)</label>
-                    <input type="number" id="gradeFilterStudentId" class="form-input" placeholder="Tất cả / Của tôi">
+                    <input type="number" id="gradeFilterStudentId" class="form-input" min="1" placeholder="Tất cả học viên">
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end;">
                     <button class="btn btn-secondary" onclick="loadGradesList(1)">Lọc bảng điểm</button>
@@ -61,7 +61,7 @@
                         <th>Trọng số (weight)</th>
                         <th>Tỷ lệ (%)</th>
                         <th>Nhận xét</th>
-                        <th>Thao tác</th>
+                        <th id="gradeActionHeader">Thao tác</th>
                     </tr>
                     </thead>
                     <tbody id="gradesTableBody">
@@ -121,7 +121,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeGradeModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="submitSaveGrade()">Lưu điểm</button>
+            <button id="btnSubmitGrade" class="btn btn-primary" onclick="submitSaveGrade()">Lưu điểm</button>
         </div>
         </div>
     </div>
