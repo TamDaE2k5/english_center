@@ -118,7 +118,13 @@ CREATE TABLE IF NOT EXISTS admission.auth_audit_logs (
     action      VARCHAR(50) NOT NULL CHECK (action IN (
                     'LOGIN_SUCCESS', 'LOGIN_FAILED',
                     'REFRESH_TOKEN', 'LOGOUT',
-                    'PASSWORD_CHANGED', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED'
+                    'PASSWORD_CHANGED', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED',
+                    'LOGIN_BLOCKED', 'LOGIN_BLOCKED_BRUTEFORCE',
+                    'REFRESH_FAILED', 'REFRESH_EXPIRED', 'SECURITY_ALERT_REPLAY_ATTACK',
+                    'FORGOT_PASSWORD_REQUEST', 'FORGOT_PASSWORD_NONEXISTENT',
+                    'RESET_PASSWORD_FAILED', 'RESET_PASSWORD_EXPIRED',
+                    'EMAIL_VERIFICATION_SENT', 'EMAIL_VERIFIED',
+                    'PASSWORD_HELP_REQUESTED', 'CREATE_USER'
                 )),
     ip_address  VARCHAR(45),
     user_agent  TEXT,
@@ -361,11 +367,91 @@ CREATE TABLE IF NOT EXISTS admission.processed_finance_events (
     enrollment_id     INTEGER NOT NULL REFERENCES admission.enrollments(id) ON DELETE RESTRICT,
     finance_event_id  VARCHAR(255) UNIQUE NOT NULL,
     paid_at           TIMESTAMPTZ NOT NULL,
+    payload_hash      VARCHAR(64),
     processed_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE admission.processed_finance_events IS 'Callback Finance trùng event_id trả 200 OK, không duyệt lại; thanh toán đến muộn (INV-ENR-03) cũng được ghi ở đây để đối soát';
+
+-- ---- 1.14. Các bảng bổ sung cho Admission V1 (Cash confirmation, Cancellation, Hold audit, Callback audit, Student sync) ----
+CREATE TABLE IF NOT EXISTS admission.cash_confirmation_requests (
+    id              BIGSERIAL PRIMARY KEY,
+    enrollment_id   INTEGER NOT NULL REFERENCES admission.enrollments(id),
+    invoice_code    VARCHAR(50) NOT NULL,
+    receipt_number  VARCHAR(80) NOT NULL UNIQUE,
+    amount          NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+    requested_by    INTEGER NOT NULL REFERENCES admission.users(id),
+    requested_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    notes           VARCHAR(2000),
+    status          VARCHAR(40) NOT NULL DEFAULT 'NEEDS_FINANCE_CONFIRMATION'
+                    CHECK (status IN ('NEEDS_FINANCE_CONFIRMATION')),
+    UNIQUE (enrollment_id, invoice_code)
+);
+
+CREATE TABLE IF NOT EXISTS admission.cash_confirmation_audit (
+    id              BIGSERIAL PRIMARY KEY,
+    enrollment_id   INTEGER,
+    actor_id        INTEGER REFERENCES admission.users(id),
+    occurred_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    outcome         VARCHAR(20) NOT NULL CHECK (outcome IN ('REQUESTED', 'REPLAYED', 'REJECTED')),
+    reason_code     VARCHAR(80) NOT NULL,
+    receipt_number  VARCHAR(80),
+    amount_text     VARCHAR(80)
+);
+CREATE INDEX IF NOT EXISTS idx_cash_audit_enrollment ON admission.cash_confirmation_audit (enrollment_id, occurred_at);
+
+CREATE TABLE IF NOT EXISTS admission.class_cancellation_requests (
+    id              BIGSERIAL PRIMARY KEY,
+    enrollment_id   INTEGER NOT NULL UNIQUE REFERENCES admission.enrollments(id),
+    class_id        INTEGER NOT NULL REFERENCES admission.classes(id),
+    invoice_code    VARCHAR(50),
+    reason          TEXT NOT NULL,
+    requested_by    INTEGER REFERENCES admission.users(id),
+    status          VARCHAR(40) NOT NULL DEFAULT 'NEEDS_FINANCE_REVIEW'
+                    CHECK (status IN ('NEEDS_FINANCE_REVIEW', 'ACKNOWLEDGED')),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admission.hold_extension_audit (
+    id                BIGSERIAL PRIMARY KEY,
+    enrollment_id     INTEGER,
+    actor_id          INTEGER,
+    outcome           VARCHAR(20) NOT NULL CHECK (outcome IN ('EXTENDED', 'REJECTED')),
+    reason_code       VARCHAR(80) NOT NULL,
+    extended_hours    INTEGER,
+    previous_deadline TIMESTAMPTZ,
+    new_deadline      TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admission.finance_callback_audit (
+    id            BIGSERIAL PRIMARY KEY,
+    event_id      VARCHAR(255),
+    enrollment_id INTEGER,
+    reason        VARCHAR(80) NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admission.student_sync_outbox (
+    user_id            INTEGER PRIMARY KEY REFERENCES admission.users(id),
+    enrollment_id      INTEGER NOT NULL REFERENCES admission.enrollments(id),
+    full_name          TEXT NOT NULL,
+    email              TEXT NOT NULL,
+    phone              TEXT,
+    date_of_birth      DATE,
+    state              VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+                       CHECK (state IN ('PENDING', 'IN_FLIGHT', 'RETRY', 'SUCCEEDED', 'REVIEW', 'EXHAUSTED', 'CANCELLED')),
+    attempts           INTEGER NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 5),
+    next_attempt_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lease_until        TIMESTAMPTZ,
+    claim_token        VARCHAR(36),
+    student_profile_id INTEGER,
+    last_error         VARCHAR(80),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_student_sync_due ON admission.student_sync_outbox (next_attempt_at) WHERE state IN ('PENDING', 'RETRY');
 
 -- ---- Gắn trigger set_updated_at cho toàn bộ bảng trong Schema ADMISSION ----
 DO $$

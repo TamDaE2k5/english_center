@@ -79,69 +79,94 @@
     </form>
 
     <div class="demo-accounts">
-      <p>💡 Đăng nhập nhanh cho demo (1-Click):</p>
+      <p>💡 Đăng nhập nhanh cho demo (1-Click qua /auth/login):</p>
       <div class="demo-btn-group">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('admin@english.edu.vn', 'admin123', 'Quản Trị Viên', 'ADMIN')">Admin</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('staff@english.edu.vn', 'staff123', 'Nguyễn Thị Học Vụ', 'STAFF')">Học vụ</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('teacher@english.edu.vn', 'teacher123', 'Thầy John Smith', 'TEACHER')">Giáo viên</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="quickLogin('student@english.edu.vn', 'student123', 'Trần Văn Nam', 'STUDENT')">Học viên</button>
+        <button type="button" class="btn btn-secondary btn-sm demo-login-btn" onclick="quickLogin('admin@english.edu.vn', 'admin123')">Admin</button>
+        <button type="button" class="btn btn-secondary btn-sm demo-login-btn" onclick="quickLogin('staff@english.edu.vn', 'staff123')">Học vụ</button>
+        <button type="button" class="btn btn-secondary btn-sm demo-login-btn" onclick="quickLogin('teacher@english.edu.vn', 'teacher123')">Giáo viên</button>
+        <button type="button" class="btn btn-secondary btn-sm demo-login-btn" onclick="quickLogin('student@english.edu.vn', 'student123')">Học viên</button>
       </div>
+    </div>
+
+    <div style="margin-top: var(--space-md); text-align: center;">
+      <a href="/admission/account.html" class="text-sm">Đăng ký tài khoản / Quên mật khẩu</a>
     </div>
   </div>
 
   <script src="/shared/js/auth.js"></script>
   <script src="/shared/js/api.js"></script>
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+    /**
+     * Thực hiện đăng nhập thật qua Gateway (/auth/login) và lưu JWT access_token + refresh_token.
+     * @param {string} email Email tài khoản
+     * @param {string} password Mật khẩu tài khoản
+     */
+    async function performLogin(email, password) {
       const btn = document.getElementById('loginBtn');
-
+      const demoBtns = document.querySelectorAll('.demo-login-btn');
       btn.disabled = true;
       btn.innerText = 'Đang xác thực...';
+      demoBtns.forEach(b => { b.disabled = true; });
 
       try {
-        // Gửi tới auth endpoint của Admission service
         const res = await fetch('/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
 
-        if (res.ok) {
-          const result = await res.json();
-          setSession(result.data.token, result.data.user);
-          showToast('success', 'Đăng nhập thành công!');
+        const result = await res.json().catch(() => null);
+
+        if (res.ok && result && result.success && result.data) {
+          const accessToken = result.data.access_token || result.data.token;
+          if (!accessToken) {
+            showToast('error', 'Máy chủ không trả về access_token hợp lệ.');
+            return;
+          }
+          setSession(accessToken, result.data.user, result.data.refresh_token);
+          const role = result.data.user?.role || '';
+          showToast('success', `Đăng nhập thành công (${role})!`);
           setTimeout(() => {
+            if (result.data.user?.must_change_password) {
+              window.location.href = '/admission/account.html';
+              return;
+            }
             const redirect = sessionStorage.getItem('redirect_after_login') || '/';
             sessionStorage.removeItem('redirect_after_login');
             window.location.href = redirect;
-          }, 800);
+          }, 500);
         } else {
-          showToast('error', 'Email hoặc mật khẩu không chính xác.');
+          const errMsg = (result && result.error && result.error.message)
+            || (result && result.message)
+            || 'Email hoặc mật khẩu không chính xác.';
+          showToast('error', errMsg);
         }
       } catch (err) {
-        // Fallback demo mode nếu backend chưa bật
-        console.warn('Backend unavailable, using demo credentials', err);
-        quickLogin(email, password, 'Người dùng Demo', 'ADMIN');
+        console.error('Auth login failed:', err);
+        showToast('error', 'Không thể kết nối tới máy chủ xác thực (/auth/login).');
       } finally {
         btn.disabled = false;
         btn.innerText = 'Đăng nhập vào hệ thống';
+        demoBtns.forEach(b => { b.disabled = false; });
       }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      await performLogin(email, password);
     });
 
-    function quickLogin(email, password, name, role) {
+    /**
+     * Điền nhanh thông tin tài khoản demo (khớp scripts/init-db.sql) và đăng nhập thật qua /auth/login.
+     * @param {string} email Email demo
+     * @param {string} password Mật khẩu demo
+     */
+    async function quickLogin(email, password) {
       document.getElementById('email').value = email;
       document.getElementById('password').value = password;
-      
-      // Tạo mock session để test UI ngay lập tức
-      const mockToken = 'mock_jwt_token_' + btoa(JSON.stringify({ sub: 1, email, name, role, exp: Math.floor(Date.now() / 1000) + 86400 }));
-      setSession(mockToken, { id: 1, email, name, role });
-      showToast('success', `Đã đăng nhập quyền ${role}!`);
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
+      await performLogin(email, password);
     }
   </script>
 </body>
